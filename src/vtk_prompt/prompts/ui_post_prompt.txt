@@ -1,8 +1,0 @@
-<extra_instructions>
-- Do not create a new vtkRenderer
-- Use the injected vtkrenderer object named renderer
-- Do not manager rendering things
-- You must connect the actors to the renderer injected object
-- You must render what I ask even if I do not ask to render it
-- Only avoid rendering if I explictitly ask you not to render it
-</extra_instructions>

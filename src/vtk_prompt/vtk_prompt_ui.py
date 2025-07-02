@@ -16,8 +16,8 @@ import vtk
 # Import our prompt functionality
 from .prompt import VTKPromptClient
 
-# Import our template system
-from .prompts import get_ui_post_prompt
+# Legacy prompts removed - using YAML system exclusively
+from .yaml_prompt_loader import GitHubModelYAMLLoader
 
 EXPLAIN_RENDERER = (
     "# renderer is a vtkRenderer injected by this webapp"
@@ -93,6 +93,15 @@ class VTKPromptApp(TrameApp):
         self.state.conversation_file = None
         self.state.conversation = None
 
+        # YAML prompt configuration - UI always uses ui_context prompt
+        from pathlib import Path
+
+        prompts_dir = Path(__file__).parent / "prompts"
+        yaml_loader = GitHubModelYAMLLoader(prompts_dir)
+
+        # Get default parameters from YAML ui_context prompt
+        self.default_params = yaml_loader.get_model_parameters("ui_context")
+
         # Token usage tracking
         self.state.input_tokens = 0
         self.state.output_tokens = 0
@@ -103,7 +112,7 @@ class VTKPromptApp(TrameApp):
 
         # Cloud model configuration
         self.state.provider = "openai"
-        self.state.model = "gpt-4o"
+        self.state.model = yaml_loader.get_model_name("ui_context")
         self.state.available_providers = [
             "openai",
             "anthropic",
@@ -281,42 +290,42 @@ class VTKPromptApp(TrameApp):
         self.state.error_message = ""
 
         try:
-            # Generate code using prompt functionality - reuse existing methods
-            enhanced_query = self.state.query_text
-            if self.state.query_text:
-                post_prompt = get_ui_post_prompt()
-                enhanced_query = post_prompt + self.state.query_text
-
             # Reinitialize client with current settings
             self._init_prompt_client()
             if hasattr(self.state, "error_message") and self.state.error_message:
                 return
 
-            result = self.prompt_client.query(
-                enhanced_query,
+            # Use YAML system exclusively - UI uses ui_context prompt
+            result = self.prompt_client.query_yaml(
+                self.state.query_text,
                 api_key=self._get_api_key(),
-                model=self._get_model(),
+                prompt_name="ui_context",
                 base_url=self._get_base_url(),
-                max_tokens=int(self.state.max_tokens),
-                temperature=float(self.state.temperature),
-                top_k=int(self.state.top_k),
                 rag=self.state.use_rag,
+                top_k=int(self.state.top_k),
                 retry_attempts=int(self.state.retry_attempts),
+                # Override parameters from UI settings when different from defaults
+                override_temperature=(
+                    float(self.state.temperature)
+                    if float(self.state.temperature)
+                    != self.default_params.get("temperature", 0.1)
+                    else None
+                ),
+                override_max_tokens=(
+                    int(self.state.max_tokens)
+                    if int(self.state.max_tokens)
+                    != self.default_params.get("max_tokens", 1000)
+                    else None
+                ),
             )
             # Keep UI in sync with conversation
             self.state.conversation = self.prompt_client.conversation
 
-            # Handle both code and usage information
-            if isinstance(result, tuple) and len(result) == 3:
-                generated_explanation, generated_code, usage = result
-                if usage:
-                    self.state.input_tokens = usage.prompt_tokens
-                    self.state.output_tokens = usage.completion_tokens
-            else:
-                generated_explanation, generated_code = result
-                # Reset token counts if no usage info
-                self.state.input_tokens = 0
-                self.state.output_tokens = 0
+            # Handle generated code
+            generated_code, generated_explanation = result
+            # Reset token counts for YAML system (no usage info yet)
+            self.state.input_tokens = 0
+            self.state.output_tokens = 0
 
             self.state.generated_explanation = generated_explanation
             self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code
@@ -568,7 +577,10 @@ class VTKPromptApp(TrameApp):
                         with vuetify.VCardText():
                             vuetify.VSlider(
                                 label="Temperature",
-                                v_model=("temperature", 0.1),
+                                v_model=(
+                                    "temperature",
+                                    self.default_params.get("temperature", 0.1),
+                                ),
                                 min=0.0,
                                 max=1.0,
                                 step=0.1,
@@ -579,7 +591,10 @@ class VTKPromptApp(TrameApp):
                             )
                             vuetify.VTextField(
                                 label="Max Tokens",
-                                v_model=("max_tokens", 1000),
+                                v_model=(
+                                    "max_tokens",
+                                    self.default_params.get("max_tokens", 1000),
+                                ),
                                 type="number",
                                 density="compact",
                                 variant="outlined",
