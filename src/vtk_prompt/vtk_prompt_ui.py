@@ -327,8 +327,8 @@ class VTKPromptApp(TrameApp):
             self.state.input_tokens = 0
             self.state.output_tokens = 0
 
-            self.state.generated_explanation = generated_explanation
-            self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code
+            self.state.generated_explanation = generated_explanation.strip()
+            self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code.strip()
 
             # Execute the generated code using the existing run_code method
             # But we need to modify it to work with our renderer

@@ -38,7 +38,7 @@ class GitHubModelYAMLLoader:
             raise FileNotFoundError(f"Prompt file not found: {prompt_path}")
 
         with open(prompt_path, "r", encoding="utf-8") as f:
-            prompt_data = yaml.safe_load(f)
+            prompt_data = yaml.load(f, Loader=get_loader())
 
         return prompt_data
 
@@ -188,3 +188,25 @@ def get_yaml_prompt_parameters(prompt_name: str) -> Dict[str, Any]:
     """
     loader = GitHubModelYAMLLoader()
     return loader.get_model_parameters(prompt_name)
+
+
+def include_constructor(loader, node):
+    data = loader.construct_scalar(node)
+
+    match = re.search(r'\s', data)
+    if match:
+        file = data[:match.start()].strip()
+        other_text = data[match.start():].strip()
+    else:
+        file = data.strip()
+        other_text = ""
+
+    with Path(file).resolve().open() as f:
+        file_content = yaml.safe_load(f)
+
+    return file_content + "\n" + other_text
+
+def get_loader():
+    loader = yaml.SafeLoader
+    loader.add_constructor("!include", include_constructor)
+    return loader

@@ -1,6 +1,6 @@
 name: "VTK XML Context"
 description: "Generates VTK XML files with version compatibility"
-model: "gpt-4o-mini"
+model: "openai/gpt-4o-mini"
 modelParameters:
   temperature: 0.1
   max_tokens: 1000

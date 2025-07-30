@@ -1,6 +1,6 @@
 name: "VTK RAG Chat Assistant"
 description: "AI assistant for VTK documentation and support with context"
-model: "gpt-4o-mini"
+model: "openai/gpt-4o-mini"
 modelParameters:
   temperature: 0.3
   max_tokens: 2000
