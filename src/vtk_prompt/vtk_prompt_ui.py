@@ -381,6 +381,7 @@ class VTKPromptApp(TrameApp):
             conversation_object is None
             or conversation_object["type"] != "application/json"
             or Path(conversation_object["name"]).suffix != ".json"
+            or not conversation_object["content"]
         )
         self.state.conversation = (
             None if invalid else json.loads(conversation_object["content"])

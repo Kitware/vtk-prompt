@@ -2,6 +2,7 @@
 
 import ast
 import os
+import re
 import sys
 import json
 import openai
@@ -197,7 +198,10 @@ class VTKPromptClient:
                         f"Output was truncated due to max_tokens limit ({max_tokens}). Please increase max_tokens."
                     )
 
-                generated_explanation, generated_code = content.split("\n\n", 1)
+                generated_explanation = re.findall(
+                    "<explanation>(.*?)</explanation>", content, re.DOTALL
+                )[0]
+                generated_code = re.findall("<code>(.*?)</code>", content, re.DOTALL)[0]
                 if "import vtk" not in generated_code:
                     generated_code = "import vtk\n" + generated_code
                 else:
