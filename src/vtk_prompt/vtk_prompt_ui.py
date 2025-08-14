@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import yaml
 
 # Add VTK and Trame imports
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
@@ -59,6 +60,7 @@ class VTKPromptApp(TrameApp):
         self.renderer.SetBackground(0.1, 0.1, 0.1)
 
         # Add a simple coordinate axes as default content
+        self.state.config_source = "ui_context"
         self._add_default_scene()
 
         # Initial render
@@ -97,10 +99,10 @@ class VTKPromptApp(TrameApp):
         from pathlib import Path
 
         prompts_dir = Path(__file__).parent / "prompts"
-        yaml_loader = GitHubModelYAMLLoader(prompts_dir)
+        self.yaml_loader = GitHubModelYAMLLoader(prompts_dir)
 
         # Get default parameters from YAML ui_context prompt
-        self.default_params = yaml_loader.get_model_parameters("ui_context")
+        self.default_params = self.yaml_loader.get_model_parameters(self.state.config_source)
 
         # Token usage tracking
         self.state.input_tokens = 0
@@ -111,8 +113,8 @@ class VTKPromptApp(TrameApp):
         self.state.tab_index = 0  # Tab navigation state
 
         # Cloud model configuration
-        self.state.provider = "openai"
-        self.state.model = yaml_loader.get_model_name("ui_context")
+        self.state.provider = self.yaml_loader.get_model_provider(self.state.config_source)
+        self.state.model = self.yaml_loader.get_model_name(self.state.config_source)
         self.state.available_providers = [
             "openai",
             "anthropic",
@@ -299,7 +301,7 @@ class VTKPromptApp(TrameApp):
             result = self.prompt_client.query_yaml(
                 self.state.query_text,
                 api_key=self._get_api_key(),
-                prompt_name="ui_context",
+                prompt_source=self.state.config_source,
                 base_url=self._get_base_url(),
                 rag=self.state.use_rag,
                 top_k=int(self.state.top_k),
@@ -386,24 +388,70 @@ class VTKPromptApp(TrameApp):
 
     @change("conversation_object")
     def on_conversation_file_data_change(self, conversation_object, **_):
+        self.state.conversation = None
+        self.state.conversation_file = None
         invalid = (
             conversation_object is None
             or conversation_object["type"] != "application/json"
             or Path(conversation_object["name"]).suffix != ".json"
-            or not conversation_object["content"]
         )
-        self.state.conversation = (
-            None if invalid else json.loads(conversation_object["content"])
-        )
-        self.state.conversation_file = None if invalid else conversation_object["name"]
-        if not invalid and self.state.auto_run_conversation_file:
+        if invalid:
+            return
+
+        self.state.conversation_file = conversation_object["name"]
+        content = conversation_object["content"]
+        if not content:
+            return
+
+        self.state.conversation = json.loads(content)
+        if not invalid and content and self.state.auto_run_conversation_file:
+            self.state.query_text = ""
             self.generate_code()
+
+    @change("config_object")
+    def on_config_file_data_change(self, config_object, **_):
+        invalid = (
+            config_object is None
+            or isinstance(config_object, str)
+            or config_object["type"] != "application/x-yaml"
+            and Path(config_object["name"]).suffix != ".yaml"
+            and Path(config_object["name"]).suffix != ".yml"
+        )
+        if invalid:
+            self.state.config_file_name = None
+            return
+
+        if not config_object["content"]:
+            return
+
+        self.state.config_source = config_object["content"]
+        self.state.config_file_name = config_object["name"]
+        self.clear_scene()
 
     @trigger("save_conversation")
     def save_conversation(self):
         if self.prompt_client is None:
             return ""
         return json.dumps(self.prompt_client.conversation, indent=2)
+
+    @trigger("save_config")
+    def save_config(self):
+        config_data = {
+            "model": f"{self.state.provider}/{self.state.model}",
+            "modelParameters": {
+                "max_completion_tokens": self.state.max_tokens,
+                "temperature": self.state.temperature,
+                "rag": self.state.use_rag,
+                "collection": self.state.collection,
+                "database": self.state.database,
+                "top_k": self.state.top_k,
+                "retry_attempts": self.state.retry_attempts,
+                "conversation": self.state.conversation_file,
+            },
+        }
+        default = self.yaml_loader.load_prompt(self.state.config_source)
+        config_data = {**default, **config_data}
+        return yaml.safe_dump(config_data)
 
     def _build_ui(self):
         """Build a simplified Vuetify UI."""
@@ -476,38 +524,39 @@ class VTKPromptApp(TrameApp):
                         with vuetify.VTabsWindowItem():
                             with vuetify.VCard(flat=True, style="mt-2"):
                                 with vuetify.VCardText():
-                                    # Provider selection
-                                    vuetify.VSelect(
-                                        label="Provider",
-                                        v_model=("provider", "openai"),
-                                        items=("available_providers", []),
-                                        density="compact",
-                                        variant="outlined",
-                                        prepend_icon="mdi-cloud",
-                                    )
+                                    with vuetify.VForm():
+                                        # Provider selection
+                                        vuetify.VSelect(
+                                            label="Provider",
+                                            v_model=("provider", "openai"),
+                                            items=("available_providers", []),
+                                            density="compact",
+                                            variant="outlined",
+                                            prepend_icon="mdi-cloud",
+                                        )
 
-                                    # Model selection
-                                    vuetify.VSelect(
-                                        label="Model",
-                                        v_model=("model", "gpt-4o"),
-                                        items=("available_models[provider] || []",),
-                                        density="compact",
-                                        variant="outlined",
-                                        prepend_icon="mdi-brain",
-                                    )
+                                        # Model selection
+                                        vuetify.VSelect(
+                                            label="Model",
+                                            v_model=("model", "gpt-4o"),
+                                            items=("available_models[provider] || []",),
+                                            density="compact",
+                                            variant="outlined",
+                                            prepend_icon="mdi-brain",
+                                        )
 
-                                    # API Token
-                                    vuetify.VTextField(
-                                        label="API Token",
-                                        v_model=("api_token", ""),
-                                        placeholder="Enter your API token",
-                                        type="password",
-                                        density="compact",
-                                        variant="outlined",
-                                        prepend_icon="mdi-key",
-                                        hint="Required for cloud providers",
-                                        persistent_hint=True,
-                                    )
+                                        # API Token
+                                        vuetify.VTextField(
+                                            label="API Token",
+                                            v_model=("api_token", ""),
+                                            placeholder="Enter your API token",
+                                            type="password",
+                                            density="compact",
+                                            variant="outlined",
+                                            prepend_icon="mdi-key",
+                                            hint="Required for cloud providers",
+                                            persistent_hint=True,
+                                        )
 
                         # Local Models Tab Content
                         with vuetify.VTabsWindowItem():
@@ -616,16 +665,60 @@ class VTKPromptApp(TrameApp):
                             "⚙️ Files", hide_details=True, density="compact"
                         )
                         with vuetify.VCardText():
+                            with html.Div(
+                                classes="d-flex align-center justify-space-between mb-2"
+                            ):
+                                with vuetify.VTooltip(
+                                    text=("config_file_name", "No config loaded"),
+                                    location="top",
+                                    disabled=("!config_source",),
+                                ):
+                                    with vuetify.Template(v_slot_activator="{ props }"):
+                                        vuetify.VFileInput(
+                                            label="Configuration File",
+                                            v_model=("config_object", None),
+                                            accept=".yaml, .yml",
+                                            density="compact",
+                                            variant="solo",
+                                            prepend_icon="mdi-file-cog-outline",
+                                            hide_details="auto",
+                                            classes="py-1 pr-1 mr-1 text-truncate",
+                                            open_on_focus=False,
+                                            clearable=False,
+                                            v_bind="props",
+                                            rules=[
+                                                "[utils.vtk_prompt.rules.yaml_file]"
+                                            ],
+                                        )
+                                with vuetify.VTooltip(
+                                    text="Download configuration file",
+                                    location="right",
+                                ):
+                                    with vuetify.Template(v_slot_activator="{ props }"):
+                                        with vuetify.VBtn(
+                                            icon=True,
+                                            density="comfortable",
+                                            color="secondary",
+                                            rounded="lg",
+                                            v_bind="props",
+                                            disabled=("!config_source",),
+                                            click="utils.download("
+                                            + "`config_${new Date().toISOString()}.prompt.yaml`,"
+                                            + "trigger('save_config'),"
+                                            + "'application/yaml'"
+                                            + ")",
+                                        ):
+                                            vuetify.VIcon("mdi-file-download-outline")
                             vuetify.VCheckbox(
                                 label="Run new conversation files",
                                 v_model=("auto_run_conversation_file", True),
-                                prepend_icon="mdi-file-refresh-outline",
+                                prepend_icon="mdi-run",
                                 density="compact",
                                 color="primary",
                                 hide_details=True,
                             )
                             with html.Div(
-                                classes="d-flex align-center justify-space-between"
+                                classes="d-flex align-center justify-space-between mb-2"
                             ):
                                 with vuetify.VTooltip(
                                     text=("conversation_file", "No file loaded"),

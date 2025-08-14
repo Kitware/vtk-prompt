@@ -87,7 +87,7 @@ class VTKPromptClient:
         self,
         message,
         api_key,
-        prompt_name="vtk_python_code_generation",
+        prompt_source="vtk_python_code_generation",
         base_url=None,
         rag=False,
         top_k=5,
@@ -101,7 +101,7 @@ class VTKPromptClient:
         Args:
             message: The user query
             api_key: API key for the service
-            prompt_name: Name of the YAML prompt file to use
+            prompt_source: Name of the YAML prompt file to use or binary blob of the prompt file content
             base_url: API base URL
             rag: Whether to use RAG enhancement
             top_k: Number of RAG examples to retrieve
@@ -126,8 +126,8 @@ class VTKPromptClient:
 
         prompts_dir = Path(__file__).parent / "prompts"
         yaml_loader = GitHubModelYAMLLoader(prompts_dir)
-        model_params = yaml_loader.get_model_parameters(prompt_name)
-        model = override_model or yaml_loader.get_model_name(prompt_name)
+        model_params = yaml_loader.get_model_parameters(prompt_source)
+        model = override_model or yaml_loader.get_model_name(prompt_source)
 
         # Prepare variables for template substitution
         variables = {"request": message}
@@ -166,7 +166,7 @@ class VTKPromptClient:
         conversation_messages = self.load_conversation()
 
         # Build base messages from YAML template
-        base_messages = yaml_loader.build_messages(prompt_name, variables)
+        base_messages = yaml_loader.build_messages(prompt_source, variables)
 
         # If conversation exists, extend it with new user message
         if conversation_messages:
@@ -345,11 +345,11 @@ def main(
         )
 
         # Use YAML system directly
-        prompt_name = "rag_context" if rag else "no_rag_context"
+        prompt_source = "rag_context" if rag else "no_rag_context"
         generated_code = client.query_yaml(
             input_string,
             api_key=token,
-            prompt_name=prompt_name,
+            prompt_source=prompt_source,
             base_url=base_url,
             rag=rag,
             top_k=top_k,
