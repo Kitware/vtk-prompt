@@ -21,3 +21,12 @@
   Only use 9.5.0 Python basic components.
 
   Only use >=3.10 or above.
+
+  ALWAYS consider all prior instructions, corrections, and constraints from this conversation as still in effect.
+
+  NEVER remove or undo fixes made in previous steps unless explicitly told to.
+
+  Before producing new code, mentally check that:
+  - All earlier errors are still fixed.
+  - No earlier constraints are violated.
+  - The output follows the entire conversation’s accumulated rules.

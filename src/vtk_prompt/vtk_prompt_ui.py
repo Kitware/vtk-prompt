@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import re
 import yaml
 
 # Add VTK and Trame imports
@@ -16,6 +17,7 @@ import vtk
 
 # Import our prompt functionality
 from .prompt import VTKPromptClient
+from .query_error_handler import QueryErrorHandler
 
 # Legacy prompts removed - using YAML system exclusively
 from .yaml_prompt_loader import GitHubModelYAMLLoader
@@ -286,10 +288,12 @@ class VTKPromptApp(TrameApp):
         except Exception as e:
             print(f"Error resetting camera: {e}")
 
-    def _generate_and_execute_code(self):
+    def _generate_and_execute_code(self, result=None):
         """Generate VTK code using Anthropic API and execute it."""
         self.state.is_loading = True
         self.state.error_message = ""
+        
+        original_query = self.state.query_text  # Store original query for retries
 
         try:
             # Reinitialize client with current settings
@@ -297,52 +301,86 @@ class VTKPromptApp(TrameApp):
             if hasattr(self.state, "error_message") and self.state.error_message:
                 return
 
-            # Use YAML system exclusively - UI uses ui_context prompt
-            result = self.prompt_client.query_yaml(
-                self.state.query_text,
-                api_key=self._get_api_key(),
-                prompt_source=self.state.config_source,
-                base_url=self._get_base_url(),
-                rag=self.state.use_rag,
-                top_k=int(self.state.top_k),
-                retry_attempts=int(self.state.retry_attempts),
-                # Override parameters from UI settings when different from defaults
-                override_temperature=(
-                    float(self.state.temperature)
-                    if float(self.state.temperature)
-                    != self.default_params.get("temperature", 0.1)
-                    else None
-                ),
-                override_max_tokens=(
-                    int(self.state.max_tokens)
-                    if int(self.state.max_tokens)
-                    != self.default_params.get("max_tokens", 1000)
-                    else None
-                ),
-            )
-            # Keep UI in sync with conversation
-            self.state.conversation = self.prompt_client.conversation
+            retry_attempts = int(self.state.retry_attempts)
+            current_query = original_query
+            last_error = None
+            last_generated_code = None
+            error_history = []
+            
+            for attempt in range(retry_attempts + 1):  # +1 for initial attempt
+                print(f"Attempt {attempt + 1} of {retry_attempts + 1}")
+                try:
+                    if result is None:
+                        # Use YAML system exclusively - UI uses ui_context prompt
+                        print(f"Query\n{current_query}\n\n")
+                        result = self.prompt_client.query_yaml(
+                            current_query,
+                            api_key=self._get_api_key(),
+                            prompt_source=self.state.config_source,
+                            base_url=self._get_base_url(),
+                            rag=self.state.use_rag,
+                            top_k=int(self.state.top_k),
+                            retry_attempts=int(self.state.retry_attempts),
+                            # Override parameters from UI settings when different from defaults
+                            override_temperature=(
+                                float(self.state.temperature)
+                                if float(self.state.temperature)
+                                != self.default_params.get("temperature", 0.1)
+                                else None
+                            ),
+                            override_max_tokens=(
+                                int(self.state.max_tokens)
+                                if int(self.state.max_tokens)
+                                != self.default_params.get("max_tokens", 1000)
+                                else None
+                            ),
+                        )
+                        # Keep UI in sync with conversation
+                        self.state.conversation = self.prompt_client.conversation
 
-            # Handle generated code
-            generated_code, generated_explanation = result
-            # Reset token counts for YAML system (no usage info yet)
-            self.state.input_tokens = 0
-            self.state.output_tokens = 0
+                    # Handle generated code
+                    generated_code, generated_explanation = result
+                    # Reset token counts for YAML system (no usage info yet)
+                    self.state.input_tokens = 0
+                    self.state.output_tokens = 0
 
-            self.state.generated_explanation = generated_explanation.strip()
-            self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code.strip()
+                    self.state.generated_explanation = generated_explanation.strip()
+                    self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code.strip()
+                    # Execute the generated code using the existing run_code method
+                    # But we need to modify it to work with our renderer
+                    self._execute_with_renderer(generated_code)
 
-            # Execute the generated code using the existing run_code method
-            # But we need to modify it to work with our renderer
-            self._execute_with_renderer(generated_code)
+                    # Success, break out of retry loop
+                    break
+                except Exception as execution_error:
+                    last_error = execution_error
+                    last_generated_code = generated_code if 'generated_code' in locals() else None
 
+                    # Add this error to the history
+                    error_history.append(str(execution_error))
+
+                    # If this was the last attempt, re-raise the exception
+                    if attempt >= retry_attempts:
+                        raise execution_error
+
+                    current_query = QueryErrorHandler.build_retry_query(
+                        execution_error,
+                        original_query,
+                        last_generated_code,
+                        error_history,
+                    )
+                    print(current_query)
         except ValueError as e:
             if "max_tokens" in str(e):
                 self.state.error_message = f"{str(e)} Current: {self.state.max_tokens}. Try increasing max tokens."
             else:
-                self.state.error_message = f"Error generating code: {str(e)}"
+                self.state.error_message = f"Value error generating code: {str(e)}"
         except Exception as e:
-            self.state.error_message = f"Error generating code: {str(e)}"
+            # If we exhausted retries, provide more detailed error message
+            if last_error and last_generated_code:
+                self.state.error_message = f"Code execution failed after {retry_attempts + 1} attempts. Final error: {str(e)}"
+            else:
+                self.state.error_message = f"Error generating code: {str(e)}"
         finally:
             self.state.is_loading = False
 
@@ -384,7 +422,9 @@ class VTKPromptApp(TrameApp):
                 self.ctrl.view_update()
 
         except Exception as e:
-            self.state.error_message = f"Error executing code: {str(e)}"
+            # Don't set error_message here - let the retry logic handle it
+            # Re-raise the exception so retry logic can catch it
+            raise e
 
     @change("conversation_object")
     def on_conversation_file_data_change(self, conversation_object, **_):
@@ -405,8 +445,14 @@ class VTKPromptApp(TrameApp):
 
         self.state.conversation = json.loads(content)
         if not invalid and content and self.state.auto_run_conversation_file:
-            self.state.query_text = ""
-            self.generate_code()
+            result = self.state.conversation[-1]["content"]
+            generated_explanation = re.findall(
+                "<explanation>(.*?)</explanation>", result, re.DOTALL
+            )[0]
+            generated_code = re.findall("<code>(.*?)</code>", result, re.DOTALL)[0]
+            if "import vtk" not in generated_code:
+                generated_code = f"import vtk\n{generated_code}"
+            self._generate_and_execute_code([generated_code, generated_explanation])
 
     @change("config_object")
     def on_config_file_data_change(self, config_object, **_):
@@ -651,7 +697,7 @@ class VTKPromptApp(TrameApp):
                             )
                             vuetify.VTextField(
                                 label="Retry Attempts",
-                                v_model=("retry_attempts", 1),
+                                v_model=("retry_attempts", 5),
                                 type="number",
                                 min=1,
                                 max=5,
