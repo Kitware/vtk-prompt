@@ -95,7 +95,7 @@ class VTKPromptApp(TrameApp):
         self.state.error_message = ""
         self.state.conversation_object = None
         self.state.conversation_file = None
-        self.state.conversation = None
+        self.state.conversation = []  # Initialize as empty list instead of None
 
         # YAML prompt configuration - UI always uses ui_context prompt
         from pathlib import Path
@@ -167,12 +167,17 @@ class VTKPromptApp(TrameApp):
                 )
                 return
 
-            self.prompt_client = VTKPromptClient(
-                collection_name="vtk-examples",
-                database_path="./db/codesage-codesage-large-v2",
-                verbose=False,
-                conversation=self.state.conversation,
-            )
+            # Create the client if it doesn't exist, otherwise update its conversation
+            if not hasattr(self, 'prompt_client'):
+                self.prompt_client = VTKPromptClient(
+                    collection_name="vtk-examples",
+                    database_path="./db/codesage-codesage-large-v2",
+                    verbose=False,
+                    conversation=self.state.conversation,
+                )
+            else:
+                # Update the conversation in the existing client
+                self.prompt_client.conversation = self.state.conversation
         except ValueError as e:
             self.state.error_message = str(e)
 
@@ -296,7 +301,8 @@ class VTKPromptApp(TrameApp):
         original_query = self.state.query_text  # Store original query for retries
 
         try:
-            # Reinitialize client with current settings
+            # Update the prompt client with current settings
+            # This will use the existing client or create one if it doesn't exist
             self._init_prompt_client()
             if hasattr(self.state, "error_message") and self.state.error_message:
                 return
@@ -444,6 +450,11 @@ class VTKPromptApp(TrameApp):
             return
 
         self.state.conversation = json.loads(content)
+        
+        # Update the conversation in the prompt client if it exists
+        if hasattr(self, 'prompt_client'):
+            self.prompt_client.conversation = self.state.conversation
+            
         if not invalid and content and self.state.auto_run_conversation_file:
             result = self.state.conversation[-1]["content"]
             generated_explanation = re.findall(
