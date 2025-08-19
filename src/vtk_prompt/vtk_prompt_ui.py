@@ -2,6 +2,8 @@
 
 import json
 from pathlib import Path
+import re
+import yaml
 
 # Add VTK and Trame imports
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
@@ -15,9 +17,10 @@ import vtk
 
 # Import our prompt functionality
 from .prompt import VTKPromptClient
+from .query_error_handler import QueryErrorHandler
 
-# Import our template system
-from .prompts import get_ui_post_prompt
+# Legacy prompts removed - using YAML system exclusively
+from .yaml_prompt_loader import GitHubModelYAMLLoader
 
 EXPLAIN_RENDERER = (
     "# renderer is a vtkRenderer injected by this webapp"
@@ -59,6 +62,7 @@ class VTKPromptApp(TrameApp):
         self.renderer.SetBackground(0.1, 0.1, 0.1)
 
         # Add a simple coordinate axes as default content
+        self.state.config_source = "ui_context"
         self._add_default_scene()
 
         # Initial render
@@ -85,12 +89,22 @@ class VTKPromptApp(TrameApp):
         # App state variables
         self.state.query_text = ""
         self.state.generated_code = ""
+        self.state.generated_explanation = ""
         self.state.is_loading = False
         self.state.use_rag = False
         self.state.error_message = ""
         self.state.conversation_object = None
         self.state.conversation_file = None
-        self.state.conversation = None
+        self.state.conversation = []  # Initialize as empty list instead of None
+
+        # YAML prompt configuration - UI always uses ui_context prompt
+        from pathlib import Path
+
+        prompts_dir = Path(__file__).parent / "prompts"
+        self.yaml_loader = GitHubModelYAMLLoader(prompts_dir)
+
+        # Get default parameters from YAML ui_context prompt
+        self.default_params = self.yaml_loader.get_model_parameters(self.state.config_source)
 
         # Token usage tracking
         self.state.input_tokens = 0
@@ -101,8 +115,8 @@ class VTKPromptApp(TrameApp):
         self.state.tab_index = 0  # Tab navigation state
 
         # Cloud model configuration
-        self.state.provider = "openai"
-        self.state.model = "gpt-4o"
+        self.state.provider = self.yaml_loader.get_model_provider(self.state.config_source)
+        self.state.model = self.yaml_loader.get_model_name(self.state.config_source)
         self.state.available_providers = [
             "openai",
             "anthropic",
@@ -153,12 +167,17 @@ class VTKPromptApp(TrameApp):
                 )
                 return
 
-            self.prompt_client = VTKPromptClient(
-                collection_name="vtk-examples",
-                database_path="./db/codesage-codesage-large-v2",
-                verbose=False,
-                conversation=self.state.conversation,
-            )
+            # Create the client if it doesn't exist, otherwise update its conversation
+            if not hasattr(self, 'prompt_client'):
+                self.prompt_client = VTKPromptClient(
+                    collection_name="vtk-examples",
+                    database_path="./db/codesage-codesage-large-v2",
+                    verbose=False,
+                    conversation=self.state.conversation,
+                )
+            else:
+                # Update the conversation in the existing client
+                self.prompt_client.conversation = self.state.conversation
         except ValueError as e:
             self.state.error_message = str(e)
 
@@ -274,62 +293,100 @@ class VTKPromptApp(TrameApp):
         except Exception as e:
             print(f"Error resetting camera: {e}")
 
-    def _generate_and_execute_code(self):
+    def _generate_and_execute_code(self, result=None):
         """Generate VTK code using Anthropic API and execute it."""
         self.state.is_loading = True
         self.state.error_message = ""
+        
+        original_query = self.state.query_text  # Store original query for retries
 
         try:
-            # Generate code using prompt functionality - reuse existing methods
-            enhanced_query = self.state.query_text
-            if self.state.query_text:
-                post_prompt = get_ui_post_prompt()
-                enhanced_query = post_prompt + self.state.query_text
-
-            # Reinitialize client with current settings
+            # Update the prompt client with current settings
+            # This will use the existing client or create one if it doesn't exist
             self._init_prompt_client()
             if hasattr(self.state, "error_message") and self.state.error_message:
                 return
 
-            result = self.prompt_client.query(
-                enhanced_query,
-                api_key=self._get_api_key(),
-                model=self._get_model(),
-                base_url=self._get_base_url(),
-                max_tokens=int(self.state.max_tokens),
-                temperature=float(self.state.temperature),
-                top_k=int(self.state.top_k),
-                rag=self.state.use_rag,
-                retry_attempts=int(self.state.retry_attempts),
-            )
-            # Keep UI in sync with conversation
-            self.state.conversation = self.prompt_client.conversation
+            retry_attempts = int(self.state.retry_attempts)
+            current_query = original_query
+            last_error = None
+            last_generated_code = None
+            error_history = []
+            
+            for attempt in range(retry_attempts + 1):  # +1 for initial attempt
+                print(f"Attempt {attempt + 1} of {retry_attempts + 1}")
+                try:
+                    if result is None:
+                        # Use YAML system exclusively - UI uses ui_context prompt
+                        print(f"Query\n{current_query}\n\n")
+                        result = self.prompt_client.query_yaml(
+                            current_query,
+                            api_key=self._get_api_key(),
+                            prompt_source=self.state.config_source,
+                            base_url=self._get_base_url(),
+                            rag=self.state.use_rag,
+                            top_k=int(self.state.top_k),
+                            retry_attempts=int(self.state.retry_attempts),
+                            # Override parameters from UI settings when different from defaults
+                            override_temperature=(
+                                float(self.state.temperature)
+                                if float(self.state.temperature)
+                                != self.default_params.get("temperature", 0.1)
+                                else None
+                            ),
+                            override_max_tokens=(
+                                int(self.state.max_tokens)
+                                if int(self.state.max_tokens)
+                                != self.default_params.get("max_tokens", 1000)
+                                else None
+                            ),
+                        )
+                        # Keep UI in sync with conversation
+                        self.state.conversation = self.prompt_client.conversation
 
-            # Handle both code and usage information
-            if isinstance(result, tuple) and len(result) == 2:
-                generated_code, usage = result
-                if usage:
-                    self.state.input_tokens = usage.prompt_tokens
-                    self.state.output_tokens = usage.completion_tokens
-            else:
-                generated_code = result
-                # Reset token counts if no usage info
-                self.state.input_tokens = 0
-                self.state.output_tokens = 0
+                    # Handle generated code
+                    generated_code, generated_explanation = result
+                    # Reset token counts for YAML system (no usage info yet)
+                    self.state.input_tokens = 0
+                    self.state.output_tokens = 0
 
-            self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code
+                    self.state.generated_explanation = generated_explanation.strip()
+                    self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code.strip()
+                    # Execute the generated code using the existing run_code method
+                    # But we need to modify it to work with our renderer
+                    self._execute_with_renderer(generated_code)
 
-            # Execute the generated code using the existing run_code method
-            # But we need to modify it to work with our renderer
-            self._execute_with_renderer(generated_code)
+                    # Success, break out of retry loop
+                    break
+                except Exception as execution_error:
+                    last_error = execution_error
+                    last_generated_code = generated_code if 'generated_code' in locals() else None
 
+                    # Add this error to the history
+                    error_history.append(str(execution_error))
+
+                    # If this was the last attempt, re-raise the exception
+                    if attempt >= retry_attempts:
+                        raise execution_error
+
+                    current_query = QueryErrorHandler.build_retry_query(
+                        execution_error,
+                        original_query,
+                        last_generated_code,
+                        error_history,
+                    )
+                    print(current_query)
         except ValueError as e:
             if "max_tokens" in str(e):
                 self.state.error_message = f"{str(e)} Current: {self.state.max_tokens}. Try increasing max tokens."
             else:
-                self.state.error_message = f"Error generating code: {str(e)}"
+                self.state.error_message = f"Value error generating code: {str(e)}"
         except Exception as e:
-            self.state.error_message = f"Error generating code: {str(e)}"
+            # If we exhausted retries, provide more detailed error message
+            if last_error and last_generated_code:
+                self.state.error_message = f"Code execution failed after {retry_attempts + 1} attempts. Final error: {str(e)}"
+            else:
+                self.state.error_message = f"Error generating code: {str(e)}"
         finally:
             self.state.is_loading = False
 
@@ -371,27 +428,87 @@ class VTKPromptApp(TrameApp):
                 self.ctrl.view_update()
 
         except Exception as e:
-            self.state.error_message = f"Error executing code: {str(e)}"
+            # Don't set error_message here - let the retry logic handle it
+            # Re-raise the exception so retry logic can catch it
+            raise e
 
     @change("conversation_object")
     def on_conversation_file_data_change(self, conversation_object, **_):
+        self.state.conversation = None
+        self.state.conversation_file = None
         invalid = (
             conversation_object is None
             or conversation_object["type"] != "application/json"
             or Path(conversation_object["name"]).suffix != ".json"
         )
-        self.state.conversation = (
-            None if invalid else json.loads(conversation_object["content"])
+        if invalid:
+            return
+
+        self.state.conversation_file = conversation_object["name"]
+        content = conversation_object["content"]
+        if not content:
+            return
+
+        self.state.conversation = json.loads(content)
+        
+        # Update the conversation in the prompt client if it exists
+        if hasattr(self, 'prompt_client'):
+            self.prompt_client.conversation = self.state.conversation
+            
+        if not invalid and content and self.state.auto_run_conversation_file:
+            result = self.state.conversation[-1]["content"]
+            generated_explanation = re.findall(
+                "<explanation>(.*?)</explanation>", result, re.DOTALL
+            )[0]
+            generated_code = re.findall("<code>(.*?)</code>", result, re.DOTALL)[0]
+            if "import vtk" not in generated_code:
+                generated_code = f"import vtk\n{generated_code}"
+            self._generate_and_execute_code([generated_code, generated_explanation])
+
+    @change("config_object")
+    def on_config_file_data_change(self, config_object, **_):
+        invalid = (
+            config_object is None
+            or isinstance(config_object, str)
+            or config_object["type"] != "application/x-yaml"
+            and Path(config_object["name"]).suffix != ".yaml"
+            and Path(config_object["name"]).suffix != ".yml"
         )
-        self.state.conversation_file = None if invalid else conversation_object["name"]
-        if not invalid and self.state.auto_run_conversation_file:
-            self.generate_code()
+        if invalid:
+            self.state.config_file_name = None
+            return
+
+        if not config_object["content"]:
+            return
+
+        self.state.config_source = config_object["content"]
+        self.state.config_file_name = config_object["name"]
+        self.clear_scene()
 
     @trigger("save_conversation")
     def save_conversation(self):
         if self.prompt_client is None:
             return ""
         return json.dumps(self.prompt_client.conversation, indent=2)
+
+    @trigger("save_config")
+    def save_config(self):
+        config_data = {
+            "model": f"{self.state.provider}/{self.state.model}",
+            "modelParameters": {
+                "max_completion_tokens": self.state.max_tokens,
+                "temperature": self.state.temperature,
+                "rag": self.state.use_rag,
+                "collection": self.state.collection,
+                "database": self.state.database,
+                "top_k": self.state.top_k,
+                "retry_attempts": self.state.retry_attempts,
+                "conversation": self.state.conversation_file,
+            },
+        }
+        default = self.yaml_loader.load_prompt(self.state.config_source)
+        config_data = {**default, **config_data}
+        return yaml.safe_dump(config_data)
 
     def _build_ui(self):
         """Build a simplified Vuetify UI."""
@@ -464,38 +581,39 @@ class VTKPromptApp(TrameApp):
                         with vuetify.VTabsWindowItem():
                             with vuetify.VCard(flat=True, style="mt-2"):
                                 with vuetify.VCardText():
-                                    # Provider selection
-                                    vuetify.VSelect(
-                                        label="Provider",
-                                        v_model=("provider", "openai"),
-                                        items=("available_providers", []),
-                                        density="compact",
-                                        variant="outlined",
-                                        prepend_icon="mdi-cloud",
-                                    )
+                                    with vuetify.VForm():
+                                        # Provider selection
+                                        vuetify.VSelect(
+                                            label="Provider",
+                                            v_model=("provider", "openai"),
+                                            items=("available_providers", []),
+                                            density="compact",
+                                            variant="outlined",
+                                            prepend_icon="mdi-cloud",
+                                        )
 
-                                    # Model selection
-                                    vuetify.VSelect(
-                                        label="Model",
-                                        v_model=("model", "gpt-4o"),
-                                        items=("available_models[provider] || []",),
-                                        density="compact",
-                                        variant="outlined",
-                                        prepend_icon="mdi-brain",
-                                    )
+                                        # Model selection
+                                        vuetify.VSelect(
+                                            label="Model",
+                                            v_model=("model", "gpt-4o"),
+                                            items=("available_models[provider] || []",),
+                                            density="compact",
+                                            variant="outlined",
+                                            prepend_icon="mdi-brain",
+                                        )
 
-                                    # API Token
-                                    vuetify.VTextField(
-                                        label="API Token",
-                                        v_model=("api_token", ""),
-                                        placeholder="Enter your API token",
-                                        type="password",
-                                        density="compact",
-                                        variant="outlined",
-                                        prepend_icon="mdi-key",
-                                        hint="Required for cloud providers",
-                                        persistent_hint=True,
-                                    )
+                                        # API Token
+                                        vuetify.VTextField(
+                                            label="API Token",
+                                            v_model=("api_token", ""),
+                                            placeholder="Enter your API token",
+                                            type="password",
+                                            density="compact",
+                                            variant="outlined",
+                                            prepend_icon="mdi-key",
+                                            hint="Required for cloud providers",
+                                            persistent_hint=True,
+                                        )
 
                         # Local Models Tab Content
                         with vuetify.VTabsWindowItem():
@@ -565,7 +683,10 @@ class VTKPromptApp(TrameApp):
                         with vuetify.VCardText():
                             vuetify.VSlider(
                                 label="Temperature",
-                                v_model=("temperature", 0.1),
+                                v_model=(
+                                    "temperature",
+                                    self.default_params.get("temperature", 0.1),
+                                ),
                                 min=0.0,
                                 max=1.0,
                                 step=0.1,
@@ -576,7 +697,10 @@ class VTKPromptApp(TrameApp):
                             )
                             vuetify.VTextField(
                                 label="Max Tokens",
-                                v_model=("max_tokens", 1000),
+                                v_model=(
+                                    "max_tokens",
+                                    self.default_params.get("max_tokens", 1000),
+                                ),
                                 type="number",
                                 density="compact",
                                 variant="outlined",
@@ -584,7 +708,7 @@ class VTKPromptApp(TrameApp):
                             )
                             vuetify.VTextField(
                                 label="Retry Attempts",
-                                v_model=("retry_attempts", 1),
+                                v_model=("retry_attempts", 5),
                                 type="number",
                                 min=1,
                                 max=5,
@@ -598,16 +722,60 @@ class VTKPromptApp(TrameApp):
                             "⚙️ Files", hide_details=True, density="compact"
                         )
                         with vuetify.VCardText():
+                            with html.Div(
+                                classes="d-flex align-center justify-space-between mb-2"
+                            ):
+                                with vuetify.VTooltip(
+                                    text=("config_file_name", "No config loaded"),
+                                    location="top",
+                                    disabled=("!config_source",),
+                                ):
+                                    with vuetify.Template(v_slot_activator="{ props }"):
+                                        vuetify.VFileInput(
+                                            label="Configuration File",
+                                            v_model=("config_object", None),
+                                            accept=".yaml, .yml",
+                                            density="compact",
+                                            variant="solo",
+                                            prepend_icon="mdi-file-cog-outline",
+                                            hide_details="auto",
+                                            classes="py-1 pr-1 mr-1 text-truncate",
+                                            open_on_focus=False,
+                                            clearable=False,
+                                            v_bind="props",
+                                            rules=[
+                                                "[utils.vtk_prompt.rules.yaml_file]"
+                                            ],
+                                        )
+                                with vuetify.VTooltip(
+                                    text="Download configuration file",
+                                    location="right",
+                                ):
+                                    with vuetify.Template(v_slot_activator="{ props }"):
+                                        with vuetify.VBtn(
+                                            icon=True,
+                                            density="comfortable",
+                                            color="secondary",
+                                            rounded="lg",
+                                            v_bind="props",
+                                            disabled=("!config_source",),
+                                            click="utils.download("
+                                            + "`config_${new Date().toISOString()}.prompt.yaml`,"
+                                            + "trigger('save_config'),"
+                                            + "'application/yaml'"
+                                            + ")",
+                                        ):
+                                            vuetify.VIcon("mdi-file-download-outline")
                             vuetify.VCheckbox(
                                 label="Run new conversation files",
                                 v_model=("auto_run_conversation_file", True),
-                                prepend_icon="mdi-file-refresh-outline",
+                                prepend_icon="mdi-run",
                                 density="compact",
                                 color="primary",
                                 hide_details=True,
                             )
                             with html.Div(
-                                classes="d-flex align-center justify-space-between"
+                                classes="d-flex align-center justify-space-between mb-2"
                             ):
                                 with vuetify.VTooltip(
                                     text=("conversation_file", "No file loaded"),
@@ -652,26 +820,61 @@ class VTKPromptApp(TrameApp):
                                             vuetify.VIcon("mdi-file-download-outline")
 
             with layout.content:
-                with vuetify.VContainer(fluid=True, classes="fill-height"):
+                with vuetify.VContainer(
+                    classes="fluid fill-height", style="min-width: 100%;"
+                ):
                     with vuetify.VRow(rows=12, classes="fill-height"):
                         # Left column - Generated code view
                         with vuetify.VCol(cols=6, classes="fill-height"):
-                            with vuetify.VCard(classes="mb-2", style="height: 100%;"):
-                                vuetify.VCardTitle("Generated Code")
-                                with vuetify.VCardText(
-                                    classes="overflow-auto",
+                            with vuetify.VExpansionPanels(
+                                v_model=("explanation_expanded", [0, 1]),
+                                classes="fill-height",
+                                multiple=True,
+                            ):
+                                with vuetify.VExpansionPanel(
+                                    classes="mt-1",
+                                    style="height: fit-content; max-height: 30%;",
                                 ):
-                                    vuetify.VTextarea(
-                                        v_model=("generated_code", ""),
-                                        readonly=True,
-                                        solo=True,
-                                        hide_details=True,
-                                        no_resize=True,
-                                        auto_grow=True,
-                                        classes="overflow-y",
-                                        style="font-family: monospace;",
-                                        placeholder="Generated VTK code will appear here...",
+                                    vuetify.VExpansionPanelTitle(
+                                        "Explanation", classes="text-h6"
                                     )
+                                    with vuetify.VExpansionPanelText(
+                                        style="overflow: hidden;"
+                                    ):
+                                        vuetify.VTextarea(
+                                            v_model=("generated_explanation", ""),
+                                            readonly=True,
+                                            solo=True,
+                                            hide_details=True,
+                                            no_resize=True,
+                                            classes="overflow-y-auto fill-height",
+                                            placeholder="Explanation will appear here...",
+                                        )
+                                with vuetify.VExpansionPanel(
+                                    classes="mt-1 fill-height",
+                                    readonly=True,
+                                    style=(
+                                        "explanation_expanded.length > 1 ? 'max-height: 75%;' : 'max-height: 95%;'",
+                                    ),
+                                ):
+                                    vuetify.VExpansionPanelTitle(
+                                        "Generated Code",
+                                        collapse_icon=False,
+                                        classes="text-h6",
+                                    )
+                                    with vuetify.VExpansionPanelText(
+                                        style="overflow: hidden; height: 90%;"
+                                    ):
+                                        vuetify.VTextarea(
+                                            v_model=("generated_code", ""),
+                                            readonly=True,
+                                            solo=True,
+                                            hide_details=True,
+                                            no_resize=True,
+                                            classes="overflow-y-auto fill-height",
+                                            style="font-family: monospace;",
+                                            placeholder="Generated VTK code will appear here...",
+                                        )
 
                         # Right column - VTK viewer and prompt
                         with vuetify.VCol(cols=6, classes="fill-height"):

@@ -5,6 +5,16 @@ window.trame.utils.vtk_prompt = {
                 return "Invalid file type";
             }
             return true;
+        },
+        yaml_file(obj) {
+            if (
+                obj &&
+                (obj.type !== "application/x-yaml" || (!obj.name.endsWith(".yaml") &&
+                !obj.name.endsWith(".yml")))
+            ) {
+                return "Invalid file type";
+            }
+            return true;
         }
     }
 }

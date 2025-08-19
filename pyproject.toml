@@ -23,6 +23,7 @@ dependencies = [
     "tree_sitter_language_pack>=0.7.0",
     "tree_sitter_languages>=1.9.1",
     "vtk>=9.3.1",
+    "pyyaml>=6.0.0",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
@@ -62,7 +63,13 @@ build-backend = "setuptools.build_meta"
 fallback_version = "0.1.0"
 
 [tool.setuptools.package-data]
-vtk_prompt = ["prompts/*.txt"]
+vtk_prompt = ["prompts/*.yml"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
 
 [tool.black]
 include = 'src/.*.py$'

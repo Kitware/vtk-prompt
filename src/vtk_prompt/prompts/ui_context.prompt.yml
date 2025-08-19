@@ -1,0 +1,31 @@
+name: "VTK UI Context"
+description: "UI-specific VTK code generation with renderer instructions"
+model: "openai/gpt-4o-mini"
+modelParameters:
+  temperature: 0.1
+  max_tokens: 1000
+messages:
+  - role: system
+    content: !include ./src/vtk_prompt/prompts/prompt_system_content.yml
+      Do not create a new vtkRenderer
+
+      Use the injected vtkrenderer object named renderer
+
+      Do not manage rendering things
+
+      You must connect the actors to the renderer injected object
+
+      You must render what I ask even if I do not ask to render it
+
+      Do not render if I explicitly ask you not to render it
+  - role: assistant
+    content: !include ./src/vtk_prompt/prompts/prompt_assistant_content.yml
+  - role: user
+    content: |
+      {{#if context_snippets}}
+      <vtk_examples>
+      {{context_snippets}}
+      </vtk_examples>
+
+      {{/if}}
+      {{request}}

@@ -1,0 +1,20 @@
+name: "VTK RAG Context"
+description: "VTK code generation with RAG enhancement from examples"
+model: "openai/gpt-4o-mini"
+modelParameters:
+  temperature: 0.1
+  max_tokens: 1000
+messages:
+  - role: system
+    content: !include ./src/vtk_prompt/prompts/prompt_system_content.yml
+  - role: assistant
+    content: !include ./src/vtk_prompt/prompts/prompt_assistant_content.yml
+  - role: user
+    content: |
+      {{#if context_snippets}}
+      <vtk_examples>
+      {{context_snippets}}
+      </vtk_examples>
+      
+      {{/if}}
+      {{request}}

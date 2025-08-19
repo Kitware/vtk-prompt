@@ -1,0 +1,14 @@
+name: "VTK No RAG Context"
+description: "Standard VTK code generation without RAG enhancement"
+model: "openai/gpt-4o-mini"
+modelParameters:
+  temperature: 0.1
+  max_tokens: 1000
+messages:
+  - role: system
+    content: !include ./src/vtk_prompt/prompts/prompt_system_content.yml
+  - role: assistant
+    content: !include ./src/vtk_prompt/prompts/prompt_assistant_content.yml
+  - role: user
+    content: |
+      {{request}}
