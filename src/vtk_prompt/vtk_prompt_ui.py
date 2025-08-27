@@ -85,6 +85,7 @@ class VTKPromptApp(TrameApp):
         # App state variables
         self.state.query_text = ""
         self.state.generated_code = ""
+        self.state.generated_explanation = ""
         self.state.is_loading = False
         self.state.use_rag = False
         self.state.error_message = ""
@@ -306,17 +307,18 @@ class VTKPromptApp(TrameApp):
             self.state.conversation = self.prompt_client.conversation
 
             # Handle both code and usage information
-            if isinstance(result, tuple) and len(result) == 2:
-                generated_code, usage = result
+            if isinstance(result, tuple) and len(result) == 3:
+                generated_explanation, generated_code, usage = result
                 if usage:
                     self.state.input_tokens = usage.prompt_tokens
                     self.state.output_tokens = usage.completion_tokens
             else:
-                generated_code = result
+                generated_explanation, generated_code = result
                 # Reset token counts if no usage info
                 self.state.input_tokens = 0
                 self.state.output_tokens = 0
 
+            self.state.generated_explanation = generated_explanation
             self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code
 
             # Execute the generated code using the existing run_code method
@@ -379,6 +381,7 @@ class VTKPromptApp(TrameApp):
             conversation_object is None
             or conversation_object["type"] != "application/json"
             or Path(conversation_object["name"]).suffix != ".json"
+            or not conversation_object["content"]
         )
         self.state.conversation = (
             None if invalid else json.loads(conversation_object["content"])
@@ -652,26 +655,61 @@ class VTKPromptApp(TrameApp):
                                             vuetify.VIcon("mdi-file-download-outline")
 
             with layout.content:
-                with vuetify.VContainer(fluid=True, classes="fill-height"):
+                with vuetify.VContainer(
+                    classes="fluid fill-height", style="min-width: 100%;"
+                ):
                     with vuetify.VRow(rows=12, classes="fill-height"):
                         # Left column - Generated code view
                         with vuetify.VCol(cols=6, classes="fill-height"):
-                            with vuetify.VCard(classes="mb-2", style="height: 100%;"):
-                                vuetify.VCardTitle("Generated Code")
-                                with vuetify.VCardText(
-                                    classes="overflow-auto",
+                            with vuetify.VExpansionPanels(
+                                v_model=("explanation_expanded", [0, 1]),
+                                classes="fill-height",
+                                multiple=True,
+                            ):
+                                with vuetify.VExpansionPanel(
+                                    classes="mt-1",
+                                    style="height: fit-content; max-height: 30%;",
                                 ):
-                                    vuetify.VTextarea(
-                                        v_model=("generated_code", ""),
-                                        readonly=True,
-                                        solo=True,
-                                        hide_details=True,
-                                        no_resize=True,
-                                        auto_grow=True,
-                                        classes="overflow-y",
-                                        style="font-family: monospace;",
-                                        placeholder="Generated VTK code will appear here...",
+                                    vuetify.VExpansionPanelTitle(
+                                        "Explanation", classes="text-h6"
                                     )
+                                    with vuetify.VExpansionPanelText(
+                                        style="overflow: hidden;"
+                                    ):
+                                        vuetify.VTextarea(
+                                            v_model=("generated_explanation", ""),
+                                            readonly=True,
+                                            solo=True,
+                                            hide_details=True,
+                                            no_resize=True,
+                                            classes="overflow-y-auto fill-height",
+                                            placeholder="Explanation will appear here...",
+                                        )
+                                with vuetify.VExpansionPanel(
+                                    classes="mt-1 fill-height",
+                                    readonly=True,
+                                    style=(
+                                        "explanation_expanded.length > 1 ? 'max-height: 75%;' : 'max-height: 95%;'",
+                                    ),
+                                ):
+                                    vuetify.VExpansionPanelTitle(
+                                        "Generated Code",
+                                        collapse_icon=False,
+                                        classes="text-h6",
+                                    )
+                                    with vuetify.VExpansionPanelText(
+                                        style="overflow: hidden; height: 90%;"
+                                    ):
+                                        vuetify.VTextarea(
+                                            v_model=("generated_code", ""),
+                                            readonly=True,
+                                            solo=True,
+                                            hide_details=True,
+                                            no_resize=True,
+                                            classes="overflow-y-auto fill-height",
+                                            style="font-family: monospace;",
+                                            placeholder="Generated VTK code will appear here...",
+                                        )
 
                         # Right column - VTK viewer and prompt
                         with vuetify.VCol(cols=6, classes="fill-height"):
