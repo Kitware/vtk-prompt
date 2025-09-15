@@ -47,6 +47,9 @@ class VTKPromptApp(TrameApp):
         # Make sure JS is loaded
         load_js(self.server)
 
+        # Suppress VTK warnings to reduce console noise
+        vtk.vtkObject.GlobalWarningDisplayOff()
+
         # Initialize VTK components for trame
         self.renderer = vtk.vtkRenderer()
         self.render_window = vtk.vtkRenderWindow()
