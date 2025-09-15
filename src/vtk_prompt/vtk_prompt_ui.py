@@ -107,6 +107,7 @@ class VTKPromptApp(TrameApp):
         self.state.conversation_navigation = []
         self.state.can_navigate_left = False
         self.state.can_navigate_right = False
+        self.state.is_viewing_history = False
 
         # API configuration state
         self.state.use_cloud_models = True  # Toggle between cloud and local
@@ -325,10 +326,10 @@ class VTKPromptApp(TrameApp):
                 # Update navigation after new conversation entry
                 self._build_conversation_navigation()
 
+            self._conversation_loading = False
             # Execute the generated code using the existing run_code method
             # But we need to modify it to work with our renderer
             self._execute_with_renderer(self.state.generated_code)
-
         except ValueError as e:
             if "max_tokens" in str(e):
                 self.state.error_message = f"{str(e)} Current: {self.state.max_tokens}. Try increasing max tokens."
@@ -375,7 +376,6 @@ class VTKPromptApp(TrameApp):
                 print(f"Render error: {render_error}")
                 # Still update the view even if render fails
                 self.ctrl.view_update()
-
         except Exception as e:
             self.state.error_message = f"Error executing code: {str(e)}"
 
@@ -453,14 +453,19 @@ class VTKPromptApp(TrameApp):
 
     def _update_navigation_state(self):
         """Update navigation button states based on current position."""
+        nav_length = len(self.state.conversation_navigation)
+
+        # Update navigation buttons
         self.state.can_navigate_left = (
-            len(self.state.conversation_navigation) > 0
-            and self.state.conversation_index > 0
+            nav_length > 0 and self.state.conversation_index > 0
         )
         self.state.can_navigate_right = (
-            len(self.state.conversation_navigation) > 0
-            and self.state.conversation_index
-            < len(self.state.conversation_navigation) - 1
+            nav_length > 0 and self.state.conversation_index < nav_length
+        )
+
+        # Update viewing mode - we're viewing history if not at the "new entry" position
+        self.state.is_viewing_history = (
+            nav_length > 0 and self.state.conversation_index < nav_length
         )
 
     def _sync_with_prompt_client(self):
@@ -519,9 +524,10 @@ class VTKPromptApp(TrameApp):
         if not self.state.conversation_navigation:
             return
 
-        if self.state.conversation_index > 0:
+        if self.state.conversation_index >= 0:
             self.state.conversation_index -= 1
-            self._process_conversation_pair()
+            if self.state.conversation_index >= 0:
+                self._process_conversation_pair()
             self._update_navigation_state()
 
     @controller.set("navigate_conversation_right")
@@ -530,9 +536,15 @@ class VTKPromptApp(TrameApp):
         if not self.state.conversation_navigation:
             return
 
-        if self.state.conversation_index < len(self.state.conversation_navigation) - 1:
+        nav_length = len(self.state.conversation_navigation)
+        if self.state.conversation_index < nav_length:
             self.state.conversation_index += 1
-            self._process_conversation_pair()
+            if self.state.conversation_index < nav_length:
+                # Still viewing history
+                self._process_conversation_pair()
+            else:
+                # Moved to "new entry" mode - clear only query text for new input
+                self.state.query_text = ""
             self._update_navigation_state()
 
     @trigger("save_conversation")
@@ -941,7 +953,6 @@ class VTKPromptApp(TrameApp):
                                                 style="height: 100%;",
                                             ):
                                                 with vuetify.VBtn(
-                                                    color="secondary",
                                                     variant="tonal",
                                                     icon=True,
                                                     rounded="0",
@@ -960,9 +971,18 @@ class VTKPromptApp(TrameApp):
                                                     variant="outlined",
                                                     placeholder="e.g., Create a red sphere with lighting",
                                                     hide_details=True,
+                                                    disabled=(
+                                                        "is_viewing_history",
+                                                        False,
+                                                    ),
                                                 )
                                                 with vuetify.VBtn(
-                                                    color="secondary",
+                                                    color=(
+                                                        "conversation_index ==="
+                                                        + " conversation_navigation.length - 1"
+                                                        + " ? 'success' : 'default'",
+                                                        "default",
+                                                    ),
                                                     variant="tonal",
                                                     icon=True,
                                                     rounded="0",
@@ -971,7 +991,14 @@ class VTKPromptApp(TrameApp):
                                                     click=self.ctrl.navigate_conversation_right,
                                                 ):
                                                     vuetify.VIcon(
-                                                        "mdi-arrow-right-circle"
+                                                        "mdi-arrow-right-circle",
+                                                        v_show="conversation_index <"
+                                                        + " conversation_navigation.length - 1",
+                                                    )
+                                                    vuetify.VIcon(
+                                                        "mdi-message-plus",
+                                                        v_show="conversation_index ==="
+                                                        + " conversation_navigation.length - 1",
                                                     )
 
                                             # Generate button
@@ -983,7 +1010,9 @@ class VTKPromptApp(TrameApp):
                                                 click=self.generate_code,
                                                 classes="mb-2",
                                                 disabled=(
-                                                    "!query_text.trim() || use_cloud_models && !api_token.trim()",
+                                                    "is_viewing_history ||"
+                                                    + " !query_text.trim() ||"
+                                                    + " (use_cloud_models && !api_token.trim())",
                                                 ),
                                             )
 
