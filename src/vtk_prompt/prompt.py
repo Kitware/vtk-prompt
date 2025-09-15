@@ -20,6 +20,7 @@ from .prompts import (
 @dataclass
 class VTKPromptClient:
     """OpenAI client for VTK code generation."""
+    _instance = None
 
     collection_name: str = "vtk-examples"
     database_path: str = "./db/codesage-codesage-large-v2"
@@ -27,11 +28,22 @@ class VTKPromptClient:
     conversation_file: str = None
     conversation: list = None
 
+    def __new__(cls, **kwargs):
+        # Make sure that this is a singleton
+        if cls._instance is None:
+            cls._instance = super(VTKPromptClient, cls).__new__(cls)
+            cls._instance._initialized = False
+            cls._instance.conversation = []
+        return cls._instance
+
+    def __post_init__(self):
+        """Post-init hook to prevent double initialization in singleton."""
+        if hasattr(self, "_initialized") and self._initialized:
+            return
+        self._initialized = True
+
     def load_conversation(self):
         """Load conversation history from file."""
-        if not self.conversation:
-            return []
-
         if not self.conversation_file or not Path(self.conversation_file).exists():
             return []
 
@@ -54,6 +66,15 @@ class VTKPromptClient:
                 json.dump(self.conversation, f, indent=2)
         except Exception as e:
             print(f"Error: Could not save conversation file: {e}")
+
+    def update_conversation(self, new_convo, new_convo_file=None):
+        """Update conversation history with new conversation."""
+        if not self.conversation:
+            self.conversation = []
+        self.conversation.extend(new_convo)
+
+        if new_convo_file:
+            self.conversation_file = new_convo_file
 
     def validate_code_syntax(self, code_string):
         """Validate Python code syntax using AST."""
@@ -163,9 +184,10 @@ class VTKPromptClient:
             if self.verbose:
                 print("CONTEXT: " + context)
 
-        # If no conversation exists, start with system role
+        # Initialize conversation with system message if empty
         if not self.conversation:
-            self.conversation = [{"role": "system", "content": get_python_role()}]
+            self.conversation = []
+            self.conversation.append({"role": "system", "content": get_python_role()})
 
         # Add current user message
         if message:
