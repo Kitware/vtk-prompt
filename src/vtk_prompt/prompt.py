@@ -20,6 +20,7 @@ from .prompts import (
 @dataclass
 class VTKPromptClient:
     """OpenAI client for VTK code generation."""
+
     _instance = None
 
     collection_name: str = "vtk-examples"
