@@ -131,7 +131,7 @@ class VTKPromptApp(TrameApp):
             ],
         }
 
-        self.state.api_token = "ollama"
+        self.state.api_token = ""
 
         # Build UI
         self._build_ui()
@@ -146,17 +146,6 @@ class VTKPromptApp(TrameApp):
             validation_error = self._validate_configuration()
             if validation_error:
                 self.state.error_message = validation_error
-                return
-
-            _ = self._get_base_url()
-            api_key = self._get_api_key()
-
-            # For cloud models, API key is usually required
-            if self.state.use_cloud_models and not api_key:
-                self.state.error_message = (
-                    f"API token is required for {self.state.provider}. "
-                    "Please enter your API token."
-                )
                 return
 
             self.prompt_client = VTKPromptClient(
@@ -586,6 +575,7 @@ class VTKPromptApp(TrameApp):
                                         prepend_icon="mdi-key",
                                         hint="Required for cloud providers",
                                         persistent_hint=True,
+                                        error=("!api_token", False),
                                     )
 
                         # Local Models Tab Content
@@ -838,29 +828,42 @@ class VTKPromptApp(TrameApp):
                                 with vuetify.VCol(cols=12, style="height: 30%;"):
                                     with vuetify.VCard(classes="fill-height"):
                                         with vuetify.VCardText():
-                                            # Cloud models chip
-                                            vuetify.VChip(
-                                                "☁️ {{ provider }}/{{ model }}",
-                                                small=True,
-                                                color="blue",
-                                                text_color="white",
-                                                label=True,
-                                                classes="mb-2",
-                                                v_show="use_cloud_models",
-                                            )
-                                            # Local models chip
-                                            vuetify.VChip(
-                                                (
-                                                    "🏠 {{ local_base_url.replace('http://', '')"
-                                                    ".replace('https://', '') }}/{{ local_model }}"
-                                                ),
-                                                small=True,
-                                                color="green",
-                                                text_color="white",
-                                                label=True,
-                                                classes="mb-2",
-                                                v_show="!use_cloud_models",
-                                            )
+                                            with html.Div(classes="d-flex"):
+                                                # Cloud models chip
+                                                vuetify.VChip(
+                                                    "☁️ {{ provider }}/{{ model }}",
+                                                    small=True,
+                                                    color="blue",
+                                                    text_color="white",
+                                                    label=True,
+                                                    classes="mb-2",
+                                                    v_show="use_cloud_models",
+                                                )
+                                                # Local models chip
+                                                vuetify.VChip(
+                                                    (
+                                                        "🏠 {{ local_base_url.replace('http://', '')"
+                                                        ".replace('https://', '') }}/{{ local_model }}"
+                                                    ),
+                                                    small=True,
+                                                    color="green",
+                                                    text_color="white",
+                                                    label=True,
+                                                    classes="mb-2",
+                                                    v_show="!use_cloud_models",
+                                                )
+                                                vuetify.VSpacer()
+                                                # API token warning chip
+                                                vuetify.VChip(
+                                                    "API token is required for cloud models.",
+                                                    small=True,
+                                                    color="error",
+                                                    text_color="white",
+                                                    label=True,
+                                                    classes="mb-2",
+                                                    v_show="use_cloud_models && !api_token.trim()",
+                                                    prepend_icon="mdi-alert",
+                                                )
 
                                             # Query input
                                             vuetify.VTextarea(
@@ -879,7 +882,9 @@ class VTKPromptApp(TrameApp):
                                                 loading=("trame__busy", False),
                                                 click=self.generate_code,
                                                 classes="mb-2",
-                                                disabled=("!query_text.trim()",),
+                                                disabled=(
+                                                    "!query_text.trim() || use_cloud_models && !api_token.trim()",
+                                                ),
                                             )
 
             vuetify.VAlert(
