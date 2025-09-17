@@ -3,6 +3,7 @@
 import json
 import re
 from pathlib import Path
+from typing import Any, Optional
 
 # Add VTK and Trame imports
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
@@ -30,7 +31,7 @@ CODE_PATTERN = r"<code>(.*?)</code>"
 EXTRA_INSTRUCTIONS_TAG = "</extra_instructions>"
 
 
-def load_js(server):
+def load_js(server: Any) -> None:
     js_file = Path(__file__).with_name("utils.js")
     server.enable_module(
         dict(
@@ -41,7 +42,7 @@ def load_js(server):
 
 
 class VTKPromptApp(TrameApp):
-    def __init__(self, server=None):
+    def __init__(self, server: Optional[Any] = None) -> None:
         super().__init__(server=server, client_type="vue3")
         self.state.trame__title = "VTK Prompt"
 
@@ -71,7 +72,7 @@ class VTKPromptApp(TrameApp):
         # Initial render
         self.render_window.Render()
 
-    def _add_default_scene(self):
+    def _add_default_scene(self) -> None:
         """Add default coordinate axes to prevent empty scene segfaults."""
         try:
             # Create simple axes
@@ -146,7 +147,7 @@ class VTKPromptApp(TrameApp):
         # Initialize the VTK prompt client
         self._init_prompt_client()
 
-    def _init_prompt_client(self):
+    def _init_prompt_client(self) -> None:
         """Initialize the prompt client based on current settings."""
         try:
             # Validate configuration
@@ -164,12 +165,12 @@ class VTKPromptApp(TrameApp):
         except ValueError as e:
             self.state.error_message = str(e)
 
-    def _get_api_key(self):
+    def _get_api_key(self) -> Optional[str]:
         """Get API key from state (requires manual input in UI)."""
         api_token = getattr(self.state, "api_token", "")
         return api_token.strip() if api_token and api_token.strip() else None
 
-    def _get_base_url(self):
+    def _get_base_url(self) -> Optional[str]:
         """Get base URL based on configuration mode."""
         if self.state.use_cloud_models:
             # Use predefined base URLs for cloud providers (OpenAI uses default None)
@@ -184,7 +185,7 @@ class VTKPromptApp(TrameApp):
             local_url = getattr(self.state, "local_base_url", "")
             return local_url.strip() if local_url and local_url.strip() else None
 
-    def _get_model(self):
+    def _get_model(self) -> str:
         """Get model name based on configuration mode."""
         if self.state.use_cloud_models:
             return getattr(self.state, "model", "gpt-4o")
@@ -196,7 +197,7 @@ class VTKPromptApp(TrameApp):
                 else "llama3.2:latest"
             )
 
-    def _get_current_config_summary(self):
+    def _get_current_config_summary(self) -> str:
         """Get a summary of current configuration for display."""
         if self.state.use_cloud_models:
             return f"☁️ {self.state.provider}/{self.state.model}"
@@ -211,7 +212,7 @@ class VTKPromptApp(TrameApp):
             )
             return f"🏠 {base_display}/{model_display}"
 
-    def _validate_configuration(self):
+    def _validate_configuration(self) -> Optional[str]:
         """Validate current configuration and return error message if invalid."""
         if self.state.use_cloud_models:
             # Validate cloud configuration
@@ -247,16 +248,16 @@ class VTKPromptApp(TrameApp):
 
         return None  # No validation errors
 
-    def on_tab_change(self, tab_index):
+    def on_tab_change(self, tab_index: int) -> None:
         """Handle tab change to sync use_cloud_models state."""
         self.state.tab_index = tab_index
         self.state.use_cloud_models = tab_index == 0
 
-    def generate_code(self):
+    def generate_code(self) -> None:
         """Generate VTK code from user query."""
         self._generate_and_execute_code()
 
-    def clear_scene(self):
+    def clear_scene(self) -> None:
         """Clear the VTK scene and restore default axes."""
         try:
             self.renderer.RemoveAllViewProps()
@@ -267,7 +268,7 @@ class VTKPromptApp(TrameApp):
         except Exception as e:
             logger.error("Error clearing scene: %s", e)
 
-    def reset_camera(self):
+    def reset_camera(self) -> None:
         """Reset camera view."""
         try:
             self.renderer.ResetCamera()
@@ -276,7 +277,7 @@ class VTKPromptApp(TrameApp):
         except Exception as e:
             logger.error("Error resetting camera: %s", e)
 
-    def _generate_and_execute_code(self):
+    def _generate_and_execute_code(self) -> None:
         """Generate VTK code using Anthropic API and execute it."""
         self.state.is_loading = True
         self.state.error_message = ""
@@ -315,7 +316,9 @@ class VTKPromptApp(TrameApp):
                         self.state.input_tokens = usage.prompt_tokens
                         self.state.output_tokens = usage.completion_tokens
                 else:
-                    generated_explanation, generated_code = result
+                    # Handle string result
+                    generated_explanation = str(result)
+                    generated_code = ""
                     # Reset token counts if no usage info
                     self.state.input_tokens = 0
                     self.state.output_tokens = 0
@@ -340,7 +343,7 @@ class VTKPromptApp(TrameApp):
         finally:
             self.state.is_loading = False
 
-    def _execute_with_renderer(self, code_string):
+    def _execute_with_renderer(self, code_string: str) -> None:
         """Execute VTK code with our renderer using prompt.py's run_code logic."""
         try:
             # Clear previous actors
@@ -380,15 +383,15 @@ class VTKPromptApp(TrameApp):
             self.state.error_message = f"Error executing code: {str(e)}"
 
     @change("conversation_object")
-    def on_conversation_file_data_change(self, conversation_object, **_):
+    def on_conversation_file_data_change(self, conversation_object: Optional[dict[str, Any]], **_: Any) -> None:
         invalid = (
             conversation_object is None
-            or conversation_object["type"] != "application/json"
-            or Path(conversation_object["name"]).suffix != ".json"
-            or not conversation_object["content"]
+            or conversation_object.get("type") != "application/json"
+            or Path(conversation_object.get("name", "")).suffix != ".json"
+            or not conversation_object.get("content")
         )
 
-        if not invalid:
+        if not invalid and conversation_object is not None:
             loaded_conversation = json.loads(conversation_object["content"])
 
             # Append loaded conversation to existing conversation instead of overwriting
@@ -410,7 +413,7 @@ class VTKPromptApp(TrameApp):
             self._conversation_loading = True
             self.generate_code()
 
-    def _parse_assistant_content(self, content):
+    def _parse_assistant_content(self, content: str) -> tuple[Optional[str], Optional[str]]:
         """Parse assistant message content for explanation and code."""
         try:
             explanation_match = re.findall(
@@ -424,7 +427,7 @@ class VTKPromptApp(TrameApp):
         except Exception:
             return None, None
 
-    def _build_conversation_navigation(self):
+    def _build_conversation_navigation(self) -> None:
         """Build list of conversation pairs (user message + assistant response) for navigation."""
         if not self.state.conversation:
             self.state.conversation_navigation = []
@@ -451,7 +454,7 @@ class VTKPromptApp(TrameApp):
 
         self._update_navigation_state()
 
-    def _update_navigation_state(self):
+    def _update_navigation_state(self) -> None:
         """Update navigation button states based on current position."""
         nav_length = len(self.state.conversation_navigation)
 
@@ -468,13 +471,13 @@ class VTKPromptApp(TrameApp):
             nav_length > 0 and self.state.conversation_index < nav_length
         )
 
-    def _sync_with_prompt_client(self):
+    def _sync_with_prompt_client(self) -> None:
         """Sync conversation navigation with prompt client conversation."""
         if self.prompt_client and self.prompt_client.conversation:
             self.state.conversation = self.prompt_client.conversation
             self._build_conversation_navigation()
 
-    def _process_conversation_pair(self, pair_index=None):
+    def _process_conversation_pair(self, pair_index: Optional[int] = None) -> None:
         """Process a specific conversation pair by index."""
         if not self.state.conversation_navigation:
             return
@@ -509,7 +512,7 @@ class VTKPromptApp(TrameApp):
 
         self.state.query_text = query_text
 
-    def _process_loaded_conversation(self):
+    def _process_loaded_conversation(self) -> None:
         """Process loaded conversation to populate UI with last assistant response and user query."""
         if not self.state.conversation:
             return
@@ -519,7 +522,7 @@ class VTKPromptApp(TrameApp):
         self._process_conversation_pair()
 
     @controller.set("navigate_conversation_left")
-    def navigate_conversation_left(self):
+    def navigate_conversation_left(self) -> None:
         """Navigate to previous conversation pair."""
         if not self.state.conversation_navigation:
             return
@@ -531,7 +534,7 @@ class VTKPromptApp(TrameApp):
             self._update_navigation_state()
 
     @controller.set("navigate_conversation_right")
-    def navigate_conversation_right(self):
+    def navigate_conversation_right(self) -> None:
         """Navigate to next conversation pair."""
         if not self.state.conversation_navigation:
             return
@@ -548,12 +551,12 @@ class VTKPromptApp(TrameApp):
             self._update_navigation_state()
 
     @trigger("save_conversation")
-    def save_conversation(self):
-        if self.prompt_client is None:
-            return ""
-        return json.dumps(self.prompt_client.conversation, indent=2)
+    def save_conversation(self) -> str:
+        if hasattr(self, "prompt_client") and self.prompt_client is not None:
+            return json.dumps(self.prompt_client.conversation, indent=2)
+        return ""
 
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         """Build a simplified Vuetify UI."""
         # Initialize drawer state as collapsed
         self.state.main_drawer = True
@@ -1027,12 +1030,12 @@ class VTKPromptApp(TrameApp):
                 icon="mdi-alert-outline",
             )
 
-    def start(self):
+    def start(self) -> None:
         """Start the trame server."""
         self.server.start()
 
 
-def main():
+def main() -> None:
     """Main entry point for the trame app."""
 
     print("VTK Prompt UI - Enter your API token in the application settings.")

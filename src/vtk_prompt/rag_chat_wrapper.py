@@ -10,7 +10,7 @@ import os
 import sys
 from pathlib import Path
 import click
-from typing import List
+from typing import Any, Optional
 import importlib.util
 
 # Import our template system
@@ -28,7 +28,7 @@ from llama_index.core.llms import ChatMessage
 from llama_index.llms.openai import OpenAI
 
 
-def check_rag_components_available():
+def check_rag_components_available() -> bool:
     """Check if RAG components are available and installed."""
     repo_root = Path(__file__).resolve().parent.parent.parent
     rag_components_path = repo_root / "rag-components"
@@ -38,7 +38,7 @@ def check_rag_components_available():
     )
 
 
-def setup_rag_path():
+def setup_rag_path() -> str:
     """Add rag-components directory to the Python path."""
     repo_root = Path(__file__).resolve().parent.parent.parent
     rag_path = str(repo_root / "rag-components")
@@ -48,11 +48,11 @@ def setup_rag_path():
 
 
 def get_rag_snippets(
-    query,
-    collection_name="vtk-examples",
-    database_path="./db/codesage-codesage-large-v2",
-    top_k=5,
-):
+    query: str,
+    collection_name: str = "vtk-examples",
+    database_path: str = "./db/codesage-codesage-large-v2",
+    top_k: int = 5,
+) -> Optional[dict[str, Any]]:
     """Get code snippets from the RAG database."""
     setup_rag_path()
     try:
@@ -88,7 +88,7 @@ class OpenAIRAGChat:
 
     def __init__(
         self, model: str = "gpt-4o", database: str = "./db/codesage-codesage-large-v2"
-    ):
+    ) -> None:
         """Initialize the OpenAI RAG chat system.
 
         Args:
@@ -97,15 +97,15 @@ class OpenAIRAGChat:
         """
         self.model = model
         self.database = database
-        self.llm = None
-        self.client = None
+        self.llm: OpenAI | None = None
+        self.client: Any | None = None
         self.history = [
             ChatMessage(role="system", content="You are a helpful VTK assistant")
         ]
 
         self._init_components()
 
-    def _init_components(self):
+    def _init_components(self) -> None:
         """Initialize LLM and database components."""
         try:
             # Only support OpenAI compatible models
@@ -122,7 +122,7 @@ class OpenAIRAGChat:
         collection_name: str = "python-examples",
         top_k: int = 15,
         streaming: bool = False,
-    ):
+    ) -> dict[str, Any]:
         """Ask a question using RAG-enhanced chat.
 
         Args:
@@ -155,6 +155,9 @@ class OpenAIRAGChat:
         self.history.append(ChatMessage(role="assistant", content=content.rstrip()))
 
         # Generate a response using the LLM
+        if self.llm is None:
+            raise RuntimeError("LLM not initialized")
+
         if streaming:
             response = self.llm.stream_chat(self.history)
         else:
@@ -162,7 +165,7 @@ class OpenAIRAGChat:
 
         return {"response": response, "references": relevant_examples}
 
-    def generate_urls_from_references(self, references: List[str]) -> List[str]:
+    def generate_urls_from_references(self, references: list[str]) -> list[str]:
         """Generate URLs from reference paths.
 
         Args:
@@ -172,8 +175,8 @@ class OpenAIRAGChat:
             List of generated URLs
         """
         urls = []
-        for ref in references:
-            ref = Path(ref)
+        for ref_str in references:
+            ref = Path(ref_str)
             # Transform vtk-examples.git/src/Python/PolyData/CurvaturesAdjustEdges.py
             # to https://examples.vtk.org/site/Python/PolyData/CurvaturesAdjustEdges
             try:
@@ -203,7 +206,7 @@ class OpenAIRAGChat:
     help="Retrieve the top k examples from the database",
 )
 @click.option("--model", default="gpt-4o", help="OpenAI model to use")
-def main(database, collection_name, top_k, model):
+def main(database: str, collection_name: str, top_k: int, model: str) -> None:
     """Query database for code snippets using OpenAI API only."""
 
     # Initialize the chat system

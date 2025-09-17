@@ -20,7 +20,7 @@ from pathlib import Path
 try:
   from importlib.metadata import version, PackageNotFoundError
 except ImportError:
-  from importlib_metadata import version, PackageNotFoundError
+    from importlib_metadata import PackageNotFoundError, version  # type: ignore[import-not-found, no-redef]
 
 try:
   __version__ = version("vtk-prompt")
@@ -30,7 +30,7 @@ __author__ = "Vicente Adolfo Bolea Sanchez"
 __email__ = "vicente.bolea@kitware.com"
 
 
-def setup_logging(level: str = None, log_file: str = None) -> None:
+def setup_logging(level: str | None = None, log_file: str | None = None) -> None:
   """Configure logging for the vtk-prompt package.
 
   Args:
@@ -47,7 +47,7 @@ def setup_logging(level: str = None, log_file: str = None) -> None:
   log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   date_format = "%Y-%m-%d %H:%M:%S"
 
-  handlers = []
+  handlers: list[logging.Handler] = []
 
   # Console handler
   console_handler = logging.StreamHandler(sys.stdout)

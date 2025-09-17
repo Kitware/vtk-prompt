@@ -3,12 +3,13 @@
 import sys
 import argparse
 from pathlib import Path
+from typing import Any
 from . import get_logger
 
 logger = get_logger(__name__)
 
 
-def setup_rag_path():
+def setup_rag_path() -> str:
     """Add rag-components to the Python path.
 
     Returns:
@@ -24,7 +25,7 @@ def setup_rag_path():
     return rag_path
 
 
-def display_results(results, top_k):
+def display_results(results: dict[str, Any], top_k: int) -> None:
     """Display the results from the RAG database query.
 
     Args:
@@ -54,7 +55,7 @@ def display_results(results, top_k):
         logger.info("-" * 80)
 
 
-def main():
+def main() -> None:
     """Test the RAG database with a query."""
     parser = argparse.ArgumentParser(
         description="Test RAG functionality for VTK examples"

@@ -9,7 +9,7 @@ from . import get_logger
 logger = get_logger(__name__)
 
 
-def setup_rag_path():
+def setup_rag_path() -> str:
     """Add rag-components to the Python path.
 
     Returns:
@@ -25,7 +25,7 @@ def setup_rag_path():
     return rag_path
 
 
-def check_dependencies():
+def check_dependencies() -> bool:
     """Check if required dependencies are installed.
 
     Returns:
@@ -41,7 +41,7 @@ def check_dependencies():
     return True
 
 
-def main():
+def main() -> None:
     """Build a RAG database from VTK example files."""
     parser = argparse.ArgumentParser(description="Build RAG database for VTK examples")
     parser.add_argument(
@@ -89,7 +89,7 @@ def main():
     # Import populate_db from rag-components
     try:
         sys.path.insert(0, rag_path)
-        from populate_db import fill_database
+        from populate_db import fill_database  # type: ignore[import-not-found]
     except ImportError as e:
         logger.error("Failed to import from rag-components: %s", e)
         logger.error(

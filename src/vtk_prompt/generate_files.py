@@ -6,6 +6,7 @@ import json
 import sys
 import openai
 import click
+from typing import Optional
 
 # Import our template system
 from .prompts import (
@@ -20,7 +21,7 @@ logger = get_logger(__name__)
 class VTKXMLGenerator:
     """OpenAI client for VTK XML file generation."""
 
-    def __init__(self, api_key=None, base_url=None):
+    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None) -> None:
         """Initialize the VTK XML generator.
 
         Args:
@@ -37,7 +38,7 @@ class VTKXMLGenerator:
 
         self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
 
-    def generate_xml(self, message, model, max_tokens=4000, temperature=0.7):
+    def generate_xml(self, message: str, model: str, max_tokens: int = 4000, temperature: float = 0.7) -> str:
         """Generate VTK XML content from a description."""
         examples_path = Path("data/examples/index.json")
         if examples_path.exists():
@@ -73,7 +74,7 @@ class VTKXMLGenerator:
 
 
 # Legacy function wrapper for backwards compatibility
-def openai_query(message, model, api_key, max_tokens, temperature=0.7, base_url=None):
+def openai_query(message: str, model: str, api_key: str, max_tokens: int, temperature: float = 0.7, base_url: Optional[str] = None) -> str:
     """Legacy wrapper for VTK XML generation."""
     generator = VTKXMLGenerator(api_key, base_url)
     return generator.generate_xml(message, model, max_tokens, temperature)
@@ -109,8 +110,8 @@ def openai_query(message, model, api_key, max_tokens, temperature=0.7, base_url=
     "-o", "--output", help="Output file path (if not specified, output to stdout)"
 )
 def main(
-    input_string, provider, model, token, base_url, max_tokens, temperature, output
-):
+    input_string: str, provider: str, model: str, token: str, base_url: Optional[str], max_tokens: int, temperature: float, output: Optional[str]
+) -> None:
     """Generate VTK XML file content using LLMs.
 
     INPUT_STRING: Description of the VTK file to generate
