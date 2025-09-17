@@ -15,6 +15,9 @@ from .prompts import (
     get_rag_context,
     get_python_role,
 )
+from . import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -52,7 +55,7 @@ class VTKPromptClient:
             with open(self.conversation_file, "r") as f:
                 return json.load(f)
         except Exception as e:
-            print(f"Error: Could not load conversation file: {e}")
+            logger.error("Could not load conversation file: %s", e)
 
     def save_conversation(self):
         """Save conversation history to file."""
@@ -66,7 +69,7 @@ class VTKPromptClient:
             with open(self.conversation_file, "w") as f:
                 json.dump(self.conversation, f, indent=2)
         except Exception as e:
-            print(f"Error: Could not save conversation file: {e}")
+            logger.error("Could not save conversation file: %s", e)
 
     def update_conversation(self, new_convo, new_convo_file=None):
         """Update conversation history with new conversation."""
@@ -91,21 +94,20 @@ class VTKPromptClient:
         """Execute VTK code using exec() after AST validation."""
         is_valid, error_msg = self.validate_code_syntax(code_string)
         if not is_valid:
-            print(f"Code validation failed: {error_msg}")
+            logger.error("Code validation failed: %s", error_msg)
             if self.verbose:
-                print("Generated code:")
-                print(code_string)
+                logger.debug("Generated code:\n%s", code_string)
             return None
 
         if self.verbose:
-            print(code_string)
+            logger.debug("Executing code:\n%s", code_string)
 
         try:
             exec(code_string, globals(), {})
         except Exception as e:
-            print(f"Error executing code: {e}")
+            logger.error("Error executing code: %s", e)
             if not self.verbose:
-                print(code_string)
+                logger.debug("Failed code:\n%s", code_string)
             return None
 
     def query(
@@ -174,16 +176,14 @@ class VTKPromptClient:
             context = get_rag_context(message, context_snippets)
 
             if self.verbose:
-                print("CONTEXT: " + context)
+                logger.debug("RAG context: %s", context)
                 references = rag_snippets.get("references")
                 if references:
-                    print("Using examples from:")
-                    for ref in references:
-                        print(f"- {ref}")
+                    logger.info("Using examples from: %s", ", ".join(references))
         else:
             context = get_no_rag_context(message)
             if self.verbose:
-                print("CONTEXT: " + context)
+                logger.debug("No-RAG context: %s", context)
 
         # Initialize conversation with system message if empty
         if not self.conversation:
@@ -198,10 +198,10 @@ class VTKPromptClient:
         for attempt in range(retry_attempts):
             if self.verbose:
                 if attempt > 0:
-                    print(f"Retry attempt {attempt + 1}/{retry_attempts}")
-                print(f"Making request with model: {model}, temperature: {temperature}")
+                    logger.debug("Retry attempt %d/%d", attempt + 1, retry_attempts)
+                logger.debug("Making request with model: %s, temperature: %s", model, temperature)
                 for i, msg in enumerate(self.conversation):
-                    print(f"Message {i} ({msg['role']}): {msg['content'][:100]}...")
+                    logger.debug("Message %d (%s): %s...", i, msg['role'], msg['content'][:100])
 
             response = client.chat.completions.create(
                 model=model,
@@ -243,9 +243,9 @@ class VTKPromptClient:
                         self.save_conversation()
                     return generated_explanation, generated_code, response.usage
 
-                elif attempt < retry_attempts - 1:  # Don't print on last attempt
+                elif attempt < retry_attempts - 1:  # Don't log on last attempt
                     if self.verbose:
-                        print(f"AST validation failed: {error_msg}. Retrying...")
+                        logger.warning("AST validation failed: %s. Retrying...", error_msg)
                     # Add error feedback to context for retry
                     self.conversation.append({"role": "assistant", "content": content})
                     self.conversation.append(
@@ -260,7 +260,7 @@ class VTKPromptClient:
                 else:
                     # Last attempt failed
                     if self.verbose:
-                        print(f"Final attempt failed AST validation: {error_msg}")
+                        logger.error("Final attempt failed AST validation: %s", error_msg)
 
                     if message:
                         self.conversation.append(
@@ -380,29 +380,28 @@ def main(
             retry_attempts=retry_attempts,
         )
 
-        if verbose and usage is not None:
-            print(
-                f"Used tokens: input={usage.prompt_tokens} output={usage.completion_tokens}"
-            )
+        if verbose:
+            if usage is not None:
+                logger.info(
+                    "Used tokens: input=%d output=%d", usage.prompt_tokens, usage.completion_tokens
+                )
 
         client.run_code(generated_code)
 
     except ValueError as e:
         if "RAG components" in str(e):
-            print("rag_components not found", file=sys.stderr)
+            logger.error("RAG components not found")
             sys.exit(1)
         elif "Failed to load RAG snippets" in str(e):
-            print("failed to load rag snippets", file=sys.stderr)
+            logger.error("Failed to load RAG snippets")
             sys.exit(2)
-
         elif "max_tokens" in str(e):
-            print(f"\nError: {e}", file=sys.stderr)
-            print(f"Current max_tokens: {max_tokens}", file=sys.stderr)
-            print("Try increasing with: --max-tokens <higher_number>", file=sys.stderr)
+            logger.error("Error: %s", e)
+            logger.error("Current max_tokens: %d", max_tokens)
+            logger.error("Try increasing with: --max-tokens <higher_number>")
             sys.exit(3)
-
         else:
-            print(f"Error: {e}", file=sys.stderr)
+            logger.error("Error: %s", e)
             sys.exit(4)
 
 

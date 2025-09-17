@@ -4,6 +4,9 @@ import argparse
 import importlib.util
 import sys
 from pathlib import Path
+from . import get_logger
+
+logger = get_logger(__name__)
 
 
 def setup_rag_path():
@@ -32,7 +35,7 @@ def check_dependencies():
 
     for module in required_modules:
         if importlib.util.find_spec(module) is None:
-            print(f"Missing required dependency: {module}")
+            logger.error("Missing required dependency: %s", module)
             return False
 
     return True
@@ -76,8 +79,8 @@ def main():
 
     # Check dependencies
     if not check_dependencies():
-        print("Please install the required dependencies with:")
-        print('pip install -e ".[rag]"')
+        logger.error("Please install the required dependencies with:")
+        logger.error('pip install -e ".[rag]"')
         sys.exit(1)
 
     # Setup RAG path
@@ -88,8 +91,8 @@ def main():
         sys.path.insert(0, rag_path)
         from populate_db import fill_database
     except ImportError as e:
-        print(f"Failed to import from rag-components: {e}")
-        print(
+        logger.error("Failed to import from rag-components: %s", e)
+        logger.error(
             "Make sure the rag-components directory exists and contains the required files."
         )
         sys.exit(1)
@@ -97,26 +100,26 @@ def main():
     # Check if examples directory exists
     examples_dir = Path(args.examples_dir)
     if not examples_dir.exists() or not examples_dir.is_dir():
-        print(
-            f"Error: Examples directory '{args.examples_dir}' does not exist or is not a directory"
+        logger.error(
+            "Examples directory '%s' does not exist or is not a directory", args.examples_dir
         )
         sys.exit(1)
 
     # Get all Python files in the examples directory
     files = list(examples_dir.glob("**/*.py"))
     if not files:
-        print(f"No Python files found in '{args.examples_dir}'")
+        logger.error("No Python files found in '%s'", args.examples_dir)
         sys.exit(1)
 
-    print(f"Found {len(files)} Python files in '{args.examples_dir}'")
+    logger.info("Found %d Python files in '%s'", len(files), args.examples_dir)
 
     # Create database directory if it doesn't exist
     database_dir = Path(args.database).parent
     database_dir.mkdir(parents=True, exist_ok=True)
 
     # Build the RAG database
-    print(
-        f"Building RAG database at '{args.database}' using embedding model '{args.model}'..."
+    logger.info(
+        "Building RAG database at '%s' using embedding model '%s'...", args.database, args.model
     )
     try:
         fill_database(
@@ -127,15 +130,14 @@ def main():
             collection_name=args.collection_name,
         )
 
-        print(f"Successfully built RAG database at '{args.database}'")
-        print("You can now use the RAG database with vtk-prompt by running:")
-        print(
-            f'vtk-prompt "your query" -r --database {args.database} '
-            f"--collection {args.collection_name}"
+        logger.info("Successfully built RAG database at '%s'", args.database)
+        logger.info("You can now use the RAG database with vtk-prompt by running:")
+        logger.info(
+            'vtk-prompt "your query" -r --database %s --collection %s', args.database, args.collection_name
         )
 
     except Exception as e:
-        print(f"Error building RAG database: {e}")
+        logger.error("Error building RAG database: %s", e)
         import traceback
 
         traceback.print_exc()

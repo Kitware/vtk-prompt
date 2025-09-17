@@ -167,34 +167,6 @@ vtk-prompt "Create a cube" \
   --model local-model
 ```
 
-## Development
-
-### Setting up development environment
-
-```bash
-git clone https://github.com/vicentebolea/vtk-prompt.git
-cd vtk-prompt
-pip install -e ".[all]"
-```
-
-### Running tests
-
-```bash
-# Lint and format
-black src/
-flake8 src/
-
-# Test installation
-vtk-prompt --help
-vtk-prompt-ui --help
-```
-
-### Building package
-
-```bash
-python -m build
-```
-
 ## CLI Reference
 
 ```

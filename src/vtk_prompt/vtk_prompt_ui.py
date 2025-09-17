@@ -86,7 +86,7 @@ class VTKPromptApp(TrameApp):
             # Reset camera to show axes
             self.renderer.ResetCamera()
         except Exception as e:
-            print(f"Warning: Could not add default scene: {e}")
+            logger.warning("Could not add default scene: %s", e)
 
         # App state variables
         self.state.query_text = ""
@@ -265,7 +265,7 @@ class VTKPromptApp(TrameApp):
             self.render_window.Render()
             self.ctrl.view_update()
         except Exception as e:
-            print(f"Error clearing scene: {e}")
+            logger.error("Error clearing scene: %s", e)
 
     def reset_camera(self):
         """Reset camera view."""
@@ -274,7 +274,7 @@ class VTKPromptApp(TrameApp):
             self.render_window.Render()
             self.ctrl.view_update()
         except Exception as e:
-            print(f"Error resetting camera: {e}")
+            logger.error("Error resetting camera: %s", e)
 
     def _generate_and_execute_code(self):
         """Generate VTK code using Anthropic API and execute it."""
@@ -373,7 +373,7 @@ class VTKPromptApp(TrameApp):
                 self.render_window.Render()
                 self.ctrl.view_update()
             except Exception as render_error:
-                print(f"Render error: {render_error}")
+                logger.warning("Render error: %s", render_error)
                 # Still update the view even if render fails
                 self.ctrl.view_update()
         except Exception as e:

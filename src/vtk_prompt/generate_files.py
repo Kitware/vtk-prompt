@@ -12,6 +12,9 @@ from .prompts import (
     get_vtk_xml_context,
     get_xml_role,
 )
+from . import get_logger
+
+logger = get_logger(__name__)
 
 
 class VTKXMLGenerator:
@@ -135,7 +138,7 @@ def main(
     try:
         generator = VTKXMLGenerator(token, base_url)
     except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
+        logger.error("Error: %s", e)
         sys.exit(1)
 
     # Generate the VTK XML content
@@ -145,11 +148,11 @@ def main(
         )
     except ValueError as e:
         if "max_tokens" in str(e):
-            print(f"\nError: {e}", file=sys.stderr)
-            print(f"Current max_tokens: {max_tokens}", file=sys.stderr)
-            print("Try increasing with: --max-tokens <higher_number>", file=sys.stderr)
+            logger.error("Error: %s", e)
+            logger.error("Current max_tokens: %d", max_tokens)
+            logger.error("Try increasing with: --max-tokens <higher_number>")
         else:
-            print(f"Error: {e}", file=sys.stderr)
+            logger.error("Error: %s", e)
         sys.exit(1)
 
     # Validate XML structure (basic check)
@@ -158,15 +161,15 @@ def main(
         if output:
             with open(output, "w") as f:
                 f.write(xml_content)
-            print(f"VTK XML content written to {output}")
+            logger.info("VTK XML content written to %s", output)
         else:
             print(xml_content)
     else:
-        print("Warning: Generated content may not be valid VTK XML", file=sys.stderr)
+        logger.warning("Generated content may not be valid VTK XML")
         if output:
             with open(output, "w") as f:
                 f.write(xml_content)
-            print(f"Content written to {output} (please verify)")
+            logger.info("Content written to %s (please verify)", output)
         else:
             print(xml_content)
 

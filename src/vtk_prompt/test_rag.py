@@ -3,6 +3,9 @@
 import sys
 import argparse
 from pathlib import Path
+from . import get_logger
+
+logger = get_logger(__name__)
 
 
 def setup_rag_path():
@@ -29,26 +32,26 @@ def display_results(results, top_k):
         top_k: The number of top results to display
     """
     # Display code snippets
-    print(f"Top {top_k} most similar code snippets:")
+    logger.info("Top %d most similar code snippets:", top_k)
     for i, (doc, metadata, score) in enumerate(
         zip(results["code_documents"], results["code_metadata"], results["code_scores"])
     ):
-        print(f"\n--- Result {i + 1} (Score: {score:.4f}) ---")
-        print(f"Source: {metadata['original_id']}")
-        print(f"Snippet:\n{doc}")
-        print("-" * 80)
+        logger.info("\n--- Result %d (Score: %.4f) ---", i + 1, score)
+        logger.info("Source: %s", metadata['original_id'])
+        logger.info("Snippet:\n%s", doc)
+        logger.info("-" * 80)
 
     # Display text explanations
-    print("\nText explanations:")
+    logger.info("\nText explanations:")
     for i, (doc, metadata, score) in enumerate(
         zip(results["text_documents"], results["text_metadata"], results["text_scores"])
     ):
-        print(f"\n--- Text {i + 1} (Score: {score:.4f}) ---")
-        print(f"Source: {metadata['original_id']}")
+        logger.info("\n--- Text %d (Score: %.4f) ---", i + 1, score)
+        logger.info("Source: %s", metadata['original_id'])
         if "code" in metadata:
-            print(f"Related code: {metadata['code']}")
-        print(f"Content:\n{doc}")
-        print("-" * 80)
+            logger.info("Related code: %s", metadata['code'])
+        logger.info("Content:\n%s", doc)
+        logger.info("-" * 80)
 
 
 def main():
@@ -86,25 +89,24 @@ def main():
         sys.path.insert(0, rag_path)
         from query_db import query_db_interactive
     except ImportError as e:
-        print(f"Failed to import from rag-components: {e}")
-        print("Make sure you have installed the required dependencies:")
-        print('pip install -e ".[rag]"')
+        logger.error("Failed to import from rag-components: %s", e)
+        logger.error("Make sure you have installed the required dependencies:")
+        logger.error('pip install -e ".[rag]"')
         sys.exit(1)
 
     # Check if database directory exists
     database_path = Path(args.database)
     if not database_path.parent.exists():
-        print(f"Error: Database directory '{database_path.parent}' does not exist")
-        print("Have you built the RAG database? Run:")
-        print("vtk-build-rag")
+        logger.error("Database directory '%s' does not exist", database_path.parent)
+        logger.error("Have you built the RAG database? Run:")
+        logger.error("vtk-build-rag")
         sys.exit(1)
 
     # Query the RAG database
-    print(
-        f"Querying RAG database at '{args.database}' with collection '{args.collection}'"
+    logger.info(
+        "Querying RAG database at '%s' with collection '%s'", args.database, args.collection
     )
-    print(f"Query: '{args.query}'")
-    print()
+    logger.info("Query: '%s'", args.query)
 
     try:
         # Query the database
@@ -116,7 +118,7 @@ def main():
         display_results(results, args.top_k)
 
     except Exception as e:
-        print(f"Error querying the RAG database: {e}")
+        logger.error("Error querying the RAG database: %s", e)
         import traceback
 
         traceback.print_exc()

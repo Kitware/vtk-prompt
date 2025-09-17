@@ -15,6 +15,9 @@ import importlib.util
 
 # Import our template system
 from .prompts import get_rag_chat_context
+from . import get_logger
+
+logger = get_logger(__name__)
 
 # Add rag-components to path
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent / "rag-components"))
@@ -76,7 +79,7 @@ def get_rag_snippets(
             "references": relevant_examples,
         }
     except Exception as e:
-        print(f"Error using RAG components: {e}")
+        logger.error("Error using RAG components: %s", e)
         return None
 
 
@@ -206,8 +209,8 @@ def main(database, collection_name, top_k, model):
     # Initialize the chat system
     chat = OpenAIRAGChat(model, database)
 
-    print("Welcome to VTK's OpenAI-powered assistant! What would you like to know?")
-    print("Type 'exit' to quit")
+    logger.info("Welcome to VTK's OpenAI-powered assistant! What would you like to know?")
+    logger.info("Type 'exit' to quit")
 
     while True:
         user_input = input("User: ")
@@ -216,7 +219,7 @@ def main(database, collection_name, top_k, model):
 
         full_reply = ""
         if user_input.lower() == "exit":
-            print("Bye!")
+            logger.info("Bye!")
             break
 
         try:
@@ -225,9 +228,9 @@ def main(database, collection_name, top_k, model):
                 print(item.delta, end="")
                 full_reply += item.delta
 
-            print("\n Here are some relevant references:")
+            logger.info("\n Here are some relevant references:")
             for ref_url in chat.generate_urls_from_references(reply["references"]):
-                print(ref_url)
+                logger.info(ref_url)
 
             # Add reply to the chat history
             chat.history.append(
@@ -235,7 +238,7 @@ def main(database, collection_name, top_k, model):
             )
 
         except Exception as e:
-            print(f"Error: {e}", file=sys.stderr)
+            logger.error("Error: %s", e)
 
 
 if __name__ == "__main__":
