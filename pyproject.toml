@@ -66,3 +66,44 @@ vtk_prompt = ["prompts/*.txt"]
 
 [tool.black]
 include = 'src/.*.py$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 100
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+exclude = [
+    "rag-components/",
+    "node_modules/",
+    "build/",
+    "dist/"
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "vtk.*",
+    "vtkmodules.*",
+    "trame.*",
+    "trame_vtk.*",
+    "openai.*",
+    "click.*",
+    "chromadb.*",
+    "sentence_transformers.*",
+    "tree_sitter_languages.*",
+    "llama_index.*",
+    "query_db.*"
+]
+ignore_missing_imports = true
+
+# Ignore untyped decorators for Trame UI modules
+[[tool.mypy.overrides]]
+module = [
+    "vtk_prompt.vtk_prompt_ui",
+]
+disable_error_code = ["misc"]
