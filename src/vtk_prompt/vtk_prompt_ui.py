@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import re
 
 # Add VTK and Trame imports
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
@@ -24,6 +25,9 @@ EXPLAIN_RENDERER = (
     + "\n"
     + "# Use your own vtkRenderer in your application"
 )
+EXPLANATION_PATTERN = r"<explanation>(.*?)</explanation>"
+CODE_PATTERN = r"<code>(.*?)</code>"
+EXTRA_INSTRUCTIONS_TAG = "</extra_instructions>"
 
 
 def load_js(server):
@@ -43,6 +47,9 @@ class VTKPromptApp(TrameApp):
         # Make sure JS is loaded
         load_js(self.server)
 
+        # Suppress VTK warnings to reduce console noise
+        vtk.vtkObject.GlobalWarningDisplayOff()
+
         # Initialize VTK components for trame
         self.renderer = vtk.vtkRenderer()
         self.render_window = vtk.vtkRenderWindow()
@@ -59,6 +66,7 @@ class VTKPromptApp(TrameApp):
         self.renderer.SetBackground(0.1, 0.1, 0.1)
 
         # Add a simple coordinate axes as default content
+        self._conversation_loading = False
         self._add_default_scene()
 
         # Initial render
@@ -126,7 +134,7 @@ class VTKPromptApp(TrameApp):
             ],
         }
 
-        self.state.api_token = "ollama"
+        self.state.api_token = ""
 
         # Build UI
         self._build_ui()
@@ -141,17 +149,6 @@ class VTKPromptApp(TrameApp):
             validation_error = self._validate_configuration()
             if validation_error:
                 self.state.error_message = validation_error
-                return
-
-            _ = self._get_base_url()
-            api_key = self._get_api_key()
-
-            # For cloud models, API key is usually required
-            if self.state.use_cloud_models and not api_key:
-                self.state.error_message = (
-                    f"API token is required for {self.state.provider}. "
-                    "Please enter your API token."
-                )
                 return
 
             self.prompt_client = VTKPromptClient(
@@ -281,49 +278,52 @@ class VTKPromptApp(TrameApp):
         self.state.error_message = ""
 
         try:
-            # Generate code using prompt functionality - reuse existing methods
-            enhanced_query = self.state.query_text
-            if self.state.query_text:
-                post_prompt = get_ui_post_prompt()
-                enhanced_query = post_prompt + self.state.query_text
+            if not self._conversation_loading:
+                # Generate code using prompt functionality - reuse existing methods
+                enhanced_query = self.state.query_text
+                if self.state.query_text:
+                    post_prompt = get_ui_post_prompt()
+                    enhanced_query = post_prompt + self.state.query_text
 
-            # Reinitialize client with current settings
-            self._init_prompt_client()
-            if hasattr(self.state, "error_message") and self.state.error_message:
-                return
+                # Reinitialize client with current settings
+                self._init_prompt_client()
+                if hasattr(self.state, "error_message") and self.state.error_message:
+                    return
 
-            result = self.prompt_client.query(
-                enhanced_query,
-                api_key=self._get_api_key(),
-                model=self._get_model(),
-                base_url=self._get_base_url(),
-                max_tokens=int(self.state.max_tokens),
-                temperature=float(self.state.temperature),
-                top_k=int(self.state.top_k),
-                rag=self.state.use_rag,
-                retry_attempts=int(self.state.retry_attempts),
-            )
-            # Keep UI in sync with conversation
-            self.state.conversation = self.prompt_client.conversation
+                result = self.prompt_client.query(
+                    enhanced_query,
+                    api_key=self._get_api_key(),
+                    model=self._get_model(),
+                    base_url=self._get_base_url(),
+                    max_tokens=int(self.state.max_tokens),
+                    temperature=float(self.state.temperature),
+                    top_k=int(self.state.top_k),
+                    rag=self.state.use_rag,
+                    retry_attempts=int(self.state.retry_attempts),
+                )
+                # Keep UI in sync with conversation
+                self.state.conversation = self.prompt_client.conversation
 
-            # Handle both code and usage information
-            if isinstance(result, tuple) and len(result) == 3:
-                generated_explanation, generated_code, usage = result
-                if usage:
-                    self.state.input_tokens = usage.prompt_tokens
-                    self.state.output_tokens = usage.completion_tokens
+                # Handle both code and usage information
+                if isinstance(result, tuple) and len(result) == 3:
+                    generated_explanation, generated_code, usage = result
+                    if usage:
+                        self.state.input_tokens = usage.prompt_tokens
+                        self.state.output_tokens = usage.completion_tokens
+                else:
+                    generated_explanation, generated_code = result
+                    # Reset token counts if no usage info
+                    self.state.input_tokens = 0
+                    self.state.output_tokens = 0
+
+                self.state.generated_explanation = generated_explanation
+                self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code
             else:
-                generated_explanation, generated_code = result
-                # Reset token counts if no usage info
-                self.state.input_tokens = 0
-                self.state.output_tokens = 0
-
-            self.state.generated_explanation = generated_explanation
-            self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code
+                self._conversation_loading = False
 
             # Execute the generated code using the existing run_code method
             # But we need to modify it to work with our renderer
-            self._execute_with_renderer(generated_code)
+            self._execute_with_renderer(self.state.generated_code)
 
         except ValueError as e:
             if "max_tokens" in str(e):
@@ -383,12 +383,92 @@ class VTKPromptApp(TrameApp):
             or Path(conversation_object["name"]).suffix != ".json"
             or not conversation_object["content"]
         )
-        self.state.conversation = (
-            None if invalid else json.loads(conversation_object["content"])
-        )
-        self.state.conversation_file = None if invalid else conversation_object["name"]
+
+        if not invalid:
+            loaded_conversation = json.loads(conversation_object["content"])
+
+            # Append loaded conversation to existing conversation instead of overwriting
+            if self.state.conversation is None:
+                self.state.conversation = []
+
+            # Extend the existing conversation with the loaded one
+            self.state.conversation.extend(loaded_conversation)
+            self.state.conversation_file = conversation_object["name"]
+            self.prompt_client.update_conversation(
+                loaded_conversation, self.state.conversation_file
+            )
+
+            self._process_loaded_conversation()
+        else:
+            self.state.conversation_file = None
+
         if not invalid and self.state.auto_run_conversation_file:
+            self._conversation_loading = True
             self.generate_code()
+
+    def _parse_assistant_content(self, content):
+        """Parse assistant message content for explanation and code."""
+        explanation_match = re.findall(EXPLANATION_PATTERN, content, re.DOTALL)
+        code_match = re.findall(CODE_PATTERN, content, re.DOTALL)
+
+        if explanation_match and code_match:
+            return explanation_match[0].strip(), code_match[0].strip()
+        return None, None
+
+    def _process_loaded_conversation(self):
+        """Process loaded conversation to populate UI with last assistant response and user query."""
+        if not self.state.conversation:
+            return
+
+        conversation_list = self.state.conversation
+
+        # Find the last assistant message
+        last_assistant_message = None
+        for message in reversed(conversation_list):
+            if message.get("role") == "assistant":
+                last_assistant_message = message
+                break
+
+        # Parse assistant message for explanation and code
+        if last_assistant_message:
+            content = last_assistant_message.get("content", "")
+            try:
+                explanation, code = self._parse_assistant_content(content)
+                if explanation and code:
+                    # Clean up explanation text - remove excessive newlines and whitespace
+                    generated_explanation = explanation.strip()
+                    generated_code = code.strip()
+
+                    # Set explanation and code in UI state
+                    self.state.generated_explanation = generated_explanation
+                    self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code
+
+                    # Execute the code to display visualization
+                    self._execute_with_renderer(generated_code)
+            except Exception as e:
+                # If parsing fails, just continue - don't break the loading process
+                print(f"Could not parse assistant message: {e}")
+
+        # Find the last user message to populate query text
+        last_user_message = None
+        for message in reversed(conversation_list):
+            if message.get("role") == "user":
+                last_user_message = message
+                break
+
+        if last_user_message:
+            user_content = last_user_message.get("content", "").strip()
+            # Parse user content to extract just the query text after </extra_instructions>
+            if "</extra_instructions>" in user_content:
+                parts = user_content.split("</extra_instructions>", 1)
+                if len(parts) > 1:
+                    query_text = parts[1].strip()
+                else:
+                    query_text = user_content
+            else:
+                query_text = user_content
+
+            self.state.query_text = query_text
 
     @trigger("save_conversation")
     def save_conversation(self):
@@ -498,6 +578,7 @@ class VTKPromptApp(TrameApp):
                                         prepend_icon="mdi-key",
                                         hint="Required for cloud providers",
                                         persistent_hint=True,
+                                        error=("!api_token", False),
                                     )
 
                         # Local Models Tab Content
@@ -750,29 +831,42 @@ class VTKPromptApp(TrameApp):
                                 with vuetify.VCol(cols=12, style="height: 30%;"):
                                     with vuetify.VCard(classes="fill-height"):
                                         with vuetify.VCardText():
-                                            # Cloud models chip
-                                            vuetify.VChip(
-                                                "☁️ {{ provider }}/{{ model }}",
-                                                small=True,
-                                                color="blue",
-                                                text_color="white",
-                                                label=True,
-                                                classes="mb-2",
-                                                v_show="use_cloud_models",
-                                            )
-                                            # Local models chip
-                                            vuetify.VChip(
-                                                (
-                                                    "🏠 {{ local_base_url.replace('http://', '')"
-                                                    ".replace('https://', '') }}/{{ local_model }}"
-                                                ),
-                                                small=True,
-                                                color="green",
-                                                text_color="white",
-                                                label=True,
-                                                classes="mb-2",
-                                                v_show="!use_cloud_models",
-                                            )
+                                            with html.Div(classes="d-flex"):
+                                                # Cloud models chip
+                                                vuetify.VChip(
+                                                    "☁️ {{ provider }}/{{ model }}",
+                                                    small=True,
+                                                    color="blue",
+                                                    text_color="white",
+                                                    label=True,
+                                                    classes="mb-2",
+                                                    v_show="use_cloud_models",
+                                                )
+                                                # Local models chip
+                                                vuetify.VChip(
+                                                    (
+                                                        "🏠 {{ local_base_url.replace('http://', '')"
+                                                        ".replace('https://', '') }}/{{ local_model }}"
+                                                    ),
+                                                    small=True,
+                                                    color="green",
+                                                    text_color="white",
+                                                    label=True,
+                                                    classes="mb-2",
+                                                    v_show="!use_cloud_models",
+                                                )
+                                                vuetify.VSpacer()
+                                                # API token warning chip
+                                                vuetify.VChip(
+                                                    "API token is required for cloud models.",
+                                                    small=True,
+                                                    color="error",
+                                                    text_color="white",
+                                                    label=True,
+                                                    classes="mb-2",
+                                                    v_show="use_cloud_models && !api_token.trim()",
+                                                    prepend_icon="mdi-alert",
+                                                )
 
                                             # Query input
                                             vuetify.VTextarea(
@@ -791,7 +885,9 @@ class VTKPromptApp(TrameApp):
                                                 loading=("trame__busy", False),
                                                 click=self.generate_code,
                                                 classes="mb-2",
-                                                disabled=("!query_text.trim()",),
+                                                disabled=(
+                                                    "!query_text.trim() || use_cloud_models && !api_token.trim()",
+                                                ),
                                             )
 
             vuetify.VAlert(
