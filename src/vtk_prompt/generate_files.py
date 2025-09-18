@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 
-from pathlib import Path
-import os
 import json
+import os
 import sys
-import openai
-import click
+from pathlib import Path
 from typing import Optional
+
+import click
+import openai
+
+from . import get_logger
 
 # Import our template system
 from .prompts import (
     get_vtk_xml_context,
     get_xml_role,
 )
-from . import get_logger
 
 logger = get_logger(__name__)
 
@@ -32,13 +34,13 @@ class VTKXMLGenerator:
         self.base_url = base_url
 
         if not self.api_key:
-            raise ValueError(
-                "No API key provided. Set OPENAI_API_KEY or pass api_key parameter."
-            )
+            raise ValueError("No API key provided. Set OPENAI_API_KEY or pass api_key parameter.")
 
         self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
 
-    def generate_xml(self, message: str, model: str, max_tokens: int = 4000, temperature: float = 0.7) -> str:
+    def generate_xml(
+        self, message: str, model: str, max_tokens: int = 4000, temperature: float = 0.7
+    ) -> str:
         """Generate VTK XML content from a description."""
         examples_path = Path("data/examples/index.json")
         if examples_path.exists():
@@ -74,7 +76,14 @@ class VTKXMLGenerator:
 
 
 # Legacy function wrapper for backwards compatibility
-def openai_query(message: str, model: str, api_key: str, max_tokens: int, temperature: float = 0.7, base_url: Optional[str] = None) -> str:
+def openai_query(
+    message: str,
+    model: str,
+    api_key: str,
+    max_tokens: int,
+    temperature: float = 0.7,
+    base_url: Optional[str] = None,
+) -> str:
     """Legacy wrapper for VTK XML generation."""
     generator = VTKXMLGenerator(api_key, base_url)
     return generator.generate_xml(message, model, max_tokens, temperature)
@@ -89,9 +98,7 @@ def openai_query(message: str, model: str, api_key: str, max_tokens: int, temper
     help="LLM provider to use",
 )
 @click.option("-m", "--model", default="gpt-4o", help="Model to use for generation")
-@click.option(
-    "-t", "--token", required=True, help="API token for the selected provider"
-)
+@click.option("-t", "--token", required=True, help="API token for the selected provider")
 @click.option("--base-url", help="Base URL for API (auto-detected or custom)")
 @click.option(
     "-k",
@@ -106,11 +113,16 @@ def openai_query(message: str, model: str, api_key: str, max_tokens: int, temper
     default=0.7,
     help="Temperature for generation (0.0-2.0)",
 )
-@click.option(
-    "-o", "--output", help="Output file path (if not specified, output to stdout)"
-)
+@click.option("-o", "--output", help="Output file path (if not specified, output to stdout)")
 def main(
-    input_string: str, provider: str, model: str, token: str, base_url: Optional[str], max_tokens: int, temperature: float, output: Optional[str]
+    input_string: str,
+    provider: str,
+    model: str,
+    token: str,
+    base_url: Optional[str],
+    max_tokens: int,
+    temperature: float,
+    output: Optional[str],
 ) -> None:
     """Generate VTK XML file content using LLMs.
 
@@ -144,9 +156,7 @@ def main(
 
     # Generate the VTK XML content
     try:
-        xml_content = generator.generate_xml(
-            input_string, model, max_tokens, temperature
-        )
+        xml_content = generator.generate_xml(input_string, model, max_tokens, temperature)
     except ValueError as e:
         if "max_tokens" in str(e):
             logger.error("Error: %s", e)

@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 
 import ast
+import json
 import os
 import re
 import sys
-import json
-import openai
-import click
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Union
 
+import click
+import openai
+
+from . import get_logger
 from .prompts import (
     get_no_rag_context,
-    get_rag_context,
     get_python_role,
+    get_rag_context,
 )
-from . import get_logger
 
 logger = get_logger(__name__)
 
@@ -33,7 +34,7 @@ class VTKPromptClient:
     conversation_file: Optional[str] = None
     conversation: Optional[list[dict[str, str]]] = None
 
-    def __new__(cls, **kwargs: Any) -> 'VTKPromptClient':
+    def __new__(cls, **kwargs: Any) -> "VTKPromptClient":
         # Make sure that this is a singleton
         if cls._instance is None:
             cls._instance = super(VTKPromptClient, cls).__new__(cls)
@@ -78,7 +79,9 @@ class VTKPromptClient:
         except Exception as e:
             logger.error("Could not save conversation file: %s", e)
 
-    def update_conversation(self, new_convo: list[dict[str, str]], new_convo_file: Optional[str] = None) -> None:
+    def update_conversation(
+        self, new_convo: list[dict[str, str]], new_convo_file: Optional[str] = None
+    ) -> None:
         """Update conversation history with new conversation."""
         if not self.conversation:
             self.conversation = []
@@ -146,9 +149,7 @@ class VTKPromptClient:
             api_key = os.environ.get("OPENAI_API_KEY")
 
         if not api_key:
-            raise ValueError(
-                "No API key provided. Set OPENAI_API_KEY or pass api_key parameter."
-            )
+            raise ValueError("No API key provided. Set OPENAI_API_KEY or pass api_key parameter.")
 
         # Create client with current parameters
         client = openai.OpenAI(api_key=api_key, base_url=base_url)
@@ -208,7 +209,7 @@ class VTKPromptClient:
                     logger.debug("Retry attempt %d/%d", attempt + 1, retry_attempts)
                 logger.debug("Making request with model: %s, temperature: %s", model, temperature)
                 for i, msg in enumerate(self.conversation):
-                    logger.debug("Message %d (%s): %s...", i, msg['role'], msg['content'][:100])
+                    logger.debug("Message %d (%s): %s...", i, msg["role"], msg["content"][:100])
 
             response = client.chat.completions.create(
                 model=model,
@@ -218,9 +219,7 @@ class VTKPromptClient:
             )
 
             if hasattr(response, "choices") and len(response.choices) > 0:
-                content = (
-                    response.choices[0].message.content or "No content in response"
-                )
+                content = response.choices[0].message.content or "No content in response"
                 finish_reason = response.choices[0].finish_reason
 
                 if finish_reason == "length":
@@ -244,9 +243,7 @@ class VTKPromptClient:
                 is_valid, error_msg = self.validate_code_syntax(generated_code)
                 if is_valid:
                     if message:
-                        self.conversation.append(
-                            {"role": "assistant", "content": content}
-                        )
+                        self.conversation.append({"role": "assistant", "content": content})
                         self.save_conversation()
                     return generated_explanation, generated_code, response.usage
 
@@ -270,9 +267,7 @@ class VTKPromptClient:
                         logger.error("Final attempt failed AST validation: %s", error_msg)
 
                     if message:
-                        self.conversation.append(
-                            {"role": "assistant", "content": content}
-                        )
+                        self.conversation.append({"role": "assistant", "content": content})
                         self.save_conversation()
                     return (
                         generated_explanation,
@@ -295,18 +290,14 @@ class VTKPromptClient:
     help="LLM provider to use",
 )
 @click.option("-m", "--model", default="gpt-4o", help="Model name to use")
-@click.option(
-    "-k", "--max-tokens", type=int, default=1000, help="Max # of tokens to generate"
-)
+@click.option("-k", "--max-tokens", type=int, default=1000, help="Max # of tokens to generate")
 @click.option(
     "--temperature",
     type=float,
     default=0.7,
     help="Temperature for generation (0.0-2.0)",
 )
-@click.option(
-    "-t", "--token", required=True, help="API token for the selected provider"
-)
+@click.option("-t", "--token", required=True, help="API token for the selected provider")
 @click.option("--base-url", help="Base URL for API (auto-detected or custom)")
 @click.option("-r", "--rag", is_flag=True, help="Use RAG to improve code generation")
 @click.option("-v", "--verbose", is_flag=True, help="Show generated source code")
@@ -316,9 +307,7 @@ class VTKPromptClient:
     default="./db/codesage-codesage-large-v2",
     help="Database path for RAG",
 )
-@click.option(
-    "--top-k", type=int, default=5, help="Number of examples to retrieve from RAG"
-)
+@click.option("--top-k", type=int, default=5, help="Number of examples to retrieve from RAG")
 @click.option(
     "--retry-attempts",
     type=int,
@@ -391,7 +380,9 @@ def main(
             _explanation, generated_code, usage = result
             if verbose and usage:
                 logger.info(
-                    "Used tokens: input=%d output=%d", usage.prompt_tokens, usage.completion_tokens
+                    "Used tokens: input=%d output=%d",
+                    usage.prompt_tokens,
+                    usage.completion_tokens,
                 )
             client.run_code(generated_code)
         else:

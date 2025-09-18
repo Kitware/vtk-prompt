@@ -6,16 +6,18 @@ This wrapper adapts the rag-components/chat.py to use only OpenAI API
 and our template system, without modifying the read-only submodule.
 """
 
+import importlib.util
 import os
 import sys
 from pathlib import Path
-import click
 from typing import Any, Optional
-import importlib.util
+
+import click
+
+from . import get_logger
 
 # Import our template system
 from .prompts import get_rag_chat_context
-from . import get_logger
 
 logger = get_logger(__name__)
 
@@ -32,10 +34,7 @@ def check_rag_components_available() -> bool:
     """Check if RAG components are available and installed."""
     repo_root = Path(__file__).resolve().parent.parent.parent
     rag_components_path = repo_root / "rag-components"
-    return (
-        importlib.util.find_spec("chromadb") is not None
-        and rag_components_path.exists()
-    )
+    return importlib.util.find_spec("chromadb") is not None and rag_components_path.exists()
 
 
 def setup_rag_path() -> str:
@@ -99,9 +98,7 @@ class OpenAIRAGChat:
         self.database = database
         self.llm: OpenAI | None = None
         self.client: Any | None = None
-        self.history = [
-            ChatMessage(role="system", content="You are a helpful VTK assistant")
-        ]
+        self.history = [ChatMessage(role="system", content="You are a helpful VTK assistant")]
 
         self._init_components()
 
@@ -139,10 +136,10 @@ class OpenAIRAGChat:
 
         # Query the RAG database for relevant documents
         results = query_db.query_db(query, collection_name, top_k, self.client)
-        relevant_examples = [
-            item["original_id"] for item in results["code_metadata"]
-        ] + [item["code"] for item in results["text_metadata"]]
-        snippets = [item for item in results["code_documents"]]
+        relevant_examples = [item["original_id"] for item in results["code_metadata"]] + [
+            item["code"] for item in results["text_metadata"]
+        ]
+        snippets = list(results["code_documents"])
         relevant_examples = list(set(relevant_examples))
 
         # Combine the retrieved documents into a single text
@@ -191,9 +188,7 @@ class OpenAIRAGChat:
 
 
 @click.command()
-@click.option(
-    "--database", default="./db/codesage-codesage-large-v2", help="Path to the database"
-)
+@click.option("--database", default="./db/codesage-codesage-large-v2", help="Path to the database")
 @click.option(
     "--collection-name",
     default="python-examples",
@@ -236,9 +231,7 @@ def main(database: str, collection_name: str, top_k: int, model: str) -> None:
                 logger.info(ref_url)
 
             # Add reply to the chat history
-            chat.history.append(
-                ChatMessage(role="assistant", content=full_reply.rstrip())
-            )
+            chat.history.append(ChatMessage(role="assistant", content=full_reply.rstrip()))
 
         except Exception as e:
             logger.error("Error: %s", e)

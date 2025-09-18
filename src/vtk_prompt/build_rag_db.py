@@ -4,6 +4,7 @@ import argparse
 import importlib.util
 import sys
 from pathlib import Path
+
 from . import get_logger
 
 logger = get_logger(__name__)
@@ -101,7 +102,8 @@ def main() -> None:
     examples_dir = Path(args.examples_dir)
     if not examples_dir.exists() or not examples_dir.is_dir():
         logger.error(
-            "Examples directory '%s' does not exist or is not a directory", args.examples_dir
+            "Examples directory '%s' does not exist or is not a directory",
+            args.examples_dir,
         )
         sys.exit(1)
 
@@ -119,7 +121,9 @@ def main() -> None:
 
     # Build the RAG database
     logger.info(
-        "Building RAG database at '%s' using embedding model '%s'...", args.database, args.model
+        "Building RAG database at '%s' using embedding model '%s'...",
+        args.database,
+        args.model,
     )
     try:
         fill_database(
@@ -133,7 +137,9 @@ def main() -> None:
         logger.info("Successfully built RAG database at '%s'", args.database)
         logger.info("You can now use the RAG database with vtk-prompt by running:")
         logger.info(
-            'vtk-prompt "your query" -r --database %s --collection %s', args.database, args.collection_name
+            'vtk-prompt "your query" -r --database %s --collection %s',
+            args.database,
+            args.collection_name,
         )
 
     except Exception as e:

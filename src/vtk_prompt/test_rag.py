@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import sys
 import argparse
+import sys
 from pathlib import Path
 from typing import Any
+
 from . import get_logger
 
 logger = get_logger(__name__)
@@ -38,7 +39,7 @@ def display_results(results: dict[str, Any], top_k: int) -> None:
         zip(results["code_documents"], results["code_metadata"], results["code_scores"])
     ):
         logger.info("\n--- Result %d (Score: %.4f) ---", i + 1, score)
-        logger.info("Source: %s", metadata['original_id'])
+        logger.info("Source: %s", metadata["original_id"])
         logger.info("Snippet:\n%s", doc)
         logger.info("-" * 80)
 
@@ -48,18 +49,16 @@ def display_results(results: dict[str, Any], top_k: int) -> None:
         zip(results["text_documents"], results["text_metadata"], results["text_scores"])
     ):
         logger.info("\n--- Text %d (Score: %.4f) ---", i + 1, score)
-        logger.info("Source: %s", metadata['original_id'])
+        logger.info("Source: %s", metadata["original_id"])
         if "code" in metadata:
-            logger.info("Related code: %s", metadata['code'])
+            logger.info("Related code: %s", metadata["code"])
         logger.info("Content:\n%s", doc)
         logger.info("-" * 80)
 
 
 def main() -> None:
     """Test the RAG database with a query."""
-    parser = argparse.ArgumentParser(
-        description="Test RAG functionality for VTK examples"
-    )
+    parser = argparse.ArgumentParser(description="Test RAG functionality for VTK examples")
     parser.add_argument("query", type=str, help="Query to test the RAG database with")
     parser.add_argument(
         "--database",
@@ -105,15 +104,15 @@ def main() -> None:
 
     # Query the RAG database
     logger.info(
-        "Querying RAG database at '%s' with collection '%s'", args.database, args.collection
+        "Querying RAG database at '%s' with collection '%s'",
+        args.database,
+        args.collection,
     )
     logger.info("Query: '%s'", args.query)
 
     try:
         # Query the database
-        results = query_db_interactive(
-            args.query, args.database, args.collection, args.top_k
-        )
+        results = query_db_interactive(args.query, args.database, args.collection, args.top_k)
 
         # Display the results
         display_results(results, args.top_k)

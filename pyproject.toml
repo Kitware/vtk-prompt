@@ -41,6 +41,26 @@ classifiers = [
     "Topic :: Software Development :: Code Generators",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "ruff",
+    "pytest >=6",
+    "pytest-cov >=3",
+    "tox",
+]
+
+# Testing dependencies
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+# All optional dependencies
+all = [
+    "vtk-prompt[dev,test]",
+]
+
 [project.urls]
 Homepage = "https://github.com/vicentebolea/vtk-prompt"
 Repository = "https://github.com/vicentebolea/vtk-prompt"
@@ -66,6 +86,10 @@ vtk_prompt = ["prompts/*.txt"]
 
 [tool.black]
 include = 'src/.*.py$'
+line-length = 100
+
+[tool.ruff]
+line-length = 100
 
 [tool.isort]
 profile = "black"
