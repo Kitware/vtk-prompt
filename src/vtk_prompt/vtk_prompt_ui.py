@@ -40,10 +40,10 @@ EXTRA_INSTRUCTIONS_TAG = "</extra_instructions>"
 def load_js(server: Any) -> None:
     js_file = Path(__file__).with_name("utils.js")
     server.enable_module(
-        dict(
-            serve={"vtk_prompt": str(js_file.parent)},
-            scripts=[f"vtk_prompt/{js_file.name}"],
-        )
+        {
+            "serve": {"vtk_prompt": str(js_file.parent)},
+            "scripts": [f"vtk_prompt/{js_file.name}"],
+        }
     )
 
 
@@ -504,7 +504,9 @@ class VTKPromptApp(TrameApp):
         self.state.query_text = query_text
 
     def _process_loaded_conversation(self) -> None:
-        """Process loaded conversation to populate UI with last assistant response and user query."""
+        """
+        Process loaded conversation to populate UI with last assistant response and user query.
+        """
         if not self.state.conversation:
             return
 
@@ -832,7 +834,8 @@ class VTKPromptApp(TrameApp):
                                     ),
                                     readonly=True,
                                     style=(
-                                        "explanation_expanded.length > 1 ? 'max-height: 75%;' : 'max-height: 95%;'",
+                                        "explanation_expanded.length > 1 ? "
+                                        + "'max-height: 75%;' : 'max-height: 95%;'",
                                     ),
                                 ):
                                     vuetify.VExpansionPanelTitle(
@@ -906,8 +909,10 @@ class VTKPromptApp(TrameApp):
                                                 # Local models chip
                                                 vuetify.VChip(
                                                     (
-                                                        "🏠 {{ local_base_url.replace('http://', '')"
-                                                        ".replace('https://', '') }}/{{ local_model }}"
+                                                        "🏠 "
+                                                        "{{ local_base_url.replace('http://', '')"
+                                                        ".replace('https://', '') }}/"
+                                                        "{{ local_model }}"
                                                     ),
                                                     small=True,
                                                     color="green",
@@ -948,7 +953,9 @@ class VTKPromptApp(TrameApp):
                                                     v_model=("query_text", ""),
                                                     rows=4,
                                                     variant="outlined",
-                                                    placeholder="e.g., Create a red sphere with lighting",
+                                                    placeholder=(
+                                                        "e.g., Create a red sphere with lighting"
+                                                    ),
                                                     hide_details=True,
                                                     disabled=(
                                                         "is_viewing_history",

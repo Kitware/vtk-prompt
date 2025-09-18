@@ -2,6 +2,7 @@
 
 """
 OpenAI-compatible wrapper for the RAG chat functionality.
+
 This wrapper adapts the rag-components/chat.py to use only OpenAI API
 and our template system, without modifying the read-only submodule.
 """
@@ -13,21 +14,17 @@ from pathlib import Path
 from typing import Any, Optional
 
 import click
+import query_db
+from llama_index.core.llms import ChatMessage
+from llama_index.llms.openai import OpenAI
 
 from . import get_logger
-
-# Import our template system
 from .prompts import get_rag_chat_context
 
 logger = get_logger(__name__)
 
 # Add rag-components to path
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent / "rag-components"))
-
-# Import from rag-components
-import query_db
-from llama_index.core.llms import ChatMessage
-from llama_index.llms.openai import OpenAI
 
 
 def check_rag_components_available() -> bool:
@@ -202,7 +199,9 @@ class OpenAIRAGChat:
 )
 @click.option("--model", default="gpt-4o", help="OpenAI model to use")
 def main(database: str, collection_name: str, top_k: int, model: str) -> None:
-    """Query database for code snippets using OpenAI API only."""
+    """
+    Query database for code snippets using OpenAI API only.
+    """
 
     # Initialize the chat system
     chat = OpenAIRAGChat(model, database)

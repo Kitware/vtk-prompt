@@ -124,7 +124,8 @@ def main(
     temperature: float,
     output: Optional[str],
 ) -> None:
-    """Generate VTK XML file content using LLMs.
+    """
+    Generate VTK XML file content using LLMs.
 
     INPUT_STRING: Description of the VTK file to generate
     """

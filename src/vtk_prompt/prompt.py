@@ -224,7 +224,8 @@ class VTKPromptClient:
 
                 if finish_reason == "length":
                     raise ValueError(
-                        f"Output was truncated due to max_tokens limit ({max_tokens}). Please increase max_tokens."
+                        f"Output was truncated due to max_tokens limit ({max_tokens}).\n"
+                        "Please increase max_tokens."
                     )
 
                 generated_explanation = re.findall(
@@ -334,7 +335,8 @@ def main(
     retry_attempts: int,
     conversation: Optional[str],
 ) -> None:
-    """Generate and execute VTK code using LLMs.
+    """
+    Generate and execute VTK code using LLMs.
 
     INPUT_STRING: The code description to generate VTK code for
     """
