@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import json
-from pathlib import Path
 import re
+from pathlib import Path
 
 # Add VTK and Trame imports
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 from trame.app import TrameApp
-from trame.decorators import change, trigger
+from trame.decorators import change, trigger, controller
 from trame.widgets import html
 from trame.widgets import vuetify3 as vuetify
 from trame_vtk.widgets import vtk as vtk_widgets
@@ -43,6 +43,7 @@ def load_js(server):
 class VTKPromptApp(TrameApp):
     def __init__(self, server=None):
         super().__init__(server=server, client_type="vue3")
+        self.state.trame__title = "VTK Prompt"
 
         # Make sure JS is loaded
         load_js(self.server)
@@ -64,8 +65,6 @@ class VTKPromptApp(TrameApp):
 
         # Set a default background and add a simple default scene to prevent segfault
         self.renderer.SetBackground(0.1, 0.1, 0.1)
-
-        # Add a simple coordinate axes as default content
         self._conversation_loading = False
         self._add_default_scene()
 
@@ -86,7 +85,6 @@ class VTKPromptApp(TrameApp):
 
             # Reset camera to show axes
             self.renderer.ResetCamera()
-
         except Exception as e:
             print(f"Warning: Could not add default scene: {e}")
 
@@ -97,13 +95,19 @@ class VTKPromptApp(TrameApp):
         self.state.is_loading = False
         self.state.use_rag = False
         self.state.error_message = ""
+        self.state.input_tokens = 0
+        self.state.output_tokens = 0
+
+        # Conversation state variables
+        self._conversation_loading = False
         self.state.conversation_object = None
         self.state.conversation_file = None
         self.state.conversation = None
-
-        # Token usage tracking
-        self.state.input_tokens = 0
-        self.state.output_tokens = 0
+        self.state.conversation_index = 0
+        self.state.conversation_navigation = []
+        self.state.can_navigate_left = False
+        self.state.can_navigate_right = False
+        self.state.is_viewing_history = False
 
         # API configuration state
         self.state.use_cloud_models = True  # Toggle between cloud and local
@@ -318,13 +322,14 @@ class VTKPromptApp(TrameApp):
 
                 self.state.generated_explanation = generated_explanation
                 self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code
-            else:
-                self._conversation_loading = False
 
+                # Update navigation after new conversation entry
+                self._build_conversation_navigation()
+
+            self._conversation_loading = False
             # Execute the generated code using the existing run_code method
             # But we need to modify it to work with our renderer
             self._execute_with_renderer(self.state.generated_code)
-
         except ValueError as e:
             if "max_tokens" in str(e):
                 self.state.error_message = f"{str(e)} Current: {self.state.max_tokens}. Try increasing max tokens."
@@ -371,7 +376,6 @@ class VTKPromptApp(TrameApp):
                 print(f"Render error: {render_error}")
                 # Still update the view even if render fails
                 self.ctrl.view_update()
-
         except Exception as e:
             self.state.error_message = f"Error executing code: {str(e)}"
 
@@ -408,67 +412,140 @@ class VTKPromptApp(TrameApp):
 
     def _parse_assistant_content(self, content):
         """Parse assistant message content for explanation and code."""
-        explanation_match = re.findall(EXPLANATION_PATTERN, content, re.DOTALL)
-        code_match = re.findall(CODE_PATTERN, content, re.DOTALL)
+        try:
+            explanation_match = re.findall(
+                r"<explanation>(.*?)</explanation>", content, re.DOTALL
+            )
+            code_match = re.findall(r"<code>(.*?)</code>", content, re.DOTALL)
 
-        if explanation_match and code_match:
-            return explanation_match[0].strip(), code_match[0].strip()
-        return None, None
+            if explanation_match and code_match:
+                return explanation_match[0].strip(), code_match[0].strip()
+            return None, None
+        except Exception:
+            return None, None
+
+    def _build_conversation_navigation(self):
+        """Build list of conversation pairs (user message + assistant response) for navigation."""
+        if not self.state.conversation:
+            self.state.conversation_navigation = []
+            self.state.conversation_index = 0
+            self._update_navigation_state()
+            return
+
+        pairs = []
+        current_user = None
+
+        for message in self.state.conversation:
+            if message.get("role") == "user":
+                current_user = message
+            elif message.get("role") == "assistant" and current_user:
+                pairs.append({"user": current_user, "assistant": message})
+                current_user = None
+
+        self.state.conversation_navigation = pairs
+        # Reset index to last pair if we have pairs
+        if pairs:
+            self.state.conversation_index = len(pairs) - 1
+        else:
+            self.state.conversation_index = 0
+
+        self._update_navigation_state()
+
+    def _update_navigation_state(self):
+        """Update navigation button states based on current position."""
+        nav_length = len(self.state.conversation_navigation)
+
+        # Update navigation buttons
+        self.state.can_navigate_left = (
+            nav_length > 0 and self.state.conversation_index > 0
+        )
+        self.state.can_navigate_right = (
+            nav_length > 0 and self.state.conversation_index < nav_length
+        )
+
+        # Update viewing mode - we're viewing history if not at the "new entry" position
+        self.state.is_viewing_history = (
+            nav_length > 0 and self.state.conversation_index < nav_length
+        )
+
+    def _sync_with_prompt_client(self):
+        """Sync conversation navigation with prompt client conversation."""
+        if self.prompt_client and self.prompt_client.conversation:
+            self.state.conversation = self.prompt_client.conversation
+            self._build_conversation_navigation()
+
+    def _process_conversation_pair(self, pair_index=None):
+        """Process a specific conversation pair by index."""
+        if not self.state.conversation_navigation:
+            return
+
+        if pair_index is None:
+            pair_index = self.state.conversation_index
+
+        if pair_index < 0 or pair_index >= len(self.state.conversation_navigation):
+            return
+
+        pair = self.state.conversation_navigation[pair_index]
+
+        # Process assistant message for explanation and code
+        assistant_content = pair["assistant"].get("content", "")
+        explanation, code = self._parse_assistant_content(assistant_content)
+
+        if explanation and code:
+            # Set explanation and code in UI state
+            self.state.generated_explanation = explanation
+            self.state.generated_code = EXPLAIN_RENDERER + "\n" + code
+
+            # Execute the code to display visualization
+            self._execute_with_renderer(code)
+
+        # Process user message for query text
+        user_content = pair["user"].get("content", "").strip()
+        if "</extra_instructions>" in user_content:
+            parts = user_content.split("</extra_instructions>", 1)
+            query_text = parts[1].strip() if len(parts) > 1 else user_content
+        else:
+            query_text = user_content
+
+        self.state.query_text = query_text
 
     def _process_loaded_conversation(self):
         """Process loaded conversation to populate UI with last assistant response and user query."""
         if not self.state.conversation:
             return
 
-        conversation_list = self.state.conversation
+        # Build navigation pairs and process the latest one
+        self._build_conversation_navigation()
+        self._process_conversation_pair()
 
-        # Find the last assistant message
-        last_assistant_message = None
-        for message in reversed(conversation_list):
-            if message.get("role") == "assistant":
-                last_assistant_message = message
-                break
+    @controller.set("navigate_conversation_left")
+    def navigate_conversation_left(self):
+        """Navigate to previous conversation pair."""
+        if not self.state.conversation_navigation:
+            return
 
-        # Parse assistant message for explanation and code
-        if last_assistant_message:
-            content = last_assistant_message.get("content", "")
-            try:
-                explanation, code = self._parse_assistant_content(content)
-                if explanation and code:
-                    # Clean up explanation text - remove excessive newlines and whitespace
-                    generated_explanation = explanation.strip()
-                    generated_code = code.strip()
+        if self.state.conversation_index >= 0:
+            self.state.conversation_index -= 1
+            if self.state.conversation_index >= 0:
+                self._process_conversation_pair()
+            self._update_navigation_state()
 
-                    # Set explanation and code in UI state
-                    self.state.generated_explanation = generated_explanation
-                    self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code
+    @controller.set("navigate_conversation_right")
+    def navigate_conversation_right(self):
+        """Navigate to next conversation pair."""
+        if not self.state.conversation_navigation:
+            return
 
-                    # Execute the code to display visualization
-                    self._execute_with_renderer(generated_code)
-            except Exception as e:
-                # If parsing fails, just continue - don't break the loading process
-                print(f"Could not parse assistant message: {e}")
-
-        # Find the last user message to populate query text
-        last_user_message = None
-        for message in reversed(conversation_list):
-            if message.get("role") == "user":
-                last_user_message = message
-                break
-
-        if last_user_message:
-            user_content = last_user_message.get("content", "").strip()
-            # Parse user content to extract just the query text after </extra_instructions>
-            if "</extra_instructions>" in user_content:
-                parts = user_content.split("</extra_instructions>", 1)
-                if len(parts) > 1:
-                    query_text = parts[1].strip()
-                else:
-                    query_text = user_content
+        nav_length = len(self.state.conversation_navigation)
+        if self.state.conversation_index < nav_length:
+            self.state.conversation_index += 1
+            if self.state.conversation_index < nav_length:
+                # Still viewing history
+                self._process_conversation_pair()
             else:
-                query_text = user_content
-
-            self.state.query_text = query_text
+                # Moved to "new entry" mode - clear only query text for new input
+                self.state.query_text = ""
+            self._update_navigation_state()
 
     @trigger("save_conversation")
     def save_conversation(self):
@@ -830,7 +907,10 @@ class VTKPromptApp(TrameApp):
                                 # Bottom: Prompt input
                                 with vuetify.VCol(cols=12, style="height: 30%;"):
                                     with vuetify.VCard(classes="fill-height"):
-                                        with vuetify.VCardText():
+                                        with vuetify.VCardText(
+                                            classes="d-flex flex-column",
+                                            style="height: 100%;",
+                                        ):
                                             with html.Div(classes="d-flex"):
                                                 # Cloud models chip
                                                 vuetify.VChip(
@@ -868,14 +948,58 @@ class VTKPromptApp(TrameApp):
                                                     prepend_icon="mdi-alert",
                                                 )
 
-                                            # Query input
-                                            vuetify.VTextarea(
-                                                label="Describe VTK visualization",
-                                                v_model=("query_text", ""),
-                                                rows=4,
-                                                variant="outlined",
-                                                placeholder="e.g., Create a red sphere with lighting",
-                                            )
+                                            with html.Div(
+                                                classes="d-flex mb-2",
+                                                style="height: 100%;",
+                                            ):
+                                                with vuetify.VBtn(
+                                                    variant="tonal",
+                                                    icon=True,
+                                                    rounded="0",
+                                                    disabled=("!can_navigate_left",),
+                                                    classes="h-auto mr-1",
+                                                    click=self.ctrl.navigate_conversation_left,
+                                                ):
+                                                    vuetify.VIcon(
+                                                        "mdi-arrow-left-circle"
+                                                    )
+                                                # Query input
+                                                vuetify.VTextarea(
+                                                    label="Describe VTK visualization",
+                                                    v_model=("query_text", ""),
+                                                    rows=4,
+                                                    variant="outlined",
+                                                    placeholder="e.g., Create a red sphere with lighting",
+                                                    hide_details=True,
+                                                    disabled=(
+                                                        "is_viewing_history",
+                                                        False,
+                                                    ),
+                                                )
+                                                with vuetify.VBtn(
+                                                    color=(
+                                                        "conversation_index ==="
+                                                        + " conversation_navigation.length - 1"
+                                                        + " ? 'success' : 'default'",
+                                                        "default",
+                                                    ),
+                                                    variant="tonal",
+                                                    icon=True,
+                                                    rounded="0",
+                                                    disabled=("!can_navigate_right",),
+                                                    classes="h-auto ml-1",
+                                                    click=self.ctrl.navigate_conversation_right,
+                                                ):
+                                                    vuetify.VIcon(
+                                                        "mdi-arrow-right-circle",
+                                                        v_show="conversation_index <"
+                                                        + " conversation_navigation.length - 1",
+                                                    )
+                                                    vuetify.VIcon(
+                                                        "mdi-message-plus",
+                                                        v_show="conversation_index ==="
+                                                        + " conversation_navigation.length - 1",
+                                                    )
 
                                             # Generate button
                                             vuetify.VBtn(
@@ -886,7 +1010,9 @@ class VTKPromptApp(TrameApp):
                                                 click=self.generate_code,
                                                 classes="mb-2",
                                                 disabled=(
-                                                    "!query_text.trim() || use_cloud_models && !api_token.trim()",
+                                                    "is_viewing_history ||"
+                                                    + " !query_text.trim() ||"
+                                                    + " (use_cloud_models && !api_token.trim())",
                                                 ),
                                             )
 
