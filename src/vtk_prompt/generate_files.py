@@ -1,4 +1,19 @@
-#!/usr/bin/env python3
+"""
+VTK XML File Generator.
+
+This module provides functionality for generating VTK XML files using OpenAI's language models.
+It includes the VTKXMLGenerator class which handles OpenAI API communication and XML file
+generation based on natural language descriptions.
+
+The module supports:
+- XML file generation from text descriptions
+- Template-based prompt construction for VTK XML context
+- Error handling and logging for generation processes
+- CLI interface for standalone XML generation
+
+Example:
+    >>> vtk-generate-xml --description "sphere" --output sphere.xml
+"""
 
 import json
 import os
@@ -129,7 +144,6 @@ def main(
 
     INPUT_STRING: Description of the VTK file to generate
     """
-
     # Set default base URLs
     if not base_url:
         base_urls = {

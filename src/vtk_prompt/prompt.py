@@ -1,4 +1,21 @@
-#!/usr/bin/env python3
+"""
+VTK Code Generation with OpenAI Integration.
+
+This module provides the core functionality for VTK code generation using OpenAI's language models.
+It includes the main VTKPromptClient class which handles conversation management, code generation,
+execution, and error handling with retry logic.
+
+Features:
+- Singleton pattern for conversation persistence
+- RAG (Retrieval-Augmented Generation) integration for context-aware code generation
+- Automatic code execution and error handling
+- Conversation history management and file persistence
+- Multiple model provider support (OpenAI, Anthropic, Gemini, NIM)
+- Template-based prompt construction with VTK-specific context
+
+Example:
+    >>> vtk-prompt "create sphere" --rag --model gpt-4o
+"""
 
 import ast
 import json
@@ -35,6 +52,7 @@ class VTKPromptClient:
     conversation: Optional[list[dict[str, str]]] = None
 
     def __new__(cls, **kwargs: Any) -> "VTKPromptClient":
+        """Create singleton instance of VTKPromptClient."""
         # Make sure that this is a singleton
         if cls._instance is None:
             cls._instance = super(VTKPromptClient, cls).__new__(cls)
@@ -59,7 +77,9 @@ class VTKPromptClient:
                 if isinstance(data, list):
                     return data
                 else:
-                    logger.warning("Invalid conversation file format, no history loaded.")
+                    logger.warning(
+                        "Invalid conversation file format, no history loaded."
+                    )
                     return []
         except Exception as e:
             logger.error("Could not load conversation file: %s", e)
@@ -340,7 +360,6 @@ def main(
 
     INPUT_STRING: The code description to generate VTK code for
     """
-
     # Set default base URLs
     if base_url is None:
         base_urls = {

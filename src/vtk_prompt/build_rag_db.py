@@ -1,4 +1,16 @@
-#!/usr/bin/env python3
+"""
+RAG Database Builder for VTK Examples.
+
+This module provides functionality to build a RAG (Retrieval-Augmented Generation) database
+from VTK example files. It processes Python code examples, extracts metadata, and creates
+embeddings for semantic search capabilities.
+
+The module integrates with the rag-components submodule to handle database creation,
+document processing, and embedding generation for VTK code examples.
+
+Example:
+    >>> vtk-build-rag --examples-dir ./examples --collection vtk-examples
+"""
 
 import argparse
 import importlib.util

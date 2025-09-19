@@ -1,4 +1,20 @@
-#!/usr/bin/env python3
+"""
+VTK Prompt Interactive User Interface.
+
+This module provides a web-based interactive user interface for VTK code generation using Trame.
+It combines VTK visualization with AI-powered code generation capabilities in a single application.
+
+The interface includes:
+- Real-time VTK code generation and execution
+- Interactive 3D visualization with VTK render window
+- Conversation management with history navigation
+- File upload/download for conversation persistence
+- Live code editing and execution with error handling
+- RAG integration for context-aware code generation
+
+Example:
+    >>> vtk-prompt-ui --port 9090
+"""
 
 import json
 import re
@@ -38,6 +54,7 @@ EXTRA_INSTRUCTIONS_TAG = "</extra_instructions>"
 
 
 def load_js(server: Any) -> None:
+    """Load JavaScript utilities for VTK Prompt UI."""
     js_file = Path(__file__).with_name("utils.js")
     server.enable_module(
         {
@@ -48,7 +65,9 @@ def load_js(server: Any) -> None:
 
 
 class VTKPromptApp(TrameApp):
+    """VTK Prompt interactive application with 3D visualization and AI chat interface."""
     def __init__(self, server: Optional[Any] = None) -> None:
+        """Initialize VTK Prompt application."""
         super().__init__(server=server, client_type="vue3")
         self.state.trame__title = "VTK Prompt"
 
@@ -379,6 +398,7 @@ class VTKPromptApp(TrameApp):
     def on_conversation_file_data_change(
         self, conversation_object: Optional[dict[str, Any]], **_: Any
     ) -> None:
+        """Handle conversation file data changes and load conversation history."""
         invalid = (
             conversation_object is None
             or conversation_object.get("type") != "application/json"
@@ -504,9 +524,7 @@ class VTKPromptApp(TrameApp):
         self.state.query_text = query_text
 
     def _process_loaded_conversation(self) -> None:
-        """
-        Process loaded conversation to populate UI with last assistant response and user query.
-        """
+        """Process loaded conversation file."""
         if not self.state.conversation:
             return
 
@@ -545,6 +563,7 @@ class VTKPromptApp(TrameApp):
 
     @trigger("save_conversation")
     def save_conversation(self) -> str:
+        """Save current conversation history as JSON string."""
         if hasattr(self, "prompt_client") and self.prompt_client is not None:
             return json.dumps(self.prompt_client.conversation, indent=2)
         return ""

@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+"""
+RAG Database Testing Utilities.
+
+This module provides utilities for testing the RAG (Retrieval-Augmented Generation) database
+functionality. It includes functions to set up the RAG components path, query the database,
+and test various RAG operations.
+
+The module is designed to work with the rag-components submodule and provides a CLI interface
+for testing database queries and validating RAG functionality.
+
+Example:
+    >>> vtk-test-rag --query "lighting effects" --top-k 10
+"""
 
 import argparse
 import sys

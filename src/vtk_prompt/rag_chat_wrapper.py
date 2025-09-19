@@ -1,10 +1,20 @@
-#!/usr/bin/env python3
-
 """
-OpenAI-compatible wrapper for the RAG chat functionality.
+OpenAI-Compatible RAG Chat Wrapper.
 
-This wrapper adapts the rag-components/chat.py to use only OpenAI API
-and our template system, without modifying the read-only submodule.
+This module provides an OpenAI-compatible wrapper for RAG (Retrieval-Augmented Generation)
+chat functionality, adapting the rag-components/chat.py to use OpenAI API and the VTK prompt
+template system without modifying the read-only submodule.
+
+Features:
+- OpenAI LLM integration for chat completion
+- RAG database querying with configurable top-k retrieval
+- Context-aware response generation using retrieved code snippets
+- URL generation from VTK example references
+- Chat history management and streaming support
+- CLI interface for standalone RAG chat testing
+
+Example:
+    >>> vtk-rag-chat --query "sphere creation" --model gpt-4o
 """
 
 import importlib.util
@@ -199,10 +209,7 @@ class OpenAIRAGChat:
 )
 @click.option("--model", default="gpt-4o", help="OpenAI model to use")
 def main(database: str, collection_name: str, top_k: int, model: str) -> None:
-    """
-    Query database for code snippets using OpenAI API only.
-    """
-
+    """Query database for code snippets using OpenAI API only."""
     # Initialize the chat system
     chat = OpenAIRAGChat(model, database)
 
