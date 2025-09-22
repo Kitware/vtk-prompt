@@ -5,13 +5,16 @@
 [![PyPI version](https://badge.fury.io/py/vtk-prompt.svg)](https://badge.fury.io/py/vtk-prompt)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-A command-line interface and web-based UI for generating VTK visualization code using Large Language Models (Anthropic Claude, OpenAI GPT, NVIDIA NIM, and local models).
+A command-line interface and web-based UI for generating VTK visualization code
+using Large Language Models (Anthropic Claude, OpenAI GPT, NVIDIA NIM, and local
+models).
 
 ![Screenshot from 2025-06-11 19-02-00](https://github.com/user-attachments/assets/2e1e85c3-4efd-43e4-810c-185b851d609d)
 
 ## Features
 
-- Multiple LLM providers: Anthropic Claude, OpenAI GPT, NVIDIA NIM, and local models
+- Multiple LLM providers: Anthropic Claude, OpenAI GPT, NVIDIA NIM, and local
+  models
 - Interactive web UI with live VTK rendering
 - Retrieval-Augmented Generation (RAG) with VTK examples database
 - Real-time visualization of generated code
@@ -77,8 +80,9 @@ vtk-prompt "Create a cone" --provider nim --token YOUR_NIM_TOKEN
 
 The web interface provides:
 
-- Model selection: Choose between Claude models (Haiku, Sonnet 4) and other providers
-- Token control: Adjust maximum tokens for responses  
+- Model selection: Choose between Claude models (Haiku, Sonnet 4) and other
+  providers
+- Token control: Adjust maximum tokens for responses
 - Usage tracking: Real-time display of input/output tokens and costs
 - RAG integration: Toggle retrieval-augmented generation for better results
 - Live preview: See VTK visualizations rendered in real-time
@@ -109,16 +113,19 @@ vtk-prompt "Create a cylinder" --provider nim --model meta/llama3-70b-instruct
 Enhance code generation with relevant VTK examples:
 
 1. **Build RAG database** (one-time setup):
+
 ```bash
 vtk-build-rag
 ```
 
 2. **Test RAG system** (optional):
+
 ```bash
 vtk-test-rag "How to create a cube in VTK"
 ```
 
 3. **Use RAG in queries**:
+
 ```bash
 vtk-prompt "Create a vtkSphereSource with texture mapping" --rag
 ```
@@ -142,12 +149,12 @@ print(code)
 
 ### Supported Providers & Models
 
-| Provider | Default Model | Base URL |
-|----------|---------------|----------|
-| **anthropic** | claude-3-5-haiku-20241022 | https://api.anthropic.com/v1 |
-| **openai** | gpt-4o | https://api.openai.com/v1 |
-| **nim** | meta/llama3-70b-instruct | https://integrate.api.nvidia.com/v1 |
-| **custom** | User-defined | User-defined (for local models) |
+| Provider      | Default Model             | Base URL                            |
+| ------------- | ------------------------- | ----------------------------------- |
+| **anthropic** | claude-3-5-haiku-20241022 | https://api.anthropic.com/v1        |
+| **openai**    | gpt-4o                    | https://api.openai.com/v1           |
+| **nim**       | meta/llama3-70b-instruct  | https://integrate.api.nvidia.com/v1 |
+| **custom**    | User-defined              | User-defined (for local models)     |
 
 ### Custom/Local Models
 
@@ -160,7 +167,7 @@ vtk-prompt "Create a sphere" \
   --base-url http://localhost:11434/v1 \
   --model llama2
 
-# Using LM Studio  
+# Using LM Studio
 vtk-prompt "Create a cube" \
   --provider custom \
   --base-url http://localhost:1234/v1 \
@@ -170,9 +177,9 @@ vtk-prompt "Create a cube" \
 ## CLI Reference
 
 ```
-usage: vtk-prompt [-h] [--provider {anthropic,openai,nim,custom}] 
-                  [-m MODEL] [-k MAX_TOKENS] [-t TOKEN] [--base-url BASE_URL] 
-                  [-r] [-v] [--collection COLLECTION] [--database DATABASE] 
+usage: vtk-prompt [-h] [--provider {anthropic,openai,nim,custom}]
+                  [-m MODEL] [-k MAX_TOKENS] [-t TOKEN] [--base-url BASE_URL]
+                  [-r] [-v] [--collection COLLECTION] [--database DATABASE]
                   [--top-k TOP_K] input_string
 
 Generate VTK visualization code using Large Language Models
@@ -214,6 +221,15 @@ RAG Options:
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+For detailed development instructions, see [DEVELOPMENT.md](DEVELOPMENT.md)
+which covers:
+
+- Setting up the development environment
+- Running tests and linting
+- Developer mode for the web UI
+- Code formatting and type checking
+- Pre-commit hooks
+
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
@@ -222,7 +238,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
+for details.
 
 ## Architecture
 
