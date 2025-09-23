@@ -36,7 +36,7 @@ from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 from . import get_logger
 
 # Import our prompt functionality
-from .prompt import VTKPromptClient
+from .client import VTKPromptClient
 
 # Import our template system
 from .prompts import get_ui_post_prompt
