@@ -227,7 +227,6 @@ class VTKPromptClient:
                 model=model,
                 messages=self.conversation,  # type: ignore[arg-type]
                 max_completion_tokens=max_tokens,
-                # max_tokens=max_tokens,
                 temperature=temperature,
             )
 

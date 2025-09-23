@@ -125,7 +125,7 @@ def main(
         )
 
         if isinstance(result, tuple) and len(result) == 3:
-            explanation, generated_code, usage = result
+            _explanation, generated_code, usage = result
             if verbose and usage:
                 logger.info(
                     "Used tokens: input=%d output=%d",
