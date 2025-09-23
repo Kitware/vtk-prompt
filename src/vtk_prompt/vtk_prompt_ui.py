@@ -33,7 +33,7 @@ from trame_vtk.widgets import vtk as vtk_widgets
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 # Import logging
-from . import get_logger, setup_logging
+from . import get_logger
 
 # Import our prompt functionality
 from .prompt import VTKPromptClient
@@ -66,6 +66,7 @@ def load_js(server: Any) -> None:
 
 class VTKPromptApp(TrameApp):
     """VTK Prompt interactive application with 3D visualization and AI chat interface."""
+
     def __init__(self, server: Optional[Any] = None) -> None:
         """Initialize VTK Prompt application."""
         super().__init__(server=server, client_type="vue3")
@@ -258,15 +259,17 @@ class VTKPromptApp(TrameApp):
 
         return None  # No validation errors
 
-    def on_tab_change(self, tab_index: int) -> None:
+    @change("tab_index")
+    def on_tab_change(self, tab_index: int, **_: Any) -> None:
         """Handle tab change to sync use_cloud_models state."""
-        self.state.tab_index = tab_index
         self.state.use_cloud_models = tab_index == 0
 
+    @controller.set("generate_code")
     def generate_code(self) -> None:
         """Generate VTK code from user query."""
         self._generate_and_execute_code()
 
+    @controller.set("clear_scene")
     def clear_scene(self) -> None:
         """Clear the VTK scene and restore default axes."""
         try:
@@ -278,6 +281,7 @@ class VTKPromptApp(TrameApp):
         except Exception as e:
             logger.error("Error clearing scene: %s", e)
 
+    @controller.set("reset_camera")
     def reset_camera(self) -> None:
         """Reset camera view."""
         try:
@@ -591,13 +595,13 @@ class VTKPromptApp(TrameApp):
 
                 # VTK control buttons
                 with vuetify.VBtn(
-                    click=self.clear_scene,
+                    click=self.ctrl.clear_scene,
                     icon=True,
                     v_tooltip_bottom="Clear Scene",
                 ):
                     vuetify.VIcon("mdi-reload")
                 with vuetify.VBtn(
-                    click=self.reset_camera,
+                    click=self.ctrl.reset_camera,
                     icon=True,
                     v_tooltip_bottom="Reset Camera",
                 ):
@@ -624,7 +628,6 @@ class VTKPromptApp(TrameApp):
                                 v_model=("tab_index", 0),
                                 color="primary",
                                 slider_color="primary",
-                                change=(self.on_tab_change, "[$event]"),
                                 centered=True,
                                 grow=False,
                             ):
@@ -1012,7 +1015,7 @@ class VTKPromptApp(TrameApp):
                                                 color="primary",
                                                 block=True,
                                                 loading=("trame__busy", False),
-                                                click=self.generate_code,
+                                                click=self.ctrl.generate_code,
                                                 classes="mb-2",
                                                 disabled=(
                                                     "is_viewing_history ||"
