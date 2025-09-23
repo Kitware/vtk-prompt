@@ -78,7 +78,7 @@ Repository = "https://github.com/vicentebolea/vtk-prompt"
 Issues = "https://github.com/vicentebolea/vtk-prompt/issues"
 
 [project.scripts]
-vtk-prompt = "vtk_prompt.prompt:main"
+vtk-prompt = "vtk_prompt.cli:main"
 gen-vtk-file = "vtk_prompt.generate_files:main"
 vtk-build-rag = "vtk_prompt.build_rag_db:main"
 vtk-test-rag = "vtk_prompt.test_rag:main"
