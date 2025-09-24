@@ -5,7 +5,7 @@ This module provides the CLI interface for VTK code generation using LLMs.
 It handles argument parsing, validation, and orchestrates the VTKPromptClient.
 
 Example:
-    >>> vtk-prompt "create sphere" --rag --model gpt-4o
+    >>> vtk-prompt "create sphere" --rag --model gpt-5
 """
 
 import sys
@@ -15,6 +15,7 @@ import click
 
 from . import get_logger
 from .client import VTKPromptClient
+from .provider_utils import supports_temperature
 
 logger = get_logger(__name__)
 
@@ -27,7 +28,7 @@ logger = get_logger(__name__)
     default="openai",
     help="LLM provider to use",
 )
-@click.option("-m", "--model", default="gpt-4o", help="Model name to use")
+@click.option("-m", "--model", default="gpt-5", help="Model name to use")
 @click.option("-k", "--max-tokens", type=int, default=1000, help="Max # of tokens to generate")
 @click.option(
     "--temperature",
@@ -87,13 +88,22 @@ def main(
         base_url = base_urls.get(provider)
 
     # Set default models based on provider
-    if model == "gpt-4o":
+    if model == "gpt-5":
         default_models = {
-            "anthropic": "claude-3-5-sonnet-20241022",
-            "gemini": "gemini-1.5-pro",
+            "anthropic": "claude-opus-4-1-20250805",
+            "gemini": "gemini-2.5-pro",
             "nim": "meta/llama3-70b-instruct",
         }
         model = default_models.get(provider, model)
+
+    # Handle temperature override for unsupported models
+    if not supports_temperature(model) and temperature != 0.7:
+        logger.warning(
+            "Model %s does not support temperature control. "
+            "Temperature parameter will be ignored (using 1.0).",
+            model,
+        )
+        temperature = 1.0
 
     try:
         client = VTKPromptClient(
@@ -115,7 +125,7 @@ def main(
         )
 
         if isinstance(result, tuple) and len(result) == 3:
-            _explanation, generated_code, usage = result
+            explanation, generated_code, usage = result
             if verbose and usage:
                 logger.info(
                     "Used tokens: input=%d output=%d",

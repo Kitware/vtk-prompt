@@ -6,7 +6,6 @@ authors = [
     {name = "Vicente Adolfo Bolea Sanchez", email = "vicente.bolea@kitware.com"},
 ]
 dependencies = [
-    "anthropic>=0.22.0",
     "chromadb>=0.6.3",
     "click>=8.0.0",
     "importlib_resources>=5.0.0",
