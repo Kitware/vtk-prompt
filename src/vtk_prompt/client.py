@@ -136,7 +136,7 @@ class VTKPromptClient:
         self,
         message: str = "",
         api_key: Optional[str] = None,
-        model: str = "gpt-4o",
+        model: str = "gpt-5",
         base_url: Optional[str] = None,
         max_tokens: int = 1000,
         temperature: float = 0.1,
@@ -226,7 +226,8 @@ class VTKPromptClient:
             response = client.chat.completions.create(
                 model=model,
                 messages=self.conversation,  # type: ignore[arg-type]
-                max_tokens=max_tokens,
+                max_completion_tokens=max_tokens,
+                # max_tokens=max_tokens,
                 temperature=temperature,
             )
 
