@@ -826,19 +826,20 @@ class VTKPromptApp(TrameApp):
                 with vuetify.VContainer(classes="fluid fill-height pt-0", style="min-width: 100%;"):
                     with vuetify.VRow(rows=12, classes="fill-height"):
                         # Left column - Generated code view
-                        with vuetify.VCol(cols=6, classes="fill-height"):
+                        with vuetify.VCol(cols=7, classes="fill-height"):
                             with vuetify.VExpansionPanels(
                                 v_model=("explanation_expanded", [0, 1]),
                                 classes="fill-height",
                                 multiple=True,
                             ):
                                 with vuetify.VExpansionPanel(
-                                    classes="mt-1",
-                                    style="height: fit-content; max-height: 30%;",
+                                    classes="mt-1 flex-grow-1 flex-shrink-0 d-flex flex-column",
+                                    style="max-height: 25%;",
                                 ):
                                     vuetify.VExpansionPanelTitle("Explanation", classes="text-h6")
                                     with vuetify.VExpansionPanelText(
-                                        style="overflow: hidden;"
+                                        classes="fill-height flex-shrink-1",
+                                        style="overflow: hidden;",
                                     ):
                                         vuetify.VTextarea(
                                             v_model=("generated_explanation", ""),
@@ -848,6 +849,9 @@ class VTKPromptApp(TrameApp):
                                             no_resize=True,
                                             classes="overflow-y-auto fill-height",
                                             placeholder="Explanation will appear here...",
+                                            auto_grow=True,
+                                            density="compact",
+                                            style="overflow-y: auto;",
                                         )
                                 with vuetify.VExpansionPanel(
                                     classes=(
@@ -866,7 +870,8 @@ class VTKPromptApp(TrameApp):
                                         classes="text-h6",
                                     )
                                     with vuetify.VExpansionPanelText(
-                                        style="overflow: hidden; height: 90%;"
+                                        style="overflow: hidden; height: 90%;",
+                                        classes="flex-grow-1",
                                     ):
                                         vuetify.VTextarea(
                                             v_model=("generated_code", ""),
@@ -880,11 +885,13 @@ class VTKPromptApp(TrameApp):
                                         )
 
                         # Right column - VTK viewer and prompt
-                        with vuetify.VCol(cols=6, classes="fill-height"):
+                        with vuetify.VCol(cols=5, classes="fill-height"):
                             with vuetify.VRow(no_gutters=True, classes="fill-height"):
                                 # Top: VTK render view
                                 with vuetify.VCol(
-                                    cols=12, classes="mb-2", style="height: 70%;"
+                                    cols=12,
+                                    classes="mb-2 flex-grow-1 flex-shrink-0",
+                                    style="min-height: calc(100% - 256px);",
                                 ):
                                     with vuetify.VCard(classes="fill-height"):
                                         vuetify.VCardTitle("VTK Visualization")
@@ -911,7 +918,11 @@ class VTKPromptApp(TrameApp):
                                             view.update()
 
                                 # Bottom: Prompt input
-                                with vuetify.VCol(cols=12, style="height: 30%;"):
+                                with vuetify.VCol(
+                                    cols=12,
+                                    classes="flex-grow-0 flex-shrink-0",
+                                    style="height: 256px;",
+                                ):
                                     with vuetify.VCard(classes="fill-height"):
                                         with vuetify.VCardText(
                                             classes="d-flex flex-column",
@@ -979,6 +990,7 @@ class VTKPromptApp(TrameApp):
                                                         "e.g., Create a red sphere with lighting"
                                                     ),
                                                     hide_details=True,
+                                                    no_resize=True,
                                                     disabled=(
                                                         "is_viewing_history",
                                                         False,
