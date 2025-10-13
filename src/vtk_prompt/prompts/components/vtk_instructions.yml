@@ -1,0 +1,13 @@
+role: assistant
+content: |
+  Write Python source code with an explanation that uses VTK.
+
+  <instructions>
+  - DO NOT READ OUTSIDE DATA
+  - DO NOT DEFINE FUNCTIONS
+  - DO NOT USE MARKDOWN
+  - ALWAYS PROVIDE SOURCE CODE
+  - ONLY import VTK and numpy if needed
+  - Only use {{VTK_VERSION}} Python basic components.
+  - Only use {{PYTHON_VERSION}} or above.
+  </instructions>

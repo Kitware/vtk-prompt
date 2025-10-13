@@ -37,8 +37,17 @@ DEFAULT_MODEL = "gpt-5"
 
 
 def supports_temperature(model: str) -> bool:
-    """Check if a model supports temperature control."""
-    return model not in TEMPERATURE_UNSUPPORTED_MODELS
+    """Check if a model supports temperature control.
+
+    Args:
+        model: Model name, can be in format "provider/model" or just "model"
+
+    Returns:
+        True if model supports temperature control, False otherwise
+    """
+    # Extract model name from "provider/model" format if present
+    model_name = model.split("/")[-1] if "/" in model else model
+    return model_name not in TEMPERATURE_UNSUPPORTED_MODELS
 
 
 def get_model_temperature(model: str, requested_temperature: float = 0.7) -> float:

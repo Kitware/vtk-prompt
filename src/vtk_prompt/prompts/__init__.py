@@ -21,6 +21,11 @@ from typing import Any, Dict, List
 import vtk
 
 from .yaml_prompt_loader import YAMLPromptLoader
+from .prompt_component_assembler import (
+    PromptComponentLoader,
+    VTKPromptAssembler,
+    assemble_vtk_prompt,
+)
 
 PYTHON_VERSION = ">=3.10"
 VTK_VERSION = vtk.__version__
@@ -58,5 +63,8 @@ __all__ = [
     "get_yaml_prompt",
     "substitute_yaml_variables",
     "format_messages_for_client",
+    "assemble_vtk_prompt",
     "YAMLPromptLoader",
+    "PromptComponentLoader",
+    "VTKPromptAssembler",
 ]
