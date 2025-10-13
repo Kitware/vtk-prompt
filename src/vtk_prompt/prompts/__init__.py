@@ -20,6 +20,11 @@ from typing import Any, Dict, List
 import vtk
 
 from .yaml_prompt_loader import YAMLPromptLoader
+from .prompt_component_assembler import (
+    PromptComponentLoader,
+    VTKPromptAssembler,
+    assemble_vtk_prompt,
+)
 
 PYTHON_VERSION = ">=3.10"
 VTK_VERSION = vtk.__version__
@@ -52,13 +57,17 @@ def get_yaml_prompt(prompt_name: str, **variables: Any) -> List[Dict[str, str]]:
     return _loader.get_yaml_prompt(prompt_name, **variables)
 
 
-# Export the YAMLPromptLoader class for direct access
+# Export classes and functions for public API
 __all__ = [
     # YAML prompt functions
     "load_yaml_prompt",
     "get_yaml_prompt",
     "substitute_yaml_variables",
     "format_messages_for_client",
-    # YAMLPromptLoader class
+    # Component assembly functions
+    "assemble_vtk_prompt",
+    # Classes
     "YAMLPromptLoader",
+    "PromptComponentLoader",
+    "VTKPromptAssembler",
 ]
