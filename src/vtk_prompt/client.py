@@ -19,7 +19,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import openai
 
@@ -128,9 +128,20 @@ class VTKPromptClient:
                 logger.debug("Failed code:\n%s", code_string)
             return
 
+    def _extract_context_snippets(self, rag_snippets: dict) -> str:
+        """Extract and format RAG context snippets.
+
+        Args:
+            rag_snippets: RAG snippets dictionary
+
+        Returns:
+            Formatted context snippets string
+        """
+        return "\n\n".join(rag_snippets["code_snippets"])
+
     def _format_custom_prompt(
         self, custom_prompt_data: dict, message: str, rag_snippets: Optional[dict] = None
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """Format custom prompt data into messages for LLM client.
 
         Args:
@@ -141,27 +152,26 @@ class VTKPromptClient:
         Returns:
             List of formatted messages ready for LLM client
         """
-        from .prompts import substitute_yaml_variables
-        import vtk
+        from .prompts import YAMLPromptLoader, VTK_VERSION, PYTHON_VERSION
 
         # Prepare variables for substitution
         variables = {
-            "VTK_VERSION": vtk.__version__,
-            "PYTHON_VERSION": ">=3.10",
+            "VTK_VERSION": VTK_VERSION,
+            "PYTHON_VERSION": PYTHON_VERSION,
             "request": message,
         }
 
         # Add RAG context if available
         if rag_snippets:
-            context_snippets = "\n\n".join(rag_snippets["code_snippets"])
-            variables["context_snippets"] = context_snippets
+            variables["context_snippets"] = self._extract_context_snippets(rag_snippets)
 
         # Process messages from custom prompt
         messages = custom_prompt_data.get("messages", [])
         formatted_messages = []
 
+        yaml_loader = YAMLPromptLoader()
         for msg in messages:
-            content = substitute_yaml_variables(msg.get("content", ""), variables)
+            content = yaml_loader.substitute_yaml_variables(msg.get("content", ""), variables)
             formatted_messages.append({"role": msg.get("role", "user"), "content": content})
 
         return formatted_messages
@@ -238,19 +248,19 @@ class VTKPromptClient:
                 logger.debug("Using custom YAML prompt from file")
         else:
             # Use component-based assembly system (now the default and only option)
-            import vtk
+            from .prompts import VTK_VERSION, PYTHON_VERSION
 
             context_snippets = None
             if rag and rag_snippets:
-                context_snippets = "\n\n".join(rag_snippets["code_snippets"])
+                context_snippets = self._extract_context_snippets(rag_snippets)
 
             prompt_data = assemble_vtk_prompt(
                 request=message,
                 ui_mode=ui_mode,
                 rag_enabled=rag,
                 context_snippets=context_snippets,
-                VTK_VERSION=vtk.__version__,
-                PYTHON_VERSION=">=3.10",
+                VTK_VERSION=VTK_VERSION,
+                PYTHON_VERSION=PYTHON_VERSION,
             )
             yaml_messages = prompt_data["messages"]
 
