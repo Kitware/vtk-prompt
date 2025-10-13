@@ -32,7 +32,7 @@ from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
 from .client import VTKPromptClient
-from .prompts import load_yaml_prompt, get_yaml_prompt
+from .prompts import load_yaml_prompt
 from .provider_utils import (
     get_available_models,
     get_default_model,
@@ -66,10 +66,28 @@ def load_js(server: Any) -> None:
 class VTKPromptApp(TrameApp):
     """VTK Prompt interactive application with 3D visualization and AI chat interface."""
 
-    def __init__(self, server: Optional[Any] = None) -> None:
-        """Initialize VTK Prompt application."""
+    def __init__(
+        self, server: Optional[Any] = None, custom_prompt_file: Optional[str] = None
+    ) -> None:
+        """Initialize VTK Prompt application.
+
+        Args:
+            server: Trame server instance
+            custom_prompt_file: Path to custom YAML prompt file
+        """
         super().__init__(server=server, client_type="vue3")
         self.state.trame__title = "VTK Prompt"
+
+        # Store custom prompt file path and data
+        self.custom_prompt_file = custom_prompt_file
+        self.custom_prompt_data = None
+
+        # Add CLI argument for custom prompt file
+        self.server.cli.add_argument(
+            "--prompt-file",
+            help="Path to custom YAML prompt file (overrides built-in prompts and defaults)",
+            dest="prompt_file",
+        )
 
         # Make sure JS is loaded
         load_js(self.server)
@@ -94,8 +112,49 @@ class VTKPromptApp(TrameApp):
         self._conversation_loading = False
         self._add_default_scene()
 
-        # Initial render
-        self.render_window.Render()
+        # Load custom prompt file after VTK initialization
+        if custom_prompt_file:
+            self._load_custom_prompt_file()
+
+    def _load_custom_prompt_file(self) -> None:
+        """Load custom YAML prompt file and extract model parameters."""
+        if not self.custom_prompt_file:
+            return
+
+        try:
+            from pathlib import Path
+            import yaml
+
+            custom_file_path = Path(self.custom_prompt_file)
+            if not custom_file_path.exists():
+                logger.error("Custom prompt file not found: %s", self.custom_prompt_file)
+                return
+
+            with open(custom_file_path, "r") as f:
+                self.custom_prompt_data = yaml.safe_load(f)
+
+            logger.info("Loaded custom prompt file: %s", custom_file_path.name)
+
+            # Override UI defaults with custom prompt parameters
+            if self.custom_prompt_data and isinstance(self.custom_prompt_data, dict):
+                # Set model from prompt file
+                if self.custom_prompt_data.get("model"):
+                    self.state.model = self.custom_prompt_data.get("model")
+                    logger.info("Using model from prompt file: %s", self.state.model)
+
+                # Set model parameters from prompt file
+                model_params = self.custom_prompt_data.get("modelParameters", {})
+                if "temperature" in model_params:
+                    self.state.temperature = model_params["temperature"]
+                    logger.info("Using temperature from prompt file: %s", self.state.temperature)
+
+                if "max_tokens" in model_params:
+                    self.state.max_tokens = model_params["max_tokens"]
+                    logger.info("Using max_tokens from prompt file: %s", self.state.max_tokens)
+
+        except Exception as e:
+            logger.error("Failed to load custom prompt file %s: %s", self.custom_prompt_file, e)
+            self.custom_prompt_data = None
 
     def _add_default_scene(self) -> None:
         """Add default coordinate axes to prevent empty scene segfaults."""
@@ -318,25 +377,15 @@ class VTKPromptApp(TrameApp):
 
         try:
             if not self._conversation_loading:
-                # Use YAML prompt instead of legacy template building
-                if self.state.query_text:
-                    # Load YAML prompt and extract the user message content
-                    try:
-                        yaml_messages = get_yaml_prompt(
-                            "vtk_python_generation_ui", request=self.state.query_text
-                        )
-                        # Extract the user message content (should be the last message)
-                        user_message = (
-                            yaml_messages[-1]["content"] if yaml_messages else self.state.query_text
-                        )
-                        enhanced_query = user_message
-                        logger.debug("Using YAML-formatted prompt")
-                    except Exception as e:
-                        logger.warning("Failed to load YAML prompt, using basic query: %s", e)
-                        # Simple fallback - just use the query text directly
-                        enhanced_query = self.state.query_text
-                else:
+                # Use custom prompt if provided, otherwise use built-in YAML prompts
+                if self.custom_prompt_data:
+                    # Use the query text directly when using custom prompts
                     enhanced_query = self.state.query_text
+                    logger.debug("Using custom prompt file")
+                else:
+                    # Let the client handle prompt selection based on RAG and UI mode
+                    enhanced_query = self.state.query_text
+                    logger.debug("Using UI mode - client will select appropriate prompt")
 
                 # Reinitialize client with current settings
                 self._init_prompt_client()
@@ -353,6 +402,9 @@ class VTKPromptApp(TrameApp):
                     top_k=int(self.state.top_k),
                     rag=self.state.use_rag,
                     retry_attempts=int(self.state.retry_attempts),
+                    provider=self.state.provider,
+                    custom_prompt=self.custom_prompt_data,
+                    ui_mode=True,  # This tells the client to use UI-specific prompts
                 )
                 # Keep UI in sync with conversation
                 self.state.conversation = self.prompt_client.conversation
@@ -1102,8 +1154,19 @@ def main() -> None:
     print("Supported providers: OpenAI, Anthropic, Google Gemini, NVIDIA NIM")
     print("For local Ollama, use custom base URL and model configuration.")
 
+    # Check for custom prompt file in CLI arguments
+    import sys
+
+    custom_prompt_file = None
+
+    # Simple CLI argument parsing to extract --prompt-file before Trame processes args
+    for i, arg in enumerate(sys.argv):
+        if arg == "--prompt-file" and i + 1 < len(sys.argv):
+            custom_prompt_file = sys.argv[i + 1]
+            break
+
     # Create and start the app
-    app = VTKPromptApp()
+    app = VTKPromptApp(custom_prompt_file=custom_prompt_file)
     app.start()
 
 
