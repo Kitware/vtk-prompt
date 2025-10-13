@@ -188,9 +188,21 @@ class VTKPromptAssembler:
         Returns:
             Dictionary with 'messages' and model parameters
         """
-        result: PromptData = {"messages": self.messages.copy()}
-        result.update(self.model_params)  # type: ignore[typeddict-item]
+        result = {
+            "messages": self.messages.copy(),
+        }
+        result.update(self.model_params)
         return result
+
+    def reset(self) -> "VTKPromptAssembler":
+        """Reset the assembler to empty state.
+
+        Returns:
+            Self for method chaining
+        """
+        self.messages.clear()
+        self.model_params.clear()
+        return self
 
 
 def assemble_vtk_prompt(

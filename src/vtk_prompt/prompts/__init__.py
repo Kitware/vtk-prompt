@@ -29,6 +29,11 @@ from .prompt_component_assembler import (
     assemble_vtk_prompt,
 )
 from .yaml_prompt_loader import YAMLPromptLoader
+from .prompt_component_assembler import (
+    PromptComponentLoader,
+    VTKPromptAssembler,
+    assemble_vtk_prompt,
+)
 
 # Path to the prompts directory
 PROMPTS_DIR = Path(__file__).parent
