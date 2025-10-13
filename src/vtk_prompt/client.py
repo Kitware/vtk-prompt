@@ -267,7 +267,7 @@ class VTKPromptClient:
             This method does NOT extract model/modelParameters from custom_prompt_data.
             That is handled by _validate_and_extract_model_params() in the query() method.
         """
-        from .prompts import YAMLPromptLoader, VTK_VERSION, PYTHON_VERSION
+        from .prompts import PYTHON_VERSION, VTK_VERSION, YAMLPromptLoader
 
         # Prepare variables for substitution
         variables = {
@@ -389,7 +389,7 @@ class VTKPromptClient:
                 )
         else:
             # Use component-based assembly system (now the default and only option)
-            from .prompts import VTK_VERSION, PYTHON_VERSION
+            from .prompts import PYTHON_VERSION, VTK_VERSION
 
             context_snippets = None
             if rag and rag_snippets:

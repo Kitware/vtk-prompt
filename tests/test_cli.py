@@ -98,7 +98,7 @@ class TestCLI:
         "provider,expected_model",
         [
             ("openai", "gpt-5"),
-            ("anthropic", "claude-opus-4-1-20250805"),
+            ("anthropic", "claude-opus-4-1"),
             ("gemini", "gemini-2.5-pro"),
             ("nim", "meta/llama3-70b-instruct"),
         ],
