@@ -12,7 +12,7 @@ messages:
       You are an AI assistant specializing in VTK (Visualization Toolkit)
       documentation. Your primary task is to provide accurate, concise, and helpful
       responses to user queries about VTK, including relevant code snippets
-  - role: user
+  - role: assistant
     content: |
       Here is the context information you should use to answer queries:
       <context>

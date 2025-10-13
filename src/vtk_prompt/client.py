@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional, Union
 import openai
 
 from . import get_logger
-from .prompts import get_yaml_prompt
+from .prompts import assemble_vtk_prompt
 
 logger = get_logger(__name__)
 
@@ -228,7 +228,7 @@ class VTKPromptClient:
                 top_k=5,  # Use default top_k value
             )
 
-        # Use custom prompt if provided, otherwise use built-in YAML prompts
+        # Use custom prompt if provided, otherwise use component-based assembly
         if custom_prompt:
             # Process custom prompt data
             yaml_messages = self._format_custom_prompt(
@@ -236,38 +236,33 @@ class VTKPromptClient:
             )
             if self.verbose:
                 logger.debug("Using custom YAML prompt from file")
-        elif rag:
-            if not rag_snippets:
-                raise ValueError("Failed to load RAG snippets")
+        else:
+            # Use component-based assembly system (now the default and only option)
+            import vtk
 
-            context_snippets = "\n\n".join(rag_snippets["code_snippets"])
+            context_snippets = None
+            if rag and rag_snippets:
+                context_snippets = "\n\n".join(rag_snippets["code_snippets"])
 
-            # Choose RAG prompt based on UI mode
-            if ui_mode:
-                prompt_name = "vtk_python_rag_ui"
-                logger.debug("Using RAG-enhanced UI YAML prompt")
-            else:
-                prompt_name = "vtk_python_rag"
-                logger.debug("Using RAG-enhanced CLI YAML prompt")
-
-            yaml_messages = get_yaml_prompt(
-                prompt_name, request=message, context_snippets=context_snippets
+            prompt_data = assemble_vtk_prompt(
+                request=message,
+                ui_mode=ui_mode,
+                rag_enabled=rag,
+                context_snippets=context_snippets,
+                VTK_VERSION=vtk.__version__,
+                PYTHON_VERSION=">=3.10",
             )
+            yaml_messages = prompt_data["messages"]
 
             if self.verbose:
-                references = rag_snippets.get("references")
-                if references:
-                    logger.info("Using examples from: %s", ", ".join(references))
-        else:
-            # Choose standard prompt based on UI mode
-            if ui_mode:
-                prompt_name = "vtk_python_generation_ui"
-                logger.debug("Using standard UI YAML prompt")
-            else:
-                prompt_name = "vtk_python_generation"
-                logger.debug("Using standard CLI YAML prompt")
+                mode_str = "UI" if ui_mode else "CLI"
+                rag_str = " + RAG" if rag else ""
+                logger.debug(f"Using component assembly ({mode_str}{rag_str})")
 
-            yaml_messages = get_yaml_prompt(prompt_name, request=message)
+                if rag and rag_snippets:
+                    references = rag_snippets.get("references")
+                    if references:
+                        logger.info("Using examples from: %s", ", ".join(references))
 
         # Initialize conversation with YAML messages if empty
         if not self.conversation:
