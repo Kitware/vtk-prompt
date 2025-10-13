@@ -29,7 +29,7 @@ from llama_index.core.llms import ChatMessage
 from llama_index.llms.openai import OpenAI
 
 from . import get_logger
-from .prompts import get_yaml_prompt
+from .prompts import YAMLPromptLoader
 
 logger = get_logger(__name__)
 
@@ -153,7 +153,10 @@ class OpenAIRAGChat:
         retrieved_text = "\n\n## Next example:\n\n".join(snippets)
 
         # Use YAML prompt instead of legacy template function
-        yaml_messages = get_yaml_prompt("rag_chat", CONTEXT=retrieved_text, QUERY=query.rstrip())
+        yaml_loader = YAMLPromptLoader()
+        yaml_messages = yaml_loader.get_yaml_prompt(
+            "rag_chat", CONTEXT=retrieved_text, QUERY=query.rstrip()
+        )
 
         # Extract the user message content (should be the last message)
         if yaml_messages:

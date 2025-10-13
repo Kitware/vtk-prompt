@@ -6,15 +6,27 @@ file-based components. Components are stored as YAML files and can be composed
 programmatically to create different prompt variations.
 """
 
-from pathlib import Path
-from typing import Dict, List, Optional, Any
-import yaml
 from functools import lru_cache
+from pathlib import Path
+from typing import Any, Optional, TypedDict
+
+import yaml
 
 from .yaml_prompt_loader import YAMLPromptLoader
 
-# Global loader instance for variable substitution
-_yaml_loader = YAMLPromptLoader()
+# Global instance for variable substitution in component content
+_yaml_variable_substituter = YAMLPromptLoader()
+
+# Keys that define model parameters in component YAML files
+_MODEL_PARAM_KEYS = frozenset(["model", "modelParameters"])
+
+
+class PromptData(TypedDict, total=False):
+    """Type definition for assembled prompt data."""
+
+    messages: list[dict[str, str]]
+    model: str
+    modelParameters: dict[str, Any]
 
 
 class PromptComponentLoader:
@@ -33,7 +45,7 @@ class PromptComponentLoader:
             raise FileNotFoundError(f"Components directory not found: {self.components_dir}")
 
     @lru_cache(maxsize=32)
-    def load_component(self, component_name: str) -> Dict[str, Any]:
+    def load_component(self, component_name: str) -> dict[str, Any]:
         """Load a component file with caching.
 
         Args:
@@ -52,11 +64,11 @@ class PromptComponentLoader:
         with open(component_file) as f:
             return yaml.safe_load(f)
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear component cache (useful for development)."""
         self.load_component.cache_clear()
 
-    def list_components(self) -> List[str]:
+    def list_components(self) -> list[str]:
         """List available component names."""
         return [f.stem for f in self.components_dir.glob("*.yml")]
 
@@ -71,8 +83,8 @@ class VTKPromptAssembler:
             loader: Component loader instance (creates default if None)
         """
         self.loader = loader or PromptComponentLoader()
-        self.messages: List[Dict[str, str]] = []
-        self.model_params: Dict[str, Any] = {}
+        self.messages: list[dict[str, str]] = []
+        self.model_params: dict[str, Any] = {}
 
     def add_component(self, component_name: str) -> "VTKPromptAssembler":
         """Add a component from file.
@@ -86,31 +98,29 @@ class VTKPromptAssembler:
         component = self.loader.load_component(component_name)
 
         if "role" in component:
-            # It's a message component
             message = {"role": component["role"], "content": component["content"]}
 
-            # Handle append/prepend logic for user messages
+            # Handle special message composition: some components need to merge
+            # with existing user messages rather than create new ones
             if component.get("append") and self.messages and self.messages[-1]["role"] == "user":
-                # Append to the last user message
+                # Append content to last user message (e.g., additional instructions)
                 self.messages[-1]["content"] += "\n\n" + component["content"]
             elif component.get("prepend") and self.messages and self.messages[-1]["role"] == "user":
-                # Prepend to the last user message
+                # Prepend content to last user message (e.g., context before instructions)
                 self.messages[-1]["content"] = (
                     component["content"] + "\n\n" + self.messages[-1]["content"]
                 )
             else:
-                # Add as new message
+                # Default: add as new message
                 self.messages.append(message)
 
-        # Handle model parameters
-        if "model" in component or "modelParameters" in component:
-            self.model_params.update(
-                {k: v for k, v in component.items() if k in ["model", "modelParameters"]}
-            )
+        # Extract model parameters if present
+        if any(key in component for key in _MODEL_PARAM_KEYS):
+            self.model_params.update({k: v for k, v in component.items() if k in _MODEL_PARAM_KEYS})
 
         return self
 
-    def when(self, condition: bool, component_name: str) -> "VTKPromptAssembler":
+    def add_if(self, condition: bool, component_name: str) -> "VTKPromptAssembler":
         """Conditionally add a component.
 
         Args:
@@ -146,33 +156,21 @@ class VTKPromptAssembler:
             Self for method chaining
         """
         for message in self.messages:
-            message["content"] = _yaml_loader.substitute_yaml_variables(
+            message["content"] = _yaml_variable_substituter.substitute_yaml_variables(
                 message["content"], variables
             )
 
         return self
 
-    def build(self) -> Dict[str, Any]:
+    def build_prompt_data(self) -> PromptData:
         """Build the final prompt data.
 
         Returns:
             Dictionary with 'messages' and model parameters
         """
-        result = {
-            "messages": self.messages.copy(),
-        }
-        result.update(self.model_params)
+        result: PromptData = {"messages": self.messages.copy()}
+        result.update(self.model_params)  # type: ignore[typeddict-item]
         return result
-
-    def reset(self) -> "VTKPromptAssembler":
-        """Reset the assembler to empty state.
-
-        Returns:
-            Self for method chaining
-        """
-        self.messages.clear()
-        self.model_params.clear()
-        return self
 
 
 def assemble_vtk_prompt(
@@ -181,7 +179,7 @@ def assemble_vtk_prompt(
     rag_enabled: bool = False,
     context_snippets: Optional[str] = None,
     **variables: Any,
-) -> Dict[str, Any]:
+) -> PromptData:
     """Assemble VTK prompt from file-based components.
 
     Args:
@@ -207,22 +205,22 @@ def assemble_vtk_prompt(
     assembler.add_component("base_system")
     assembler.add_component("vtk_instructions")
 
-    # Conditional components
-    assembler.when(rag_enabled, "rag_context")
-    assembler.when(ui_mode, "ui_renderer")
+    # Conditional components (order matters for message composition)
+    assembler.add_if(rag_enabled, "rag_context")
+    assembler.add_if(ui_mode, "ui_renderer")
 
-    # Always add output format and request
+    # Always add output format and request last
     assembler.add_component("output_format")
     assembler.add_request(request)
 
     # Variable substitution with defaults
-    default_vars = {
+    default_variables = {
         "VTK_VERSION": variables.get("VTK_VERSION", "9.5.0"),
         "PYTHON_VERSION": variables.get("PYTHON_VERSION", ">=3.10"),
         "context_snippets": context_snippets or "",
     }
-    default_vars.update(variables)
+    default_variables.update(variables)
 
-    assembler.substitute_variables(**default_vars)
+    assembler.substitute_variables(**default_variables)
 
-    return assembler.build()
+    return assembler.build_prompt_data()
