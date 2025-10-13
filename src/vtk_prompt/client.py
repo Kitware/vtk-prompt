@@ -24,11 +24,7 @@ from typing import Any, Optional, Union
 import openai
 
 from . import get_logger
-from .prompts import (
-    get_no_rag_context,
-    get_python_role,
-    get_rag_context,
-)
+from .prompts import get_yaml_prompt
 
 logger = get_logger(__name__)
 
@@ -181,38 +177,42 @@ class VTKPromptClient:
 
             if not check_rag_components_available():
                 raise ValueError("RAG components not available")
-
             rag_snippets = get_rag_snippets(
                 message,
                 collection_name=self.collection_name,
                 database_path=self.database_path,
-                top_k=top_k,
+                top_k=5,  # Use default top_k value
             )
 
+        # Use YAML prompts instead of legacy template functions
+        if rag:
             if not rag_snippets:
                 raise ValueError("Failed to load RAG snippets")
 
             context_snippets = "\n\n".join(rag_snippets["code_snippets"])
-            context = get_rag_context(message, context_snippets)
+            yaml_messages = get_yaml_prompt(
+                "vtk_python_rag", request=message, context_snippets=context_snippets
+            )
 
             if self.verbose:
-                logger.debug("RAG context: %s", context)
+                logger.debug("Using RAG-enhanced YAML prompt")
                 references = rag_snippets.get("references")
                 if references:
                     logger.info("Using examples from: %s", ", ".join(references))
         else:
-            context = get_no_rag_context(message)
+            yaml_messages = get_yaml_prompt("vtk_python_generation", request=message)
             if self.verbose:
-                logger.debug("No-RAG context: %s", context)
+                logger.debug("Using standard YAML prompt")
 
-        # Initialize conversation with system message if empty
+        # Initialize conversation with YAML messages if empty
         if not self.conversation:
             self.conversation = []
-            self.conversation.append({"role": "system", "content": get_python_role()})
-
-        # Add current user message
-        if message:
-            self.conversation.append({"role": "user", "content": context})
+            # Add all messages from YAML prompt (system + user)
+            self.conversation.extend(yaml_messages)
+        else:
+            # If conversation exists, just add the user message (last message from YAML)
+            if message and yaml_messages:
+                self.conversation.append(yaml_messages[-1])
 
         # Retry loop for AST validation
         for attempt in range(retry_attempts):

@@ -6,6 +6,7 @@ authors = [
     {name = "Vicente Adolfo Bolea Sanchez", email = "vicente.bolea@kitware.com"},
 ]
 dependencies = [
+    "PyYAML>=6.0",
     "chromadb>=0.6.3",
     "click>=8.0.0",
     "importlib_resources>=5.0.0",
@@ -58,6 +59,7 @@ dev = [
     "types-requests",
     "types-click",
     "types-setuptools",
+    "types-PyYAML",
 ]
 
 # Testing dependencies

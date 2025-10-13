@@ -1,0 +1,76 @@
+name: VTK Python Code Generation (RAG)
+description: |
+  Generates VTK Python code using RAG context from VTK examples database
+model: openai/gpt-5
+modelParameters:
+  temperature: 0.7
+  max_tokens: 1000
+messages:
+  - role: system
+    content: |
+      You are a python {{PYTHON_VERSION}} source code producing entity, your
+      output will be fed to a python interpreter
+  - role: user
+    content: |
+      Write Python source code with an explanation that uses VTK.
+
+      <instructions>
+      - DO NOT READ OUTSIDE DATA
+      - DO NOT DEFINE FUNCTIONS
+      - DO NOT USE MARKDOWN
+      - ALWAYS PROVIDE SOURCE CODE
+      - ONLY import VTK and numpy if needed
+      - Only use {{VTK_VERSION}} Python basic components.
+      - Only use {{PYTHON_VERSION}} or above.
+      </instructions>
+
+      <extra_instructions>
+      - Refer to the below vtk_examples snippets, this is the the main source of thruth
+      </extra_instructions>
+
+      <vtk_examples>
+      {{context_snippets}}
+      </vtk_examples>
+
+      <output>
+      - First, provide a **short but complete explanation** written in **full sentences**.
+      - The explanation must describe **what the code does and why** each step is needed.
+      - The explanation must always come **before** the code.
+      - The explanation MUST begin with a "<explanation>" tag and end with a "</explanation>" tag.
+      - The code MUST begin with a "<code>" tag and end with a "</code>" tag.
+      - Do not summarize, introduce, or conclude outside the explanation or code itself.
+      - Output the Python code **exactly as written**, with no additional text before or after the code.
+      - **No** markdown markers like ```python or ``` anywhere.
+      - Do not add phrases like "Here is the source code" or similar.
+      - The explanation must stay **above the code**.
+      - You may use inline comments in the code if helpful for clarity.
+      </output>
+
+      <example>
+      input: Only create a vtkSphere
+      output:
+      <explanation>
+      This code starts by generating the sphere geometry using vtkSphereSource. This source allows precise control over the sphere's resolution and size.
+      </explanation>
+
+      <code>
+      # Create a sphere source
+      sphere = vtk.vtkSphereSource()
+      </code>
+      </example>
+
+      Request:
+      {{request}}
+testData:
+  - prompt: Create a visualization pipeline for medical data
+    expected: |
+      Should use RAG context to generate appropriate medical visualization code
+  - prompt: Make an isosurface from volume data
+    expected: |
+      Should leverage RAG examples for isosurface generation
+evaluators:
+  - type: code_quality
+    description: Checks if generated code is valid Python with proper VTK usage
+  - type: rag_utilization
+    description: |
+      Verifies that the code leverages provided RAG context appropriately

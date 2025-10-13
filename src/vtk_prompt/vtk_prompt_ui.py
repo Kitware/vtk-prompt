@@ -32,7 +32,7 @@ from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
 from .client import VTKPromptClient
-from .prompts import get_ui_post_prompt
+from .prompts import load_yaml_prompt, get_yaml_prompt
 from .provider_utils import (
     get_available_models,
     get_default_model,
@@ -147,6 +147,35 @@ class VTKPromptApp(TrameApp):
         # Initialize with supported providers and fallback models
         self.state.available_providers = get_supported_providers()
         self.state.available_models = get_available_models()
+
+        # Load YAML prompt defaults and sync UI state
+        try:
+            yaml_prompt_data = load_yaml_prompt("vtk_python_generation_ui")
+            model_params = yaml_prompt_data.get("modelParameters", {})
+
+            # Update state with YAML model configuration
+            default_model = yaml_prompt_data.get("model", "openai/gpt-5")
+            if "/" in default_model:
+                provider, model = default_model.split("/", 1)
+                self.state.provider = provider
+                self.state.model = model
+
+            # Update model parameters from YAML
+            self.state.temperature = model_params.get("temperature", 0.7)
+            self.state.max_tokens = model_params.get("max_tokens", 1000)
+
+            logger.debug(
+                "Loaded YAML prompt defaults: provider=%s, model=%s, temp=%s, max_tokens=%s",
+                self.state.provider,
+                self.state.model,
+                self.state.temperature,
+                self.state.max_tokens,
+            )
+        except Exception as e:
+            logger.warning("Could not load YAML prompt defaults: %s", e)
+            # Fall back to default values
+            self.state.temperature = 0.7
+            self.state.max_tokens = 1000
 
         self.state.api_token = ""
 
@@ -289,11 +318,25 @@ class VTKPromptApp(TrameApp):
 
         try:
             if not self._conversation_loading:
-                # Generate code using prompt functionality - reuse existing methods
-                enhanced_query = self.state.query_text
+                # Use YAML prompt instead of legacy template building
                 if self.state.query_text:
-                    post_prompt = get_ui_post_prompt()
-                    enhanced_query = post_prompt + self.state.query_text
+                    # Load YAML prompt and extract the user message content
+                    try:
+                        yaml_messages = get_yaml_prompt(
+                            "vtk_python_generation_ui", request=self.state.query_text
+                        )
+                        # Extract the user message content (should be the last message)
+                        user_message = (
+                            yaml_messages[-1]["content"] if yaml_messages else self.state.query_text
+                        )
+                        enhanced_query = user_message
+                        logger.debug("Using YAML-formatted prompt")
+                    except Exception as e:
+                        logger.warning("Failed to load YAML prompt, using basic query: %s", e)
+                        # Simple fallback - just use the query text directly
+                        enhanced_query = self.state.query_text
+                else:
+                    enhanced_query = self.state.query_text
 
                 # Reinitialize client with current settings
                 self._init_prompt_client()
