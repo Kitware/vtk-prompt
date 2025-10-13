@@ -270,8 +270,6 @@ class VTKPromptClient:
         """
         from .prompts import PYTHON_VERSION, VTK_VERSION, YAMLPromptLoader
 
-        from .prompts import substitute_yaml_variables
-
         # Prepare variables for substitution
         variables = {
             "VTK_VERSION": VTK_VERSION,
