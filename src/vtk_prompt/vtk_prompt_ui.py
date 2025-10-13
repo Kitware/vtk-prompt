@@ -32,7 +32,6 @@ from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
 from .client import VTKPromptClient
-from .prompts import load_yaml_prompt
 from .provider_utils import (
     get_available_models,
     get_default_model,
@@ -250,6 +249,11 @@ class VTKPromptApp(TrameApp):
         self.state.can_navigate_right = False
         self.state.is_viewing_history = False
 
+        # Toast notification state
+        self.state.toast_message = ""
+        self.state.toast_visible = False
+        self.state.toast_color = "warning"
+
         # API configuration state
         self.state.use_cloud_models = True  # Toggle between cloud and local
         self.state.tab_index = 0  # Tab navigation state
@@ -258,39 +262,40 @@ class VTKPromptApp(TrameApp):
         self.state.provider = "openai"
         self.state.model = "gpt-5"
         self.state.temperature_supported = True
-
         # Initialize with supported providers and fallback models
         self.state.available_providers = get_supported_providers()
         self.state.available_models = get_available_models()
 
-        # Load YAML prompt defaults and sync UI state
+        # Load component defaults and sync UI state
         try:
-            yaml_prompt_data = load_yaml_prompt("vtk_python_generation_ui")
-            model_params = yaml_prompt_data.get("modelParameters", {})
+            from .prompts import assemble_vtk_prompt
 
-            # Update state with YAML model configuration
-            default_model = yaml_prompt_data.get("model", "openai/gpt-5")
+            prompt_data = assemble_vtk_prompt("placeholder")  # Just to get defaults
+            model_params = prompt_data.get("modelParameters", {})
+
+            # Update state with component model configuration
+            if "temperature" in model_params:
+                self.state.temperature = str(model_params["temperature"])
+            if "max_tokens" in model_params:
+                self.state.max_tokens = str(model_params["max_tokens"])
+
+            # Parse default model from component data
+            default_model = prompt_data.get("model", "openai/gpt-5")
             if "/" in default_model:
                 provider, model = default_model.split("/", 1)
                 self.state.provider = provider
-                self.state.model = model
-
-            # Update model parameters from YAML
-            self.state.temperature = model_params.get("temperature", 0.7)
-            self.state.max_tokens = model_params.get("max_tokens", 1000)
-
             logger.debug(
-                "Loaded YAML prompt defaults: provider=%s, model=%s, temp=%s, max_tokens=%s",
+                "Loaded component defaults: provider=%s, model=%s, temp=%s, max_tokens=%s",
                 self.state.provider,
                 self.state.model,
                 self.state.temperature,
                 self.state.max_tokens,
             )
         except Exception as e:
-            logger.warning("Could not load YAML prompt defaults: %s", e)
+            logger.warning("Could not load component defaults: %s", e)
             # Fall back to default values
-            self.state.temperature = 0.7
-            self.state.max_tokens = 1000
+            self.state.temperature = "0.5"
+            self.state.max_tokens = "10000"
 
         self.state.api_token = ""
 
@@ -426,6 +431,18 @@ class VTKPromptApp(TrameApp):
         except Exception as e:
             logger.error("Error resetting camera: %s", e)
 
+    @controller.set("trigger_warning_toast")
+    def trigger_warning_toast(self, message: str) -> None:
+        """Display a warning toast notification.
+
+        Args:
+            message: Warning message to display
+        """
+        self.state.toast_message = message
+        self.state.toast_color = "warning"
+        self.state.toast_visible = True
+        logger.warning("Toast notification: %s", message)
+
     def _generate_and_execute_code(self) -> None:
         """Generate VTK code using Anthropic API and execute it."""
         self.state.is_loading = True
@@ -460,24 +477,41 @@ class VTKPromptApp(TrameApp):
                     retry_attempts=int(self.state.retry_attempts),
                     provider=self.state.provider,
                     custom_prompt=self.custom_prompt_data,
-                    ui_mode=True,  # This tells the client to use UI-specific prompts
+                    ui_mode=True,  # This tells the client to use UI-specific components
                 )
                 # Keep UI in sync with conversation
                 self.state.conversation = self.prompt_client.conversation
 
-                # Handle both code and usage information
-                if isinstance(result, tuple) and len(result) == 3:
-                    generated_explanation, generated_code, usage = result
+                # Handle result with optional validation warnings
+                validation_warnings: list[str] = []
+                if isinstance(result, tuple):
+                    if len(result) == 4:
+                        # Result includes validation warnings
+                        generated_explanation, generated_code, usage, validation_warnings = result
+                    elif len(result) == 3:
+                        generated_explanation, generated_code, usage = result
+                    else:
+                        generated_explanation = str(result)
+                        generated_code = ""
+                        usage = None
+
                     if usage:
                         self.state.input_tokens = usage.prompt_tokens
                         self.state.output_tokens = usage.completion_tokens
+                    else:
+                        self.state.input_tokens = 0
+                        self.state.output_tokens = 0
                 else:
                     # Handle string result
                     generated_explanation = str(result)
                     generated_code = ""
-                    # Reset token counts if no usage info
                     self.state.input_tokens = 0
                     self.state.output_tokens = 0
+
+                # Display validation warnings as toast notifications
+                if validation_warnings:
+                    for warning in validation_warnings:
+                        self.ctrl.trigger_warning_toast(warning)
 
                 self.state.generated_explanation = generated_explanation
                 self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code
@@ -1235,6 +1269,24 @@ class VTKPromptApp(TrameApp):
                 style="width: 30%; z-index: 1000;",
                 icon="mdi-alert-outline",
             )
+
+            # Toast notification snackbar for validation warnings
+            with vuetify.VSnackbar(
+                v_model=("toast_visible",),
+                timeout=5000,
+                color=("toast_color",),
+                location="top",
+                multi_line=True,
+            ):
+                vuetify.VIcon("mdi-alert", classes="mr-2")
+                html.Span("{{ toast_message }}")
+                with vuetify.Template(v_slot_actions=""):
+                    vuetify.VBtn(
+                        "Close",
+                        color="white",
+                        variant="text",
+                        click="toast_visible = false",
+                    )
 
     def start(self) -> None:
         """Start the trame server."""

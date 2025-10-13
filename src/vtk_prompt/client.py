@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional, Union
 import openai
 
 from . import get_logger
-from .prompts import get_yaml_prompt
+from .prompts import assemble_vtk_prompt
 
 logger = get_logger(__name__)
 
@@ -128,6 +128,128 @@ class VTKPromptClient:
                 logger.debug("Failed code:\n%s", code_string)
             return
 
+    def _validate_and_extract_model_params(
+        self,
+        custom_prompt_data: dict,
+        default_model: str,
+        default_temperature: float,
+        default_max_tokens: int,
+    ) -> tuple[str, float, int, list[str]]:
+        """Validate and extract model parameters from custom prompt data.
+
+        Args:
+            custom_prompt_data: The loaded YAML prompt data
+            default_model: Default model to use if validation fails
+            default_temperature: Default temperature to use if validation fails
+            default_max_tokens: Default max_tokens to use if validation fails
+
+        Returns:
+            Tuple of (model, temperature, max_tokens, warnings)
+        """
+        from .provider_utils import (
+            get_available_models,
+            get_default_model,
+            get_supported_providers,
+            supports_temperature,
+        )
+
+        warnings = []
+        model = default_model
+        temperature = default_temperature
+        max_tokens = default_max_tokens
+
+        # Extract model if present
+        if "model" in custom_prompt_data:
+            custom_model = custom_prompt_data["model"]
+
+            # Validate model format: should be "provider/model"
+            if "/" not in custom_model:
+                warnings.append(
+                    f"Invalid model format '{custom_model}'. Expected 'provider/model'. "
+                    f"Using default: {default_model}"
+                )
+            else:
+                provider, model_name = custom_model.split("/", 1)
+
+                # Validate provider is supported
+                if provider not in get_supported_providers():
+                    warnings.append(
+                        f"Unsupported provider '{provider}'. "
+                        f"Supported providers: {', '.join(get_supported_providers())}. "
+                        f"Using default: {default_model}"
+                    )
+                else:
+                    # Validate model exists for provider
+                    available_models = get_available_models().get(provider, [])
+                    if model_name not in available_models:
+                        warnings.append(
+                            f"Model '{model_name}' not in curated list for provider '{provider}'. "
+                            f"Available: {', '.join(available_models)}. "
+                            f"Using default: {get_default_model(provider)}"
+                        )
+                        model = f"{provider}/{get_default_model(provider)}"
+                    else:
+                        model = custom_model
+
+        # Extract modelParameters if present
+        if "modelParameters" in custom_prompt_data:
+            params = custom_prompt_data["modelParameters"]
+
+            # Validate temperature
+            if "temperature" in params:
+                try:
+                    custom_temp = float(params["temperature"])
+                    if 0.0 <= custom_temp <= 2.0:
+                        temperature = custom_temp
+
+                        # Check if model supports temperature
+                        if not supports_temperature(model):
+                            warnings.append(
+                                f"Model '{model}' does not support temperature control. "
+                                f"Temperature will be set to 1.0."
+                            )
+                            temperature = 1.0
+                    else:
+                        warnings.append(
+                            f"Temperature {custom_temp} out of range [0.0, 2.0]. "
+                            f"Using default: {default_temperature}"
+                        )
+                except (ValueError, TypeError):
+                    warnings.append(
+                        f"Invalid temperature value '{params['temperature']}'. "
+                        f"Using default: {default_temperature}"
+                    )
+
+            # Validate max_tokens
+            if "max_tokens" in params:
+                try:
+                    custom_max_tokens = int(params["max_tokens"])
+                    if 1 <= custom_max_tokens <= 100000:
+                        max_tokens = custom_max_tokens
+                    else:
+                        warnings.append(
+                            f"max_tokens {custom_max_tokens} out of range [1, 100000]. "
+                            f"Using default: {default_max_tokens}"
+                        )
+                except (ValueError, TypeError):
+                    warnings.append(
+                        f"Invalid max_tokens value '{params['max_tokens']}'. "
+                        f"Using default: {default_max_tokens}"
+                    )
+
+        return model, temperature, max_tokens, warnings
+
+    def _extract_context_snippets(self, rag_snippets: dict) -> str:
+        """Extract and format RAG context snippets.
+
+        Args:
+            rag_snippets: RAG snippets dictionary
+
+        Returns:
+            Formatted context snippets string
+        """
+        return "\n\n".join(rag_snippets["code_snippets"])
+
     def _format_custom_prompt(
         self, custom_prompt_data: dict, message: str, rag_snippets: Optional[dict] = None
     ) -> List[Dict[str, str]]:
@@ -139,7 +261,11 @@ class VTKPromptClient:
             rag_snippets: Optional RAG snippets for context enhancement
 
         Returns:
-            List of formatted messages ready for LLM client
+            Formatted messages ready for LLM client
+
+        Note:
+            This method does NOT extract model/modelParameters from custom_prompt_data.
+            That is handled by _validate_and_extract_model_params() in the query() method.
         """
         from .prompts import substitute_yaml_variables
         import vtk
@@ -180,7 +306,7 @@ class VTKPromptClient:
         provider: Optional[str] = None,
         custom_prompt: Optional[dict] = None,
         ui_mode: bool = False,
-    ) -> Union[tuple[str, str, Any], str]:
+    ) -> Union[tuple[str, str, Any], tuple[str, str, Any, list[str]], str]:
         """Generate VTK code with optional RAG enhancement and retry logic.
 
         Args:
@@ -228,46 +354,67 @@ class VTKPromptClient:
                 top_k=5,  # Use default top_k value
             )
 
-        # Use custom prompt if provided, otherwise use built-in YAML prompts
+        # Store validation warnings to return to caller
+        validation_warnings = []
+
+        # Use custom prompt if provided, otherwise use component-based assembly
         if custom_prompt:
+            # Validate and extract model parameters from custom prompt
+            validated_model, validated_temp, validated_max_tokens, warnings = (
+                self._validate_and_extract_model_params(
+                    custom_prompt, model, temperature, max_tokens
+                )
+            )
+            validation_warnings.extend(warnings)
+
+            # Apply validated parameters
+            model = validated_model
+            temperature = validated_temp
+            max_tokens = validated_max_tokens
+
+            # Log warnings
+            for warning in warnings:
+                logger.warning(warning)
+
             # Process custom prompt data
             yaml_messages = self._format_custom_prompt(
                 custom_prompt, message, rag_snippets if rag else None
             )
             if self.verbose:
                 logger.debug("Using custom YAML prompt from file")
-        elif rag:
-            if not rag_snippets:
-                raise ValueError("Failed to load RAG snippets")
+                logger.debug(
+                    "Applied model: %s, temperature: %s, max_tokens: %s",
+                    model,
+                    temperature,
+                    max_tokens,
+                )
+        else:
+            # Use component-based assembly system (now the default and only option)
+            import vtk
 
-            context_snippets = "\n\n".join(rag_snippets["code_snippets"])
+            context_snippets = None
+            if rag and rag_snippets:
+                context_snippets = "\n\n".join(rag_snippets["code_snippets"])
 
-            # Choose RAG prompt based on UI mode
-            if ui_mode:
-                prompt_name = "vtk_python_rag_ui"
-                logger.debug("Using RAG-enhanced UI YAML prompt")
-            else:
-                prompt_name = "vtk_python_rag"
-                logger.debug("Using RAG-enhanced CLI YAML prompt")
-
-            yaml_messages = get_yaml_prompt(
-                prompt_name, request=message, context_snippets=context_snippets
+            prompt_data = assemble_vtk_prompt(
+                request=message,
+                ui_mode=ui_mode,
+                rag_enabled=rag,
+                context_snippets=context_snippets,
+                VTK_VERSION=vtk.__version__,
+                PYTHON_VERSION=">=3.10",
             )
+            yaml_messages = prompt_data["messages"]
 
             if self.verbose:
-                references = rag_snippets.get("references")
-                if references:
-                    logger.info("Using examples from: %s", ", ".join(references))
-        else:
-            # Choose standard prompt based on UI mode
-            if ui_mode:
-                prompt_name = "vtk_python_generation_ui"
-                logger.debug("Using standard UI YAML prompt")
-            else:
-                prompt_name = "vtk_python_generation"
-                logger.debug("Using standard CLI YAML prompt")
+                mode_str = "UI" if ui_mode else "CLI"
+                rag_str = " + RAG" if rag else ""
+                logger.debug(f"Using component assembly ({mode_str}{rag_str})")
 
-            yaml_messages = get_yaml_prompt(prompt_name, request=message)
+                if rag and rag_snippets:
+                    references = rag_snippets.get("references")
+                    if references:
+                        logger.info("Using examples from: %s", ", ".join(references))
 
         # Initialize conversation with YAML messages if empty
         if not self.conversation:
@@ -324,6 +471,14 @@ class VTKPromptClient:
                     if message:
                         self.conversation.append({"role": "assistant", "content": content})
                         self.save_conversation()
+                    # Return warnings if custom prompt was used
+                    if validation_warnings:
+                        return (
+                            generated_explanation,
+                            generated_code,
+                            response.usage,
+                            validation_warnings,
+                        )
                     return generated_explanation, generated_code, response.usage
 
                 elif attempt < retry_attempts - 1:  # Don't log on last attempt
@@ -348,6 +503,14 @@ class VTKPromptClient:
                     if message:
                         self.conversation.append({"role": "assistant", "content": content})
                         self.save_conversation()
+                    # Return warnings if custom prompt was used
+                    if validation_warnings:
+                        return (
+                            generated_explanation,
+                            generated_code,
+                            response.usage or {},
+                            validation_warnings,
+                        )
                     return (
                         generated_explanation,
                         generated_code,
