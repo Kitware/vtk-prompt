@@ -18,10 +18,12 @@ Example:
 
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any, Optional
 
 import vtk
+import yaml
 from trame.app import TrameApp
 from trame.decorators import change, controller, trigger
 from trame.ui.vuetify3 import SinglePageWithDrawerLayout
@@ -121,9 +123,6 @@ class VTKPromptApp(TrameApp):
             return
 
         try:
-            from pathlib import Path
-            import yaml
-
             custom_file_path = Path(self.custom_prompt_file)
             if not custom_file_path.exists():
                 logger.error("Custom prompt file not found: %s", self.custom_prompt_file)
@@ -1248,8 +1247,6 @@ def main() -> None:
     print("For local Ollama, use custom base URL and model configuration.")
 
     # Check for custom prompt file in CLI arguments
-    import sys
-
     custom_prompt_file = None
 
     # Extract --prompt-file before Trame processes args

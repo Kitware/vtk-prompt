@@ -152,7 +152,7 @@ class VTKPromptClient:
         Returns:
             List of formatted messages ready for LLM client
         """
-        from .prompts import YAMLPromptLoader, VTK_VERSION, PYTHON_VERSION
+        from .prompts import PYTHON_VERSION, VTK_VERSION, YAMLPromptLoader
 
         # Prepare variables for substitution
         variables = {
@@ -248,7 +248,7 @@ class VTKPromptClient:
                 logger.debug("Using custom YAML prompt from file")
         else:
             # Use component-based assembly system (now the default and only option)
-            from .prompts import VTK_VERSION, PYTHON_VERSION
+            from .prompts import PYTHON_VERSION, VTK_VERSION
 
             context_snippets = None
             if rag and rag_snippets:

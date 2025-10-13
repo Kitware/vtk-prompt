@@ -1,7 +1,6 @@
 role: assistant
 append: true
 content: |
-
   <extra_instructions>
   - Do not create a new vtkRenderer
   - Use the injected vtkrenderer object named renderer

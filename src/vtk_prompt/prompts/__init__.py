@@ -22,12 +22,12 @@ conditional inclusion, variable substitution, and message composition.
 from pathlib import Path
 
 from .constants import PYTHON_VERSION, VTK_VERSION
-from .yaml_prompt_loader import YAMLPromptLoader
 from .prompt_component_assembler import (
     PromptComponentLoader,
     VTKPromptAssembler,
     assemble_vtk_prompt,
 )
+from .yaml_prompt_loader import YAMLPromptLoader
 
 # Path to the prompts directory
 PROMPTS_DIR = Path(__file__).parent

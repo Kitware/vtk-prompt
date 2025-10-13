@@ -1,7 +1,6 @@
 role: assistant
 append: true
 content: |
-
   <output>
   - First, provide a **short but complete explanation** written in **full sentences**.
   - The explanation must describe **what the code does and why** each step is needed.
