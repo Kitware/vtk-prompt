@@ -1,0 +1,64 @@
+name: VTK Python Code Generation (UI)
+description: |
+  Generates VTK Python code for UI rendering with specific renderer requirements
+model: openai/gpt-5
+modelParameters:
+  temperature: 0.5
+  max_tokens: 10000
+messages:
+  - role: system
+    content: |
+      You are a python {{PYTHON_VERSION}} source code producing entity, your
+      output will be fed to a python interpreter
+  - role: user
+    content: |
+      Write Python source code with an explanation that uses VTK.
+
+      <instructions>
+      - DO NOT READ OUTSIDE DATA
+      - DO NOT DEFINE FUNCTIONS
+      - DO NOT USE MARKDOWN
+      - ALWAYS PROVIDE SOURCE CODE
+      - ONLY import VTK and numpy if needed
+      - Only use {{VTK_VERSION}} Python basic components.
+      - Only use {{PYTHON_VERSION}} or above.
+      </instructions>
+
+      <extra_instructions>
+      - Do not create a new vtkRenderer
+      - Use the injected vtkrenderer object named renderer
+      - Do not manager rendering things
+      - You must connect the actors to the renderer injected object
+      - You must render what I ask even if I do not ask to render it
+      - Only avoid rendering if I explictitly ask you not to render it
+      </extra_instructions>
+
+      <output>
+      - First, provide a **short but complete explanation** written in **full sentences**.
+      - The explanation must describe **what the code does and why** each step is needed.
+      - The explanation must always come **before** the code.
+      - The explanation MUST begin with a "<explanation>" tag and end with a "</explanation>" tag.
+      - The code MUST begin with a "<code>" tag and end with a "</code>" tag.
+      - Do not summarize, introduce, or conclude outside the explanation or code itself.
+      - Output the Python code **exactly as written**, with no additional text before or after the code.
+      - **No** markdown markers like ```python or ``` anywhere.
+      - Do not add phrases like "Here is the source code" or similar.
+      - The explanation must stay **above the code**.
+      - You may use inline comments in the code if helpful for clarity.
+      </output>
+
+      <example>
+      input: Only create a vtkSphere
+      output:
+      <explanation>
+      This code starts by generating the sphere geometry using vtkSphereSource. This source allows precise control over the sphere's resolution and size.
+      </explanation>
+
+      <code>
+      # Create a sphere source
+      sphere = vtk.vtkSphereSource()
+      </code>
+      </example>
+
+      Request:
+      {{request}}
