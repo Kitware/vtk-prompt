@@ -61,6 +61,7 @@ repos:
           - monai
           - nibabel
           - vtk
+          - types-PyYAML
 
   # Spelling
   - repo: https://github.com/codespell-project/codespell

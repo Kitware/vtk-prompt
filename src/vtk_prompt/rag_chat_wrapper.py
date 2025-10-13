@@ -29,7 +29,7 @@ from llama_index.core.llms import ChatMessage
 from llama_index.llms.openai import OpenAI
 
 from . import get_logger
-from .prompts import get_rag_chat_context
+from .prompts import get_yaml_prompt
 
 logger = get_logger(__name__)
 
@@ -152,11 +152,14 @@ class OpenAIRAGChat:
         # Combine the retrieved documents into a single text
         retrieved_text = "\n\n## Next example:\n\n".join(snippets)
 
-        # Use our template system instead of the hardcoded PROMPT
-        content = get_rag_chat_context(retrieved_text, query.rstrip())
+        # Use YAML prompt instead of legacy template function
+        yaml_messages = get_yaml_prompt("rag_chat", CONTEXT=retrieved_text, QUERY=query.rstrip())
 
-        # Add the enhanced context as a message
-        self.history.append(ChatMessage(role="assistant", content=content.rstrip()))
+        # Extract the user message content (should be the last message)
+        if yaml_messages:
+            content = yaml_messages[-1]["content"]
+            # Add the enhanced context as a message
+            self.history.append(ChatMessage(role="assistant", content=content.rstrip()))
 
         # Generate a response using the LLM
         if self.llm is None:

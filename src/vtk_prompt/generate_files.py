@@ -27,10 +27,7 @@ import openai
 from . import get_logger
 
 # Import our template system
-from .prompts import (
-    get_vtk_xml_context,
-    get_xml_role,
-)
+from .prompts import get_yaml_prompt
 
 logger = get_logger(__name__)
 
@@ -63,16 +60,13 @@ class VTKXMLGenerator:
         else:
             _ = ""
 
-        context = get_vtk_xml_context(message)
+        # Use YAML prompt instead of legacy functions
+        yaml_messages = get_yaml_prompt("vtk_xml_generation", description=message)
 
         response = self.client.chat.completions.create(
             model=model,
-            messages=[
-                {"role": "system", "content": get_xml_role()},
-                {"role": "user", "content": context},
-            ],
             max_completion_tokens=max_tokens,
-            # max_tokens=max_tokens,
+            messages=yaml_messages,
             temperature=temperature,
         )
 
