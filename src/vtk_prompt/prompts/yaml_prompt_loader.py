@@ -7,12 +7,11 @@ formatting for LLM clients.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-import yaml
-import vtk
+from typing import Any, Optional
 
-PYTHON_VERSION = ">=3.10"
-VTK_VERSION = vtk.__version__
+import yaml
+
+from .constants import PYTHON_VERSION, VTK_VERSION
 
 # Path to the prompts directory
 PROMPTS_DIR = Path(__file__).parent
@@ -38,7 +37,7 @@ class YAMLPromptLoader:
             self.python_version = PYTHON_VERSION
             YAMLPromptLoader._initialized = True
 
-    def substitute_yaml_variables(self, content: str, variables: Dict[str, Any]) -> str:
+    def substitute_yaml_variables(self, content: str, variables: dict[str, Any]) -> str:
         """Substitute {{variable}} placeholders in YAML content.
 
         Args:
@@ -54,7 +53,7 @@ class YAMLPromptLoader:
             result = result.replace(placeholder, str(value))
         return result
 
-    def load_yaml_prompt(self, prompt_name: str, **variables: Any) -> Dict[str, Any]:
+    def load_yaml_prompt(self, prompt_name: str, **variables: Any) -> dict[str, Any]:
         """Load a YAML prompt file and substitute variables.
 
         Args:
@@ -91,7 +90,7 @@ class YAMLPromptLoader:
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML in prompt {prompt_name}: {e}")
 
-    def format_messages_for_client(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    def format_messages_for_client(self, messages: list[dict[str, str]]) -> list[dict[str, str]]:
         """Format messages from YAML prompt for LLM client.
 
         Args:
@@ -102,7 +101,7 @@ class YAMLPromptLoader:
         """
         return [{"role": msg["role"], "content": msg["content"]} for msg in messages]
 
-    def get_yaml_prompt(self, prompt_name: str, **variables: Any) -> List[Dict[str, str]]:
+    def get_yaml_prompt(self, prompt_name: str, **variables: Any) -> list[dict[str, str]]:
         """Get a YAML prompt and format it for the LLM client.
 
         Args:
