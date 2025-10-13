@@ -18,6 +18,7 @@ Example:
 
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any, Optional
 
@@ -1301,8 +1302,6 @@ def main() -> None:
     print("For local Ollama, use custom base URL and model configuration.")
 
     # Check for custom prompt file in CLI arguments
-    import sys
-
     custom_prompt_file = None
 
     # Extract --prompt-file before Trame processes args
