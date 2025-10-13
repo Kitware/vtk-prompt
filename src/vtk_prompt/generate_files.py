@@ -26,8 +26,7 @@ import openai
 
 from . import get_logger
 
-# Import our template system
-from .prompts import get_yaml_prompt
+from .prompts import YAMLPromptLoader
 
 logger = get_logger(__name__)
 
@@ -60,8 +59,8 @@ class VTKXMLGenerator:
         else:
             _ = ""
 
-        # Use YAML prompt instead of legacy functions
-        yaml_messages = get_yaml_prompt("vtk_xml_generation", description=message)
+        yaml_loader = YAMLPromptLoader()
+        yaml_messages = yaml_loader.get_yaml_prompt("vtk_xml_generation", description=message)
 
         response = self.client.chat.completions.create(
             model=model,

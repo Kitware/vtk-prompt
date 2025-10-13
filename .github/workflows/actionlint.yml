@@ -2,13 +2,13 @@ name: actionlint
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
     paths:
-      - '.github/workflows/**'
+      - ".github/workflows/**"
   pull_request:
-    branches: [ master ]
+    branches: [master]
     paths:
-      - '.github/workflows/**'
+      - ".github/workflows/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
@@ -19,13 +19,13 @@ jobs:
     name: GitHub Actions Lint
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install actionlint
-      run: |
-        # Download and install actionlint
-        bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
-        echo "${PWD}" >> "$GITHUB_PATH"
+      - name: Install actionlint
+        run: |
+          # Download and install actionlint
+          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          echo "${PWD}" >> "$GITHUB_PATH"
 
-    - name: Run actionlint
-      run: actionlint
+      - name: Run actionlint
+        run: actionlint
