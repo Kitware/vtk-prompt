@@ -79,13 +79,16 @@ class PromptComponentLoader:
             FileNotFoundError: If component file doesn't exist
         """
         component_file = self.components_dir / f"{component_name}.yml"
+        if not component_file.exists():
+            raise FileNotFoundError(f"Component not found: {component_file}")
+
         return _load_component_file(str(component_file))
 
-    def clear_cache(self) -> None:
+    def clear_cache(self):
         """Clear component cache (useful for development)."""
         _load_component_file.cache_clear()
 
-    def list_components(self) -> list[str]:
+    def list_components(self) -> List[str]:
         """List available component names."""
         return [f.stem for f in self.components_dir.glob("*.yml")]
 
@@ -188,6 +191,16 @@ class VTKPromptAssembler:
         result: PromptData = {"messages": self.messages.copy()}
         result.update(self.model_params)  # type: ignore[typeddict-item]
         return result
+
+    def reset(self) -> "VTKPromptAssembler":
+        """Reset the assembler to empty state.
+
+        Returns:
+            Self for method chaining
+        """
+        self.messages.clear()
+        self.model_params.clear()
+        return self
 
 
 def assemble_vtk_prompt(
