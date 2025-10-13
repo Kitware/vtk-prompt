@@ -32,7 +32,7 @@ from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
 from .client import VTKPromptClient
-from .prompts import load_yaml_prompt, get_yaml_prompt
+from .prompts import load_yaml_prompt
 from .provider_utils import (
     get_available_models,
     get_default_model,
@@ -66,10 +66,28 @@ def load_js(server: Any) -> None:
 class VTKPromptApp(TrameApp):
     """VTK Prompt interactive application with 3D visualization and AI chat interface."""
 
-    def __init__(self, server: Optional[Any] = None) -> None:
-        """Initialize VTK Prompt application."""
+    def __init__(
+        self, server: Optional[Any] = None, custom_prompt_file: Optional[str] = None
+    ) -> None:
+        """Initialize VTK Prompt application.
+
+        Args:
+            server: Trame server instance
+            custom_prompt_file: Path to custom YAML prompt file
+        """
         super().__init__(server=server, client_type="vue3")
         self.state.trame__title = "VTK Prompt"
+
+        # Store custom prompt file path and data
+        self.custom_prompt_file = custom_prompt_file
+        self.custom_prompt_data = None
+
+        # Add CLI argument for custom prompt file
+        self.server.cli.add_argument(
+            "--prompt-file",
+            help="Path to custom YAML prompt file (overrides built-in prompts and defaults)",
+            dest="prompt_file",
+        )
 
         # Make sure JS is loaded
         load_js(self.server)
@@ -94,8 +112,105 @@ class VTKPromptApp(TrameApp):
         self._conversation_loading = False
         self._add_default_scene()
 
-        # Initial render
-        self.render_window.Render()
+        # Load custom prompt file after VTK initialization
+        if custom_prompt_file:
+            self._load_custom_prompt_file()
+
+    def _load_custom_prompt_file(self) -> None:
+        """Load custom YAML prompt file and extract model parameters."""
+        if not self.custom_prompt_file:
+            return
+
+        try:
+            from pathlib import Path
+            import yaml
+
+            custom_file_path = Path(self.custom_prompt_file)
+            if not custom_file_path.exists():
+                logger.error("Custom prompt file not found: %s", self.custom_prompt_file)
+                return
+
+            with open(custom_file_path, "r") as f:
+                self.custom_prompt_data = yaml.safe_load(f)
+
+            logger.info("Loaded custom prompt file: %s", custom_file_path.name)
+
+            # Override UI defaults with custom prompt parameters
+            if self.custom_prompt_data and isinstance(self.custom_prompt_data, dict):
+                model_value = self.custom_prompt_data.get("model")
+                if isinstance(model_value, str) and model_value:
+                    if "/" in model_value:
+                        provider_part, model_part = model_value.split("/", 1)
+                        # Validate provider
+                        supported = set(get_supported_providers() + ["local"])
+                        if provider_part not in supported or not model_part.strip():
+                            msg = (
+                                "Invalid 'model' in prompt file. Expected '<provider>/<model>' "
+                                "with provider in {openai, anthropic, gemini, nim, local}."
+                            )
+                            self.state.error_message = msg
+                            raise ValueError(msg)
+                        if provider_part == "local":
+                            # Switch to local mode
+                            self.state.use_cloud_models = False
+                            self.state.tab_index = 1
+                            self.state.local_model = model_part
+                        else:
+                            # Cloud provider/model
+                            self.state.use_cloud_models = True
+                            self.state.tab_index = 0
+                            self.state.provider = provider_part
+                            self.state.model = model_part
+                    else:
+                        # Enforce explicit provider/model format
+                        msg = (
+                            "Invalid 'model' format in prompt file. Expected '<provider>/<model>' "
+                            "(e.g., 'openai/gpt-5' or 'local/llama3')."
+                        )
+                        self.state.error_message = msg
+                        raise ValueError(msg)
+
+                # RAG and generation controls
+                if "rag" in self.custom_prompt_data:
+                    self.state.use_rag = bool(self.custom_prompt_data.get("rag"))
+                if "top_k" in self.custom_prompt_data:
+                    _top_k = self.custom_prompt_data.get("top_k")
+                    if isinstance(_top_k, int):
+                        self.state.top_k = _top_k
+                    elif isinstance(_top_k, str) and _top_k.isdigit():
+                        self.state.top_k = int(_top_k)
+                    else:
+                        logger.warning("Invalid top_k in prompt file: %r; keeping existing", _top_k)
+                if "retries" in self.custom_prompt_data:
+                    _retries = self.custom_prompt_data.get("retries")
+                    if isinstance(_retries, int):
+                        self.state.retry_attempts = _retries
+                    elif isinstance(_retries, str) and _retries.isdigit():
+                        self.state.retry_attempts = int(_retries)
+                    else:
+                        logger.warning(
+                            "Invalid retries in prompt file: %r; keeping existing", _retries
+                        )
+
+                self.state.temperature_supported = supports_temperature(model_part)
+                # Set model parameters from prompt file
+                model_params = self.custom_prompt_data.get("modelParameters", {})
+                if isinstance(model_params, dict):
+                    if "temperature" in model_params:
+                        if not self.state.temperature_supported:
+                            self.state.temperature = 1.0  # enforce
+                            logger.warning(
+                                "Temperature not supported for model %s; forcing 1.0", model_part
+                            )
+                        else:
+                            self.state.temperature = model_params["temperature"]
+                    if "max_tokens" in model_params:
+                        self.state.max_tokens = model_params["max_tokens"]
+        except (yaml.YAMLError, ValueError) as e:
+            # Log error and surface to UI as well
+            logger.error("Failed to load custom prompt file %s: %s", self.custom_prompt_file, e)
+            self.state.error_message = str(e)
+            self.custom_prompt_data = None
 
     def _add_default_scene(self) -> None:
         """Add default coordinate axes to prevent empty scene segfaults."""
@@ -318,25 +433,15 @@ class VTKPromptApp(TrameApp):
 
         try:
             if not self._conversation_loading:
-                # Use YAML prompt instead of legacy template building
-                if self.state.query_text:
-                    # Load YAML prompt and extract the user message content
-                    try:
-                        yaml_messages = get_yaml_prompt(
-                            "vtk_python_generation_ui", request=self.state.query_text
-                        )
-                        # Extract the user message content (should be the last message)
-                        user_message = (
-                            yaml_messages[-1]["content"] if yaml_messages else self.state.query_text
-                        )
-                        enhanced_query = user_message
-                        logger.debug("Using YAML-formatted prompt")
-                    except Exception as e:
-                        logger.warning("Failed to load YAML prompt, using basic query: %s", e)
-                        # Simple fallback - just use the query text directly
-                        enhanced_query = self.state.query_text
-                else:
+                # Use custom prompt if provided, otherwise use built-in YAML prompts
+                if self.custom_prompt_data:
+                    # Use the query text directly when using custom prompts
                     enhanced_query = self.state.query_text
+                    logger.debug("Using custom prompt file")
+                else:
+                    # Let the client handle prompt selection based on RAG and UI mode
+                    enhanced_query = self.state.query_text
+                    logger.debug("Using UI mode - client will select appropriate prompt")
 
                 # Reinitialize client with current settings
                 self._init_prompt_client()
@@ -353,6 +458,9 @@ class VTKPromptApp(TrameApp):
                     top_k=int(self.state.top_k),
                     rag=self.state.use_rag,
                     retry_attempts=int(self.state.retry_attempts),
+                    provider=self.state.provider,
+                    custom_prompt=self.custom_prompt_data,
+                    ui_mode=True,  # This tells the client to use UI-specific prompts
                 )
                 # Keep UI in sync with conversation
                 self.state.conversation = self.prompt_client.conversation
@@ -605,6 +713,33 @@ class VTKPromptApp(TrameApp):
         if hasattr(self, "prompt_client") and self.prompt_client is not None:
             return json.dumps(self.prompt_client.conversation, indent=2)
         return ""
+
+    @trigger("save_config")
+    def save_config(self) -> str:
+        """Save current configuration as YAML string for download."""
+        use_cloud = bool(getattr(self.state, "use_cloud_models", True))
+        provider = getattr(self.state, "provider", "openai")
+        model = self._get_model()
+        provider_model = f"{provider}/{model}" if use_cloud else f"local/{model}"
+        temperature = float(getattr(self.state, "temperature", 0.0))
+        max_tokens = int(getattr(self.state, "max_tokens", 1000))
+        retries = int(getattr(self.state, "retry_attempts", 1))
+        rag_enabled = bool(getattr(self.state, "use_rag", False))
+        top_k = int(getattr(self.state, "top_k", 5))
+
+        content = {
+            "name": "Custom VTK Prompt config file",
+            "description": f"Exported from UI - {'Cloud' if use_cloud else 'Local'} configuration",
+            "model": provider_model,
+            "rag": rag_enabled,
+            "top_k": top_k,
+            "retries": retries,
+            "modelParameters": {
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            },
+        }
+        return yaml.safe_dump(content, sort_keys=False)
 
     @change("provider")
     def _on_provider_change(self, provider, **kwargs) -> None:
@@ -859,12 +994,22 @@ class VTKPromptApp(TrameApp):
                                             v_bind="props",
                                             disabled=("!conversation",),
                                             click="utils.download("
-                                            + "`${model}_${new Date().toISOString()}.json`,"
+                                            + "`vtk-prompt_${provider}_${model}.json`,"
                                             + "trigger('save_conversation'),"
                                             + "'application/json'"
                                             + ")",
                                         ):
                                             vuetify.VIcon("mdi-file-download-outline")
+                                vuetify.VBtn(
+                                    text="Download config file",
+                                    color="secondary",
+                                    rounded="lg",
+                                    click="utils.download("
+                                    + "`vtk-prompt_config.yml`,"
+                                    + "trigger('save_config'),"
+                                    + "'application/x-yaml'"
+                                    + ")",
+                                )
 
             with layout.content:
                 with vuetify.VContainer(classes="fluid fill-height pt-0", style="min-width: 100%;"):
@@ -1102,8 +1247,19 @@ def main() -> None:
     print("Supported providers: OpenAI, Anthropic, Google Gemini, NVIDIA NIM")
     print("For local Ollama, use custom base URL and model configuration.")
 
+    # Check for custom prompt file in CLI arguments
+    import sys
+
+    custom_prompt_file = None
+
+    # Extract --prompt-file before Trame processes args
+    for i, arg in enumerate(sys.argv):
+        if arg == "--prompt-file" and i + 1 < len(sys.argv):
+            custom_prompt_file = sys.argv[i + 1]
+            break
+
     # Create and start the app
-    app = VTKPromptApp()
+    app = VTKPromptApp(custom_prompt_file=custom_prompt_file)
     app.start()
 
 
