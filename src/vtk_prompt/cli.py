@@ -57,6 +57,10 @@ logger = get_logger(__name__)
     "--conversation",
     help="Path to conversation file for maintaining chat history",
 )
+@click.option(
+    "--prompt-file",
+    help="Path to custom YAML prompt file (overrides built-in prompts and defaults)",
+)
 def main(
     input_string: str,
     provider: str,
@@ -72,6 +76,7 @@ def main(
     top_k: int,
     retry_attempts: int,
     conversation: Optional[str],
+    prompt_file: Optional[str],
 ) -> None:
     """
     Generate and execute VTK code using LLMs.
@@ -95,6 +100,47 @@ def main(
             "nim": "meta/llama3-70b-instruct",
         }
         model = default_models.get(provider, model)
+
+    # Load custom prompt file if provided
+    custom_prompt_data = None
+    if prompt_file:
+        try:
+            from pathlib import Path
+
+            custom_file_path = Path(prompt_file)
+            if not custom_file_path.exists():
+                logger.error("Custom prompt file not found: %s", prompt_file)
+                sys.exit(1)
+
+            # Load the custom YAML prompt file manually
+            import yaml
+
+            with open(custom_file_path, "r") as f:
+                custom_prompt_data = yaml.safe_load(f)
+
+            logger.info("Loaded custom prompt file: %s", custom_file_path.name)
+
+            # Override defaults with custom prompt parameters, but preserve CLI overrides
+            # Only override if CLI argument is still the default value
+            if custom_prompt_data and isinstance(custom_prompt_data, dict):
+                # Override model if CLI didn't specify a custom one
+                if model == "gpt-5" and custom_prompt_data.get("model"):
+                    model = custom_prompt_data.get("model")
+                    logger.info("Using model from prompt file: %s", model)
+
+                # Override model parameters if CLI used defaults
+                model_params = custom_prompt_data.get("modelParameters", {})
+                if temperature == 0.7 and "temperature" in model_params:
+                    temperature = model_params["temperature"]
+                    logger.info("Using temperature from prompt file: %s", temperature)
+
+                if max_tokens == 1000 and "max_tokens" in model_params:
+                    max_tokens = model_params["max_tokens"]
+                    logger.info("Using max_tokens from prompt file: %s", max_tokens)
+
+        except Exception as e:
+            logger.error("Failed to load custom prompt file %s: %s", prompt_file, e)
+            sys.exit(1)
 
     # Handle temperature override for unsupported models
     if not supports_temperature(model):
@@ -122,6 +168,8 @@ def main(
             top_k=top_k,
             rag=rag,
             retry_attempts=retry_attempts,
+            provider=provider,
+            custom_prompt=custom_prompt_data,
         )
 
         if isinstance(result, tuple) and len(result) == 3:
