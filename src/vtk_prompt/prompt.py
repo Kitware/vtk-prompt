@@ -1,35 +1,58 @@
-#!/usr/bin/env python3
+"""
+VTK Code Generation with OpenAI Integration.
+
+This module provides the core functionality for VTK code generation using OpenAI's language models.
+It includes the main VTKPromptClient class which handles conversation management, code generation,
+execution, and error handling with retry logic.
+
+Features:
+- Singleton pattern for conversation persistence
+- RAG (Retrieval-Augmented Generation) integration for context-aware code generation
+- Automatic code execution and error handling
+- Conversation history management and file persistence
+- Multiple model provider support (OpenAI, Anthropic, Gemini, NIM)
+- Template-based prompt construction with VTK-specific context
+
+Example:
+    >>> vtk-prompt "create sphere" --rag --model gpt-4o
+"""
 
 import ast
+import json
 import os
 import re
 import sys
-import json
-import openai
-import click
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Optional, Union
 
+import click
+import openai
+
+from . import get_logger
 from .prompts import (
     get_no_rag_context,
-    get_rag_context,
     get_python_role,
+    get_rag_context,
 )
+
+logger = get_logger(__name__)
 
 
 @dataclass
 class VTKPromptClient:
     """OpenAI client for VTK code generation."""
 
-    _instance = None
-
+    _instance: Optional["VTKPromptClient"] = None
+    _initialized: bool = False
     collection_name: str = "vtk-examples"
     database_path: str = "./db/codesage-codesage-large-v2"
     verbose: bool = False
-    conversation_file: str = None
-    conversation: list = None
+    conversation_file: Optional[str] = None
+    conversation: Optional[list[dict[str, str]]] = None
 
-    def __new__(cls, **kwargs):
+    def __new__(cls, **kwargs: Any) -> "VTKPromptClient":
+        """Create singleton instance of VTKPromptClient."""
         # Make sure that this is a singleton
         if cls._instance is None:
             cls._instance = super(VTKPromptClient, cls).__new__(cls)
@@ -37,24 +60,32 @@ class VTKPromptClient:
             cls._instance.conversation = []
         return cls._instance
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Post-init hook to prevent double initialization in singleton."""
         if hasattr(self, "_initialized") and self._initialized:
             return
         self._initialized = True
 
-    def load_conversation(self):
+    def load_conversation(self) -> list[dict[str, str]]:
         """Load conversation history from file."""
         if not self.conversation_file or not Path(self.conversation_file).exists():
             return []
 
         try:
             with open(self.conversation_file, "r") as f:
-                return json.load(f)
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data
+                else:
+                    logger.warning(
+                        "Invalid conversation file format, no history loaded."
+                    )
+                    return []
         except Exception as e:
-            print(f"Error: Could not load conversation file: {e}")
+            logger.error("Could not load conversation file: %s", e)
+            return []
 
-    def save_conversation(self):
+    def save_conversation(self) -> None:
         """Save conversation history to file."""
         if not self.conversation_file or not self.conversation:
             return
@@ -66,9 +97,11 @@ class VTKPromptClient:
             with open(self.conversation_file, "w") as f:
                 json.dump(self.conversation, f, indent=2)
         except Exception as e:
-            print(f"Error: Could not save conversation file: {e}")
+            logger.error("Could not save conversation file: %s", e)
 
-    def update_conversation(self, new_convo, new_convo_file=None):
+    def update_conversation(
+        self, new_convo: list[dict[str, str]], new_convo_file: Optional[str] = None
+    ) -> None:
         """Update conversation history with new conversation."""
         if not self.conversation:
             self.conversation = []
@@ -77,7 +110,7 @@ class VTKPromptClient:
         if new_convo_file:
             self.conversation_file = new_convo_file
 
-    def validate_code_syntax(self, code_string):
+    def validate_code_syntax(self, code_string: str) -> tuple[bool, Optional[str]]:
         """Validate Python code syntax using AST."""
         try:
             ast.parse(code_string)
@@ -87,39 +120,38 @@ class VTKPromptClient:
         except Exception as e:
             return False, f"AST parsing error: {str(e)}"
 
-    def run_code(self, code_string):
+    def run_code(self, code_string: str) -> None:
         """Execute VTK code using exec() after AST validation."""
         is_valid, error_msg = self.validate_code_syntax(code_string)
         if not is_valid:
-            print(f"Code validation failed: {error_msg}")
+            logger.error("Code validation failed: %s", error_msg)
             if self.verbose:
-                print("Generated code:")
-                print(code_string)
-            return None
+                logger.debug("Generated code:\n%s", code_string)
+            return
 
         if self.verbose:
-            print(code_string)
+            logger.debug("Executing code:\n%s", code_string)
 
         try:
             exec(code_string, globals(), {})
         except Exception as e:
-            print(f"Error executing code: {e}")
+            logger.error("Error executing code: %s", e)
             if not self.verbose:
-                print(code_string)
-            return None
+                logger.debug("Failed code:\n%s", code_string)
+            return
 
     def query(
         self,
-        message="",
-        api_key=None,
-        model="gpt-4o",
-        base_url=None,
-        max_tokens=1000,
-        temperature=0.1,
-        top_k=5,
-        rag=False,
-        retry_attempts=1,
-    ):
+        message: str = "",
+        api_key: Optional[str] = None,
+        model: str = "gpt-4o",
+        base_url: Optional[str] = None,
+        max_tokens: int = 1000,
+        temperature: float = 0.1,
+        top_k: int = 5,
+        rag: bool = False,
+        retry_attempts: int = 1,
+    ) -> Union[tuple[str, str, Any], str]:
         """Generate VTK code with optional RAG enhancement and retry logic.
 
         Args:
@@ -137,9 +169,7 @@ class VTKPromptClient:
             api_key = os.environ.get("OPENAI_API_KEY")
 
         if not api_key:
-            raise ValueError(
-                "No API key provided. Set OPENAI_API_KEY or pass api_key parameter."
-            )
+            raise ValueError("No API key provided. Set OPENAI_API_KEY or pass api_key parameter.")
 
         # Create client with current parameters
         client = openai.OpenAI(api_key=api_key, base_url=base_url)
@@ -174,16 +204,14 @@ class VTKPromptClient:
             context = get_rag_context(message, context_snippets)
 
             if self.verbose:
-                print("CONTEXT: " + context)
+                logger.debug("RAG context: %s", context)
                 references = rag_snippets.get("references")
                 if references:
-                    print("Using examples from:")
-                    for ref in references:
-                        print(f"- {ref}")
+                    logger.info("Using examples from: %s", ", ".join(references))
         else:
             context = get_no_rag_context(message)
             if self.verbose:
-                print("CONTEXT: " + context)
+                logger.debug("No-RAG context: %s", context)
 
         # Initialize conversation with system message if empty
         if not self.conversation:
@@ -198,27 +226,26 @@ class VTKPromptClient:
         for attempt in range(retry_attempts):
             if self.verbose:
                 if attempt > 0:
-                    print(f"Retry attempt {attempt + 1}/{retry_attempts}")
-                print(f"Making request with model: {model}, temperature: {temperature}")
+                    logger.debug("Retry attempt %d/%d", attempt + 1, retry_attempts)
+                logger.debug("Making request with model: %s, temperature: %s", model, temperature)
                 for i, msg in enumerate(self.conversation):
-                    print(f"Message {i} ({msg['role']}): {msg['content'][:100]}...")
+                    logger.debug("Message %d (%s): %s...", i, msg["role"], msg["content"][:100])
 
             response = client.chat.completions.create(
                 model=model,
-                messages=self.conversation,
+                messages=self.conversation,  # type: ignore[arg-type]
                 max_tokens=max_tokens,
                 temperature=temperature,
             )
 
             if hasattr(response, "choices") and len(response.choices) > 0:
-                content = (
-                    response.choices[0].message.content or "No content in response"
-                )
+                content = response.choices[0].message.content or "No content in response"
                 finish_reason = response.choices[0].finish_reason
 
                 if finish_reason == "length":
                     raise ValueError(
-                        f"Output was truncated due to max_tokens limit ({max_tokens}). Please increase max_tokens."
+                        f"Output was truncated due to max_tokens limit ({max_tokens}).\n"
+                        "Please increase max_tokens."
                     )
 
                 generated_explanation = re.findall(
@@ -237,15 +264,13 @@ class VTKPromptClient:
                 is_valid, error_msg = self.validate_code_syntax(generated_code)
                 if is_valid:
                     if message:
-                        self.conversation.append(
-                            {"role": "assistant", "content": content}
-                        )
+                        self.conversation.append({"role": "assistant", "content": content})
                         self.save_conversation()
                     return generated_explanation, generated_code, response.usage
 
-                elif attempt < retry_attempts - 1:  # Don't print on last attempt
+                elif attempt < retry_attempts - 1:  # Don't log on last attempt
                     if self.verbose:
-                        print(f"AST validation failed: {error_msg}. Retrying...")
+                        logger.warning("AST validation failed: %s. Retrying...", error_msg)
                     # Add error feedback to context for retry
                     self.conversation.append({"role": "assistant", "content": content})
                     self.conversation.append(
@@ -260,21 +285,19 @@ class VTKPromptClient:
                 else:
                     # Last attempt failed
                     if self.verbose:
-                        print(f"Final attempt failed AST validation: {error_msg}")
+                        logger.error("Final attempt failed AST validation: %s", error_msg)
 
                     if message:
-                        self.conversation.append(
-                            {"role": "assistant", "content": content}
-                        )
+                        self.conversation.append({"role": "assistant", "content": content})
                         self.save_conversation()
                     return (
                         generated_explanation,
                         generated_code,
-                        response.usage,
+                        response.usage or {},
                     )  # Return anyway, let caller handle
             else:
                 if attempt == retry_attempts - 1:
-                    return "No response generated", response.usage
+                    return ("No response generated", "", response.usage or {})
 
         return "No response generated"
 
@@ -288,18 +311,14 @@ class VTKPromptClient:
     help="LLM provider to use",
 )
 @click.option("-m", "--model", default="gpt-4o", help="Model name to use")
-@click.option(
-    "-k", "--max-tokens", type=int, default=1000, help="Max # of tokens to generate"
-)
+@click.option("-k", "--max-tokens", type=int, default=1000, help="Max # of tokens to generate")
 @click.option(
     "--temperature",
     type=float,
     default=0.7,
     help="Temperature for generation (0.0-2.0)",
 )
-@click.option(
-    "-t", "--token", required=True, help="API token for the selected provider"
-)
+@click.option("-t", "--token", required=True, help="API token for the selected provider")
 @click.option("--base-url", help="Base URL for API (auto-detected or custom)")
 @click.option("-r", "--rag", is_flag=True, help="Use RAG to improve code generation")
 @click.option("-v", "--verbose", is_flag=True, help="Show generated source code")
@@ -309,9 +328,7 @@ class VTKPromptClient:
     default="./db/codesage-codesage-large-v2",
     help="Database path for RAG",
 )
-@click.option(
-    "--top-k", type=int, default=5, help="Number of examples to retrieve from RAG"
-)
+@click.option("--top-k", type=int, default=5, help="Number of examples to retrieve from RAG")
 @click.option(
     "--retry-attempts",
     type=int,
@@ -323,26 +340,26 @@ class VTKPromptClient:
     help="Path to conversation file for maintaining chat history",
 )
 def main(
-    input_string,
-    provider,
-    model,
-    max_tokens,
-    temperature,
-    token,
-    base_url,
-    rag,
-    verbose,
-    collection,
-    database,
-    top_k,
-    retry_attempts,
-    conversation,
-):
-    """Generate and execute VTK code using LLMs.
+    input_string: str,
+    provider: str,
+    model: str,
+    max_tokens: int,
+    temperature: float,
+    token: str,
+    base_url: Optional[str],
+    rag: bool,
+    verbose: bool,
+    collection: str,
+    database: str,
+    top_k: int,
+    retry_attempts: int,
+    conversation: Optional[str],
+) -> None:
+    """
+    Generate and execute VTK code using LLMs.
 
     INPUT_STRING: The code description to generate VTK code for
     """
-
     # Set default base URLs
     if base_url is None:
         base_urls = {
@@ -368,7 +385,7 @@ def main(
             verbose=verbose,
             conversation_file=conversation,
         )
-        generated_code, usage = client.query(
+        result = client.query(
             input_string,
             api_key=token,
             model=model,
@@ -380,29 +397,33 @@ def main(
             retry_attempts=retry_attempts,
         )
 
-        if verbose and usage is not None:
-            print(
-                f"Used tokens: input={usage.prompt_tokens} output={usage.completion_tokens}"
-            )
-
-        client.run_code(generated_code)
+        if isinstance(result, tuple) and len(result) == 3:
+            _explanation, generated_code, usage = result
+            if verbose and usage:
+                logger.info(
+                    "Used tokens: input=%d output=%d",
+                    usage.prompt_tokens,
+                    usage.completion_tokens,
+                )
+            client.run_code(generated_code)
+        else:
+            # Handle string result
+            logger.info("Result: %s", result)
 
     except ValueError as e:
         if "RAG components" in str(e):
-            print("rag_components not found", file=sys.stderr)
+            logger.error("RAG components not found")
             sys.exit(1)
         elif "Failed to load RAG snippets" in str(e):
-            print("failed to load rag snippets", file=sys.stderr)
+            logger.error("Failed to load RAG snippets")
             sys.exit(2)
-
         elif "max_tokens" in str(e):
-            print(f"\nError: {e}", file=sys.stderr)
-            print(f"Current max_tokens: {max_tokens}", file=sys.stderr)
-            print("Try increasing with: --max-tokens <higher_number>", file=sys.stderr)
+            logger.error("Error: %s", e)
+            logger.error("Current max_tokens: %d", max_tokens)
+            logger.error("Try increasing with: --max-tokens <higher_number>")
             sys.exit(3)
-
         else:
-            print(f"Error: {e}", file=sys.stderr)
+            logger.error("Error: %s", e)
             sys.exit(4)
 
 

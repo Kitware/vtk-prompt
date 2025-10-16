@@ -1,41 +1,50 @@
-#!/usr/bin/env python3
-
 """
-OpenAI-compatible wrapper for the RAG chat functionality.
-This wrapper adapts the rag-components/chat.py to use only OpenAI API
-and our template system, without modifying the read-only submodule.
+OpenAI-Compatible RAG Chat Wrapper.
+
+This module provides an OpenAI-compatible wrapper for RAG (Retrieval-Augmented Generation)
+chat functionality, adapting the rag-components/chat.py to use OpenAI API and the VTK prompt
+template system without modifying the read-only submodule.
+
+Features:
+- OpenAI LLM integration for chat completion
+- RAG database querying with configurable top-k retrieval
+- Context-aware response generation using retrieved code snippets
+- URL generation from VTK example references
+- Chat history management and streaming support
+- CLI interface for standalone RAG chat testing
+
+Example:
+    >>> vtk-rag-chat --query "sphere creation" --model gpt-4o
 """
 
+import importlib.util
 import os
 import sys
 from pathlib import Path
+from typing import Any, Optional
+
 import click
-from typing import List
-import importlib.util
-
-# Import our template system
-from .prompts import get_rag_chat_context
-
-# Add rag-components to path
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent / "rag-components"))
-
-# Import from rag-components
 import query_db
 from llama_index.core.llms import ChatMessage
 from llama_index.llms.openai import OpenAI
 
+from . import get_logger
+from .prompts import get_rag_chat_context
 
-def check_rag_components_available():
+logger = get_logger(__name__)
+
+# Add rag-components to path
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent / "rag-components"))
+
+
+def check_rag_components_available() -> bool:
     """Check if RAG components are available and installed."""
     repo_root = Path(__file__).resolve().parent.parent.parent
     rag_components_path = repo_root / "rag-components"
-    return (
-        importlib.util.find_spec("chromadb") is not None
-        and rag_components_path.exists()
-    )
+    return importlib.util.find_spec("chromadb") is not None and rag_components_path.exists()
 
 
-def setup_rag_path():
+def setup_rag_path() -> str:
     """Add rag-components directory to the Python path."""
     repo_root = Path(__file__).resolve().parent.parent.parent
     rag_path = str(repo_root / "rag-components")
@@ -45,11 +54,11 @@ def setup_rag_path():
 
 
 def get_rag_snippets(
-    query,
-    collection_name="vtk-examples",
-    database_path="./db/codesage-codesage-large-v2",
-    top_k=5,
-):
+    query: str,
+    collection_name: str = "vtk-examples",
+    database_path: str = "./db/codesage-codesage-large-v2",
+    top_k: int = 5,
+) -> Optional[dict[str, Any]]:
     """Get code snippets from the RAG database."""
     setup_rag_path()
     try:
@@ -76,7 +85,7 @@ def get_rag_snippets(
             "references": relevant_examples,
         }
     except Exception as e:
-        print(f"Error using RAG components: {e}")
+        logger.error("Error using RAG components: %s", e)
         return None
 
 
@@ -85,7 +94,7 @@ class OpenAIRAGChat:
 
     def __init__(
         self, model: str = "gpt-4o", database: str = "./db/codesage-codesage-large-v2"
-    ):
+    ) -> None:
         """Initialize the OpenAI RAG chat system.
 
         Args:
@@ -94,15 +103,13 @@ class OpenAIRAGChat:
         """
         self.model = model
         self.database = database
-        self.llm = None
-        self.client = None
-        self.history = [
-            ChatMessage(role="system", content="You are a helpful VTK assistant")
-        ]
+        self.llm: OpenAI | None = None
+        self.client: Any | None = None
+        self.history = [ChatMessage(role="system", content="You are a helpful VTK assistant")]
 
         self._init_components()
 
-    def _init_components(self):
+    def _init_components(self) -> None:
         """Initialize LLM and database components."""
         try:
             # Only support OpenAI compatible models
@@ -119,7 +126,7 @@ class OpenAIRAGChat:
         collection_name: str = "python-examples",
         top_k: int = 15,
         streaming: bool = False,
-    ):
+    ) -> dict[str, Any]:
         """Ask a question using RAG-enhanced chat.
 
         Args:
@@ -136,10 +143,10 @@ class OpenAIRAGChat:
 
         # Query the RAG database for relevant documents
         results = query_db.query_db(query, collection_name, top_k, self.client)
-        relevant_examples = [
-            item["original_id"] for item in results["code_metadata"]
-        ] + [item["code"] for item in results["text_metadata"]]
-        snippets = [item for item in results["code_documents"]]
+        relevant_examples = [item["original_id"] for item in results["code_metadata"]] + [
+            item["code"] for item in results["text_metadata"]
+        ]
+        snippets = list(results["code_documents"])
         relevant_examples = list(set(relevant_examples))
 
         # Combine the retrieved documents into a single text
@@ -152,6 +159,9 @@ class OpenAIRAGChat:
         self.history.append(ChatMessage(role="assistant", content=content.rstrip()))
 
         # Generate a response using the LLM
+        if self.llm is None:
+            raise RuntimeError("LLM not initialized")
+
         if streaming:
             response = self.llm.stream_chat(self.history)
         else:
@@ -159,7 +169,7 @@ class OpenAIRAGChat:
 
         return {"response": response, "references": relevant_examples}
 
-    def generate_urls_from_references(self, references: List[str]) -> List[str]:
+    def generate_urls_from_references(self, references: list[str]) -> list[str]:
         """Generate URLs from reference paths.
 
         Args:
@@ -169,8 +179,8 @@ class OpenAIRAGChat:
             List of generated URLs
         """
         urls = []
-        for ref in references:
-            ref = Path(ref)
+        for ref_str in references:
+            ref = Path(ref_str)
             # Transform vtk-examples.git/src/Python/PolyData/CurvaturesAdjustEdges.py
             # to https://examples.vtk.org/site/Python/PolyData/CurvaturesAdjustEdges
             try:
@@ -185,9 +195,7 @@ class OpenAIRAGChat:
 
 
 @click.command()
-@click.option(
-    "--database", default="./db/codesage-codesage-large-v2", help="Path to the database"
-)
+@click.option("--database", default="./db/codesage-codesage-large-v2", help="Path to the database")
 @click.option(
     "--collection-name",
     default="python-examples",
@@ -200,14 +208,13 @@ class OpenAIRAGChat:
     help="Retrieve the top k examples from the database",
 )
 @click.option("--model", default="gpt-4o", help="OpenAI model to use")
-def main(database, collection_name, top_k, model):
+def main(database: str, collection_name: str, top_k: int, model: str) -> None:
     """Query database for code snippets using OpenAI API only."""
-
     # Initialize the chat system
     chat = OpenAIRAGChat(model, database)
 
-    print("Welcome to VTK's OpenAI-powered assistant! What would you like to know?")
-    print("Type 'exit' to quit")
+    logger.info("Welcome to VTK's OpenAI-powered assistant! What would you like to know?")
+    logger.info("Type 'exit' to quit")
 
     while True:
         user_input = input("User: ")
@@ -216,7 +223,7 @@ def main(database, collection_name, top_k, model):
 
         full_reply = ""
         if user_input.lower() == "exit":
-            print("Bye!")
+            logger.info("Bye!")
             break
 
         try:
@@ -225,17 +232,15 @@ def main(database, collection_name, top_k, model):
                 print(item.delta, end="")
                 full_reply += item.delta
 
-            print("\n Here are some relevant references:")
+            logger.info("\n Here are some relevant references:")
             for ref_url in chat.generate_urls_from_references(reply["references"]):
-                print(ref_url)
+                logger.info(ref_url)
 
             # Add reply to the chat history
-            chat.history.append(
-                ChatMessage(role="assistant", content=full_reply.rstrip())
-            )
+            chat.history.append(ChatMessage(role="assistant", content=full_reply.rstrip()))
 
         except Exception as e:
-            print(f"Error: {e}", file=sys.stderr)
+            logger.error("Error: %s", e)
 
 
 if __name__ == "__main__":

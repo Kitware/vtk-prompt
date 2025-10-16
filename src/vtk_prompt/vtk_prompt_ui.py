@@ -1,24 +1,47 @@
-#!/usr/bin/env python3
+"""
+VTK Prompt Interactive User Interface.
+
+This module provides a web-based interactive user interface for VTK code generation using Trame.
+It combines VTK visualization with AI-powered code generation capabilities in a single application.
+
+The interface includes:
+- Real-time VTK code generation and execution
+- Interactive 3D visualization with VTK render window
+- Conversation management with history navigation
+- File upload/download for conversation persistence
+- Live code editing and execution with error handling
+- RAG integration for context-aware code generation
+
+Example:
+    >>> vtk-prompt-ui --port 9090
+"""
 
 import json
 import re
 from pathlib import Path
+from typing import Any, Optional
 
-# Add VTK and Trame imports
-from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
+import vtk
 from trame.app import TrameApp
-from trame.decorators import change, trigger, controller
+from trame.decorators import change, controller, trigger
+from trame.ui.vuetify3 import SinglePageWithDrawerLayout
 from trame.widgets import html
 from trame.widgets import vuetify3 as vuetify
 from trame_vtk.widgets import vtk as vtk_widgets
-from trame.ui.vuetify3 import SinglePageWithDrawerLayout
-import vtk
+
+# Add VTK and Trame imports
+from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
+
+# Import logging
+from . import get_logger
 
 # Import our prompt functionality
 from .prompt import VTKPromptClient
 
 # Import our template system
 from .prompts import get_ui_post_prompt
+
+logger = get_logger(__name__)
 
 EXPLAIN_RENDERER = (
     "# renderer is a vtkRenderer injected by this webapp"
@@ -30,18 +53,22 @@ CODE_PATTERN = r"<code>(.*?)</code>"
 EXTRA_INSTRUCTIONS_TAG = "</extra_instructions>"
 
 
-def load_js(server):
+def load_js(server: Any) -> None:
+    """Load JavaScript utilities for VTK Prompt UI."""
     js_file = Path(__file__).with_name("utils.js")
     server.enable_module(
-        dict(
-            serve={"vtk_prompt": str(js_file.parent)},
-            scripts=[f"vtk_prompt/{js_file.name}"],
-        )
+        {
+            "serve": {"vtk_prompt": str(js_file.parent)},
+            "scripts": [f"vtk_prompt/{js_file.name}"],
+        }
     )
 
 
 class VTKPromptApp(TrameApp):
-    def __init__(self, server=None):
+    """VTK Prompt interactive application with 3D visualization and AI chat interface."""
+
+    def __init__(self, server: Optional[Any] = None) -> None:
+        """Initialize VTK Prompt application."""
         super().__init__(server=server, client_type="vue3")
         self.state.trame__title = "VTK Prompt"
 
@@ -71,7 +98,7 @@ class VTKPromptApp(TrameApp):
         # Initial render
         self.render_window.Render()
 
-    def _add_default_scene(self):
+    def _add_default_scene(self) -> None:
         """Add default coordinate axes to prevent empty scene segfaults."""
         try:
             # Create simple axes
@@ -86,7 +113,7 @@ class VTKPromptApp(TrameApp):
             # Reset camera to show axes
             self.renderer.ResetCamera()
         except Exception as e:
-            print(f"Warning: Could not add default scene: {e}")
+            logger.warning("Could not add default scene: %s", e)
 
         # App state variables
         self.state.query_text = ""
@@ -146,7 +173,7 @@ class VTKPromptApp(TrameApp):
         # Initialize the VTK prompt client
         self._init_prompt_client()
 
-    def _init_prompt_client(self):
+    def _init_prompt_client(self) -> None:
         """Initialize the prompt client based on current settings."""
         try:
             # Validate configuration
@@ -164,12 +191,12 @@ class VTKPromptApp(TrameApp):
         except ValueError as e:
             self.state.error_message = str(e)
 
-    def _get_api_key(self):
+    def _get_api_key(self) -> Optional[str]:
         """Get API key from state (requires manual input in UI)."""
         api_token = getattr(self.state, "api_token", "")
         return api_token.strip() if api_token and api_token.strip() else None
 
-    def _get_base_url(self):
+    def _get_base_url(self) -> Optional[str]:
         """Get base URL based on configuration mode."""
         if self.state.use_cloud_models:
             # Use predefined base URLs for cloud providers (OpenAI uses default None)
@@ -184,19 +211,15 @@ class VTKPromptApp(TrameApp):
             local_url = getattr(self.state, "local_base_url", "")
             return local_url.strip() if local_url and local_url.strip() else None
 
-    def _get_model(self):
+    def _get_model(self) -> str:
         """Get model name based on configuration mode."""
         if self.state.use_cloud_models:
             return getattr(self.state, "model", "gpt-4o")
         else:
             local_model = getattr(self.state, "local_model", "")
-            return (
-                local_model.strip()
-                if local_model and local_model.strip()
-                else "llama3.2:latest"
-            )
+            return local_model.strip() if local_model and local_model.strip() else "llama3.2:latest"
 
-    def _get_current_config_summary(self):
+    def _get_current_config_summary(self) -> str:
         """Get a summary of current configuration for display."""
         if self.state.use_cloud_models:
             return f"☁️ {self.state.provider}/{self.state.model}"
@@ -206,12 +229,10 @@ class VTKPromptApp(TrameApp):
                 if self.state.local_base_url
                 else "localhost"
             )
-            model_display = (
-                self.state.local_model if self.state.local_model else "default"
-            )
+            model_display = self.state.local_model if self.state.local_model else "default"
             return f"🏠 {base_display}/{model_display}"
 
-    def _validate_configuration(self):
+    def _validate_configuration(self) -> Optional[str]:
         """Validate current configuration and return error message if invalid."""
         if self.state.use_cloud_models:
             # Validate cloud configuration
@@ -222,22 +243,13 @@ class VTKPromptApp(TrameApp):
             if not hasattr(self.state, "model") or not self.state.model:
                 return "Model is required for cloud models"
             if self.state.provider in self.state.available_models:
-                if (
-                    self.state.model
-                    not in self.state.available_models[self.state.provider]
-                ):
+                if self.state.model not in self.state.available_models[self.state.provider]:
                     return f"Invalid model {self.state.model} for provider {self.state.provider}"
         else:
             # Validate local configuration
-            if (
-                not hasattr(self.state, "local_base_url")
-                or not self.state.local_base_url.strip()
-            ):
+            if not hasattr(self.state, "local_base_url") or not self.state.local_base_url.strip():
                 return "Base URL is required for local models"
-            if (
-                not hasattr(self.state, "local_model")
-                or not self.state.local_model.strip()
-            ):
+            if not hasattr(self.state, "local_model") or not self.state.local_model.strip():
                 return "Model name is required for local models"
 
             # Basic URL validation
@@ -247,16 +259,18 @@ class VTKPromptApp(TrameApp):
 
         return None  # No validation errors
 
-    def on_tab_change(self, tab_index):
+    @change("tab_index")
+    def on_tab_change(self, tab_index: int, **_: Any) -> None:
         """Handle tab change to sync use_cloud_models state."""
-        self.state.tab_index = tab_index
         self.state.use_cloud_models = tab_index == 0
 
-    def generate_code(self):
+    @controller.set("generate_code")
+    def generate_code(self) -> None:
         """Generate VTK code from user query."""
         self._generate_and_execute_code()
 
-    def clear_scene(self):
+    @controller.set("clear_scene")
+    def clear_scene(self) -> None:
         """Clear the VTK scene and restore default axes."""
         try:
             self.renderer.RemoveAllViewProps()
@@ -265,18 +279,19 @@ class VTKPromptApp(TrameApp):
             self.render_window.Render()
             self.ctrl.view_update()
         except Exception as e:
-            print(f"Error clearing scene: {e}")
+            logger.error("Error clearing scene: %s", e)
 
-    def reset_camera(self):
+    @controller.set("reset_camera")
+    def reset_camera(self) -> None:
         """Reset camera view."""
         try:
             self.renderer.ResetCamera()
             self.render_window.Render()
             self.ctrl.view_update()
         except Exception as e:
-            print(f"Error resetting camera: {e}")
+            logger.error("Error resetting camera: %s", e)
 
-    def _generate_and_execute_code(self):
+    def _generate_and_execute_code(self) -> None:
         """Generate VTK code using Anthropic API and execute it."""
         self.state.is_loading = True
         self.state.error_message = ""
@@ -315,7 +330,9 @@ class VTKPromptApp(TrameApp):
                         self.state.input_tokens = usage.prompt_tokens
                         self.state.output_tokens = usage.completion_tokens
                 else:
-                    generated_explanation, generated_code = result
+                    # Handle string result
+                    generated_explanation = str(result)
+                    generated_code = ""
                     # Reset token counts if no usage info
                     self.state.input_tokens = 0
                     self.state.output_tokens = 0
@@ -332,7 +349,9 @@ class VTKPromptApp(TrameApp):
             self._execute_with_renderer(self.state.generated_code)
         except ValueError as e:
             if "max_tokens" in str(e):
-                self.state.error_message = f"{str(e)} Current: {self.state.max_tokens}. Try increasing max tokens."
+                self.state.error_message = (
+                    f"{str(e)} Current: {self.state.max_tokens}. Try increasing max tokens."
+                )
             else:
                 self.state.error_message = f"Error generating code: {str(e)}"
         except Exception as e:
@@ -340,7 +359,7 @@ class VTKPromptApp(TrameApp):
         finally:
             self.state.is_loading = False
 
-    def _execute_with_renderer(self, code_string):
+    def _execute_with_renderer(self, code_string: str) -> None:
         """Execute VTK code with our renderer using prompt.py's run_code logic."""
         try:
             # Clear previous actors
@@ -373,22 +392,25 @@ class VTKPromptApp(TrameApp):
                 self.render_window.Render()
                 self.ctrl.view_update()
             except Exception as render_error:
-                print(f"Render error: {render_error}")
+                logger.warning("Render error: %s", render_error)
                 # Still update the view even if render fails
                 self.ctrl.view_update()
         except Exception as e:
             self.state.error_message = f"Error executing code: {str(e)}"
 
     @change("conversation_object")
-    def on_conversation_file_data_change(self, conversation_object, **_):
+    def on_conversation_file_data_change(
+        self, conversation_object: Optional[dict[str, Any]], **_: Any
+    ) -> None:
+        """Handle conversation file data changes and load conversation history."""
         invalid = (
             conversation_object is None
-            or conversation_object["type"] != "application/json"
-            or Path(conversation_object["name"]).suffix != ".json"
-            or not conversation_object["content"]
+            or conversation_object.get("type") != "application/json"
+            or Path(conversation_object.get("name", "")).suffix != ".json"
+            or not conversation_object.get("content")
         )
 
-        if not invalid:
+        if not invalid and conversation_object is not None:
             loaded_conversation = json.loads(conversation_object["content"])
 
             # Append loaded conversation to existing conversation instead of overwriting
@@ -410,12 +432,10 @@ class VTKPromptApp(TrameApp):
             self._conversation_loading = True
             self.generate_code()
 
-    def _parse_assistant_content(self, content):
+    def _parse_assistant_content(self, content: str) -> tuple[Optional[str], Optional[str]]:
         """Parse assistant message content for explanation and code."""
         try:
-            explanation_match = re.findall(
-                r"<explanation>(.*?)</explanation>", content, re.DOTALL
-            )
+            explanation_match = re.findall(r"<explanation>(.*?)</explanation>", content, re.DOTALL)
             code_match = re.findall(r"<code>(.*?)</code>", content, re.DOTALL)
 
             if explanation_match and code_match:
@@ -424,7 +444,7 @@ class VTKPromptApp(TrameApp):
         except Exception:
             return None, None
 
-    def _build_conversation_navigation(self):
+    def _build_conversation_navigation(self) -> None:
         """Build list of conversation pairs (user message + assistant response) for navigation."""
         if not self.state.conversation:
             self.state.conversation_navigation = []
@@ -451,14 +471,12 @@ class VTKPromptApp(TrameApp):
 
         self._update_navigation_state()
 
-    def _update_navigation_state(self):
+    def _update_navigation_state(self) -> None:
         """Update navigation button states based on current position."""
         nav_length = len(self.state.conversation_navigation)
 
         # Update navigation buttons
-        self.state.can_navigate_left = (
-            nav_length > 0 and self.state.conversation_index > 0
-        )
+        self.state.can_navigate_left = nav_length > 0 and self.state.conversation_index > 0
         self.state.can_navigate_right = (
             nav_length > 0 and self.state.conversation_index < nav_length
         )
@@ -468,13 +486,13 @@ class VTKPromptApp(TrameApp):
             nav_length > 0 and self.state.conversation_index < nav_length
         )
 
-    def _sync_with_prompt_client(self):
+    def _sync_with_prompt_client(self) -> None:
         """Sync conversation navigation with prompt client conversation."""
         if self.prompt_client and self.prompt_client.conversation:
             self.state.conversation = self.prompt_client.conversation
             self._build_conversation_navigation()
 
-    def _process_conversation_pair(self, pair_index=None):
+    def _process_conversation_pair(self, pair_index: Optional[int] = None) -> None:
         """Process a specific conversation pair by index."""
         if not self.state.conversation_navigation:
             return
@@ -509,8 +527,8 @@ class VTKPromptApp(TrameApp):
 
         self.state.query_text = query_text
 
-    def _process_loaded_conversation(self):
-        """Process loaded conversation to populate UI with last assistant response and user query."""
+    def _process_loaded_conversation(self) -> None:
+        """Process loaded conversation file."""
         if not self.state.conversation:
             return
 
@@ -519,7 +537,7 @@ class VTKPromptApp(TrameApp):
         self._process_conversation_pair()
 
     @controller.set("navigate_conversation_left")
-    def navigate_conversation_left(self):
+    def navigate_conversation_left(self) -> None:
         """Navigate to previous conversation pair."""
         if not self.state.conversation_navigation:
             return
@@ -531,7 +549,7 @@ class VTKPromptApp(TrameApp):
             self._update_navigation_state()
 
     @controller.set("navigate_conversation_right")
-    def navigate_conversation_right(self):
+    def navigate_conversation_right(self) -> None:
         """Navigate to next conversation pair."""
         if not self.state.conversation_navigation:
             return
@@ -548,12 +566,13 @@ class VTKPromptApp(TrameApp):
             self._update_navigation_state()
 
     @trigger("save_conversation")
-    def save_conversation(self):
-        if self.prompt_client is None:
-            return ""
-        return json.dumps(self.prompt_client.conversation, indent=2)
+    def save_conversation(self) -> str:
+        """Save current conversation history as JSON string."""
+        if hasattr(self, "prompt_client") and self.prompt_client is not None:
+            return json.dumps(self.prompt_client.conversation, indent=2)
+        return ""
 
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         """Build a simplified Vuetify UI."""
         # Initialize drawer state as collapsed
         self.state.main_drawer = True
@@ -572,19 +591,17 @@ class VTKPromptApp(TrameApp):
                     v_show="input_tokens > 0 || output_tokens > 0",
                     classes="mr-2",
                 ):
-                    html.Span(
-                        "Tokens: In: {{ input_tokens }} | Out: {{ output_tokens }}"
-                    )
+                    html.Span("Tokens: In: {{ input_tokens }} | Out: {{ output_tokens }}")
 
                 # VTK control buttons
                 with vuetify.VBtn(
-                    click=self.clear_scene,
+                    click=self.ctrl.clear_scene,
                     icon=True,
                     v_tooltip_bottom="Clear Scene",
                 ):
                     vuetify.VIcon("mdi-reload")
                 with vuetify.VBtn(
-                    click=self.reset_camera,
+                    click=self.ctrl.reset_camera,
                     icon=True,
                     v_tooltip_bottom="Reset Camera",
                 ):
@@ -611,7 +628,6 @@ class VTKPromptApp(TrameApp):
                                 v_model=("tab_index", 0),
                                 color="primary",
                                 slider_color="primary",
-                                change=(self.on_tab_change, "[$event]"),
                                 centered=True,
                                 grow=False,
                             ):
@@ -755,9 +771,7 @@ class VTKPromptApp(TrameApp):
                             )
 
                     with vuetify.VCard(classes="mt-2"):
-                        vuetify.VCardTitle(
-                            "⚙️ Files", hide_details=True, density="compact"
-                        )
+                        vuetify.VCardTitle("⚙️ Files", hide_details=True, density="compact")
                         with vuetify.VCardText():
                             vuetify.VCheckbox(
                                 label="Run new conversation files",
@@ -767,9 +781,7 @@ class VTKPromptApp(TrameApp):
                                 color="primary",
                                 hide_details=True,
                             )
-                            with html.Div(
-                                classes="d-flex align-center justify-space-between"
-                            ):
+                            with html.Div(classes="d-flex align-center justify-space-between"):
                                 with vuetify.VTooltip(
                                     text=("conversation_file", "No file loaded"),
                                     location="top",
@@ -788,9 +800,7 @@ class VTKPromptApp(TrameApp):
                                             open_on_focus=False,
                                             clearable=False,
                                             v_bind="props",
-                                            rules=[
-                                                "[utils.vtk_prompt.rules.json_file]"
-                                            ],
+                                            rules=["[utils.vtk_prompt.rules.json_file]"],
                                         )
                                 with vuetify.VTooltip(
                                     text="Download conversation file",
@@ -813,26 +823,23 @@ class VTKPromptApp(TrameApp):
                                             vuetify.VIcon("mdi-file-download-outline")
 
             with layout.content:
-                with vuetify.VContainer(
-                    classes="fluid fill-height", style="min-width: 100%;"
-                ):
+                with vuetify.VContainer(classes="fluid fill-height pt-0", style="min-width: 100%;"):
                     with vuetify.VRow(rows=12, classes="fill-height"):
                         # Left column - Generated code view
-                        with vuetify.VCol(cols=6, classes="fill-height"):
+                        with vuetify.VCol(cols=7, classes="fill-height"):
                             with vuetify.VExpansionPanels(
                                 v_model=("explanation_expanded", [0, 1]),
                                 classes="fill-height",
                                 multiple=True,
                             ):
                                 with vuetify.VExpansionPanel(
-                                    classes="mt-1",
-                                    style="height: fit-content; max-height: 30%;",
+                                    classes="mt-1 flex-grow-1 flex-shrink-0 d-flex flex-column",
+                                    style="max-height: 25%;",
                                 ):
-                                    vuetify.VExpansionPanelTitle(
-                                        "Explanation", classes="text-h6"
-                                    )
+                                    vuetify.VExpansionPanelTitle("Explanation", classes="text-h6")
                                     with vuetify.VExpansionPanelText(
-                                        style="overflow: hidden;"
+                                        classes="fill-height flex-shrink-1",
+                                        style="overflow: hidden;",
                                     ):
                                         vuetify.VTextarea(
                                             v_model=("generated_explanation", ""),
@@ -842,12 +849,19 @@ class VTKPromptApp(TrameApp):
                                             no_resize=True,
                                             classes="overflow-y-auto fill-height",
                                             placeholder="Explanation will appear here...",
+                                            auto_grow=True,
+                                            density="compact",
+                                            style="overflow-y: auto;",
                                         )
                                 with vuetify.VExpansionPanel(
-                                    classes="mt-1 fill-height",
+                                    classes=(
+                                        "mt-1 fill-height flex-grow-2 flex-shrink-0"
+                                        + "d-flex flex-column"
+                                    ),
                                     readonly=True,
                                     style=(
-                                        "explanation_expanded.length > 1 ? 'max-height: 75%;' : 'max-height: 95%;'",
+                                        "explanation_expanded.length > 1 ? "
+                                        + "'max-height: 75%;' : 'max-height: 95%;'",
                                     ),
                                 ):
                                     vuetify.VExpansionPanelTitle(
@@ -856,7 +870,8 @@ class VTKPromptApp(TrameApp):
                                         classes="text-h6",
                                     )
                                     with vuetify.VExpansionPanelText(
-                                        style="overflow: hidden; height: 90%;"
+                                        style="overflow: hidden; height: 90%;",
+                                        classes="flex-grow-1",
                                     ):
                                         vuetify.VTextarea(
                                             v_model=("generated_code", ""),
@@ -870,11 +885,13 @@ class VTKPromptApp(TrameApp):
                                         )
 
                         # Right column - VTK viewer and prompt
-                        with vuetify.VCol(cols=6, classes="fill-height"):
+                        with vuetify.VCol(cols=5, classes="fill-height"):
                             with vuetify.VRow(no_gutters=True, classes="fill-height"):
                                 # Top: VTK render view
                                 with vuetify.VCol(
-                                    cols=12, classes="mb-2", style="height: 70%;"
+                                    cols=12,
+                                    classes="mb-2 flex-grow-1 flex-shrink-0",
+                                    style="min-height: calc(100% - 256px);",
                                 ):
                                     with vuetify.VCard(classes="fill-height"):
                                         vuetify.VCardTitle("VTK Visualization")
@@ -887,16 +904,12 @@ class VTKPromptApp(TrameApp):
                                                 interactor_settings=[
                                                     (
                                                         "SetInteractorStyle",
-                                                        [
-                                                            "vtkInteractorStyleTrackballCamera"
-                                                        ],
+                                                        ["vtkInteractorStyleTrackballCamera"],
                                                     ),
                                                 ],
                                             )
                                             self.ctrl.view_update = view.update
-                                            self.ctrl.view_reset_camera = (
-                                                view.reset_camera
-                                            )
+                                            self.ctrl.view_reset_camera = view.reset_camera
 
                                             # Register custom controller methods
                                             self.ctrl.on_tab_change = self.on_tab_change
@@ -905,7 +918,11 @@ class VTKPromptApp(TrameApp):
                                             view.update()
 
                                 # Bottom: Prompt input
-                                with vuetify.VCol(cols=12, style="height: 30%;"):
+                                with vuetify.VCol(
+                                    cols=12,
+                                    classes="flex-grow-0 flex-shrink-0",
+                                    style="height: 256px;",
+                                ):
                                     with vuetify.VCard(classes="fill-height"):
                                         with vuetify.VCardText(
                                             classes="d-flex flex-column",
@@ -925,8 +942,10 @@ class VTKPromptApp(TrameApp):
                                                 # Local models chip
                                                 vuetify.VChip(
                                                     (
-                                                        "🏠 {{ local_base_url.replace('http://', '')"
-                                                        ".replace('https://', '') }}/{{ local_model }}"
+                                                        "🏠 "
+                                                        "{{ local_base_url.replace('http://', '')"
+                                                        ".replace('https://', '') }}/"
+                                                        "{{ local_model }}"
                                                     ),
                                                     small=True,
                                                     color="green",
@@ -960,17 +979,18 @@ class VTKPromptApp(TrameApp):
                                                     classes="h-auto mr-1",
                                                     click=self.ctrl.navigate_conversation_left,
                                                 ):
-                                                    vuetify.VIcon(
-                                                        "mdi-arrow-left-circle"
-                                                    )
+                                                    vuetify.VIcon("mdi-arrow-left-circle")
                                                 # Query input
                                                 vuetify.VTextarea(
                                                     label="Describe VTK visualization",
                                                     v_model=("query_text", ""),
                                                     rows=4,
                                                     variant="outlined",
-                                                    placeholder="e.g., Create a red sphere with lighting",
+                                                    placeholder=(
+                                                        "e.g., Create a red sphere with lighting"
+                                                    ),
                                                     hide_details=True,
+                                                    no_resize=True,
                                                     disabled=(
                                                         "is_viewing_history",
                                                         False,
@@ -1007,7 +1027,7 @@ class VTKPromptApp(TrameApp):
                                                 color="primary",
                                                 block=True,
                                                 loading=("trame__busy", False),
-                                                click=self.generate_code,
+                                                click=self.ctrl.generate_code,
                                                 classes="mb-2",
                                                 disabled=(
                                                     "is_viewing_history ||"
@@ -1027,14 +1047,13 @@ class VTKPromptApp(TrameApp):
                 icon="mdi-alert-outline",
             )
 
-    def start(self):
+    def start(self) -> None:
         """Start the trame server."""
         self.server.start()
 
 
-def main():
-    """Main entry point for the trame app."""
-
+def main() -> None:
+    """Start the trame app."""
     print("VTK Prompt UI - Enter your API token in the application settings.")
     print("Supported providers: OpenAI, Anthropic, Google Gemini, NVIDIA NIM")
     print("For local Ollama, use custom base URL and model configuration.")

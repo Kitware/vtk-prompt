@@ -1,6 +1,22 @@
-#!/usr/bin/env python3
+"""
+VTK Prompt Template System.
+
+This module provides a template system for generating prompts used in VTK code generation.
+It includes functions for loading and formatting various template types:
+
+- Base context templates with VTK and Python version information
+- RAG (Retrieval-Augmented Generation) context templates
+- No-RAG context templates for direct queries
+- Role-based templates for Python and XML generation
+- UI-specific templates for post-processing
+
+Templates are stored as text files in the prompts directory and can be dynamically
+formatted with runtime values like VTK version, Python version, user requests,
+and context snippets.
+"""
 
 from pathlib import Path
+
 import vtk
 
 PYTHON_VERSION = ">=3.10"
@@ -21,9 +37,7 @@ def load_template(template_name: str) -> str:
     """
     template_path = PROMPTS_DIR / f"{template_name}.txt"
     if not template_path.exists():
-        raise FileNotFoundError(
-            f"Template {template_name} not found at {template_path}"
-        )
+        raise FileNotFoundError(f"Template {template_name} not found at {template_path}")
 
     return template_path.read_text()
 
