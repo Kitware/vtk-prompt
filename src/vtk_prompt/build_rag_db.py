@@ -5,21 +5,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
-
-def setup_rag_path():
-    """Add rag-components to the Python path.
-
-    Returns:
-        The path to the rag-components directory
-    """
-    script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent.parent
-    rag_path = str(project_root / "rag-components")
-
-    if rag_path not in sys.path:
-        sys.path.append(rag_path)
-
-    return rag_path
+from . import DATA_DIR
+from rag_components.populate_db import fill_database
 
 
 def check_dependencies():
@@ -44,7 +31,7 @@ def main():
     parser.add_argument(
         "--examples-dir",
         type=str,
-        default="data/examples",
+        default=str(DATA_DIR / "examples"),
         help="Directory containing VTK examples (default: data/examples)",
     )
     parser.add_argument(
@@ -80,19 +67,6 @@ def main():
         print('pip install -e ".[rag]"')
         sys.exit(1)
 
-    # Setup RAG path
-    rag_path = setup_rag_path()
-
-    # Import populate_db from rag-components
-    try:
-        sys.path.insert(0, rag_path)
-        from populate_db import fill_database
-    except ImportError as e:
-        print(f"Failed to import from rag-components: {e}")
-        print(
-            "Make sure the rag-components directory exists and contains the required files."
-        )
-        sys.exit(1)
 
     # Check if examples directory exists
     examples_dir = Path(args.examples_dir)

@@ -4,21 +4,7 @@ import sys
 import argparse
 from pathlib import Path
 
-
-def setup_rag_path():
-    """Add rag-components to the Python path.
-
-    Returns:
-        The path to the rag-components directory
-    """
-    script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent.parent
-    rag_path = str(project_root / "rag-components")
-
-    if rag_path not in sys.path:
-        sys.path.append(rag_path)
-
-    return rag_path
+from rag_components.query_db import query_db_interactive
 
 
 def display_results(results, top_k):
@@ -77,19 +63,6 @@ def main():
     )
 
     args = parser.parse_args()
-
-    # Setup RAG path
-    rag_path = setup_rag_path()
-
-    # Import query_db from rag-components
-    try:
-        sys.path.insert(0, rag_path)
-        from query_db import query_db_interactive
-    except ImportError as e:
-        print(f"Failed to import from rag-components: {e}")
-        print("Make sure you have installed the required dependencies:")
-        print('pip install -e ".[rag]"')
-        sys.exit(1)
 
     # Check if database directory exists
     database_path = Path(args.database)

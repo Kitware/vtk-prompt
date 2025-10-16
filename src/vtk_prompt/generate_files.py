@@ -13,6 +13,8 @@ from .prompts import (
     get_xml_role,
 )
 
+from . import DATA_DIR
+
 
 class VTKXMLGenerator:
     """OpenAI client for VTK XML file generation."""
@@ -36,7 +38,7 @@ class VTKXMLGenerator:
 
     def generate_xml(self, message, model, max_tokens=4000, temperature=0.7):
         """Generate VTK XML content from a description."""
-        examples_path = Path("data/examples/index.json")
+        examples_path = DATA_DIR / "examples" / "index.json"
         if examples_path.exists():
             _ = " ".join(json.loads(examples_path.read_text()).keys())
         else:

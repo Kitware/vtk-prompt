@@ -16,6 +16,8 @@ from .prompts import (
     get_python_role,
 )
 
+from . import DB_DIR
+
 
 @dataclass
 class VTKPromptClient:
@@ -24,7 +26,7 @@ class VTKPromptClient:
     _instance = None
 
     collection_name: str = "vtk-examples"
-    database_path: str = "./db/codesage-codesage-large-v2"
+    database_path: str = str(DB_DIR / "codesage-codesage-large-v2")
     verbose: bool = False
     conversation_file: str = None
     conversation: list = None

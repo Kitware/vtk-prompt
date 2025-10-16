@@ -23,3 +23,15 @@ except PackageNotFoundError:
     __version__ = "unknown"
 __author__ = "Vicente Adolfo Bolea Sanchez"
 __email__ = "vicente.bolea@kitware.com"
+
+from pathlib import Path
+
+
+def get_project_root():
+    """Get the absolute path to the project root directory."""
+    return Path(__file__).resolve().parent.parent.parent
+
+PROJECT_ROOT = get_project_root()
+DATA_DIR = PROJECT_ROOT / "data"
+DB_DIR = PROJECT_ROOT / "db"
+RAG_COMPONENTS_DIR = PROJECT_ROOT / "rag-components"

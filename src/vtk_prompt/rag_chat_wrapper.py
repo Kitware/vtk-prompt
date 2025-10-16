@@ -16,32 +16,20 @@ import importlib.util
 # Import our template system
 from .prompts import get_rag_chat_context
 
-# Add rag-components to path
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent / "rag-components"))
-
-# Import from rag-components
-import query_db
+from . import RAG_COMPONENTS_DIR
+from rag_components import query_db
 from llama_index.core.llms import ChatMessage
 from llama_index.llms.openai import OpenAI
 
 
 def check_rag_components_available():
     """Check if RAG components are available and installed."""
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    rag_components_path = repo_root / "rag-components"
     return (
         importlib.util.find_spec("chromadb") is not None
-        and rag_components_path.exists()
+        and RAG_COMPONENTS_DIR.exists()
     )
 
 
-def setup_rag_path():
-    """Add rag-components directory to the Python path."""
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    rag_path = str(repo_root / "rag-components")
-    if rag_path not in sys.path:
-        sys.path.append(rag_path)
-    return rag_path
 
 
 def get_rag_snippets(
@@ -51,10 +39,7 @@ def get_rag_snippets(
     top_k=5,
 ):
     """Get code snippets from the RAG database."""
-    setup_rag_path()
     try:
-        import query_db
-
         client = query_db.initialize_db(database_path)
         results = query_db.query_db(query, collection_name, top_k, client)
 

@@ -20,6 +20,8 @@ from .prompt import VTKPromptClient
 # Import our template system
 from .prompts import get_ui_post_prompt
 
+from . import DB_DIR
+
 EXPLAIN_RENDERER = (
     "# renderer is a vtkRenderer injected by this webapp"
     + "\n"
@@ -157,7 +159,7 @@ class VTKPromptApp(TrameApp):
 
             self.prompt_client = VTKPromptClient(
                 collection_name="vtk-examples",
-                database_path="./db/codesage-codesage-large-v2",
+                database_path=str(DB_DIR / "codesage-codesage-large-v2"),
                 verbose=False,
                 conversation=self.state.conversation,
             )
