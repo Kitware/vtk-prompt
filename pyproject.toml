@@ -48,6 +48,17 @@ dev = [
     "pytest >=6",
     "pytest-cov >=3",
     "tox",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "flake8-pyproject>=1.2.0",
+    "flake8-docstrings>=1.7.0",
+    "flake8-bugbear>=23.0.0",
+    "flake8-comprehensions>=3.14.0",
+    "mypy>=1.0.0",
+    "types-requests",
+    "types-click",
+    "types-setuptools",
 ]
 
 # Testing dependencies
@@ -131,3 +142,41 @@ module = [
     "vtk_prompt.vtk_prompt_ui",
 ]
 disable_error_code = ["misc"]
+
+[tool.tox]
+requires = ["tox>=4.22"]
+env_list = ["format", "lint", "type", "py310", "py311", "py312"]
+
+[tool.tox.env_run_base]
+deps = [".[dev]"]
+
+[tool.tox.env.format]
+description = "Format code with black and isort"
+commands = [
+    ["isort", "src/"],
+    ["black", "src/"]
+]
+
+[tool.tox.env.format-check]
+description = "Check code formatting with black and isort"
+commands = [
+    ["isort", "--check-only", "--diff", "src/"],
+    ["black", "--check", "--diff", "src/"]
+]
+
+[tool.tox.env.lint]
+description = "Lint code with flake8"
+commands = [["flake8", "src/"]]
+
+[tool.tox.env.type]
+description = "Type check with mypy"
+commands = [["mypy", "src/"]]
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = [
+    # whitespace before ':'
+    "E203",
+    # line break before binary operator
+    "W503"
+]
