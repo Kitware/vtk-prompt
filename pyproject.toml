@@ -6,7 +6,6 @@ authors = [
     {name = "Vicente Adolfo Bolea Sanchez", email = "vicente.bolea@kitware.com"},
 ]
 dependencies = [
-    "anthropic>=0.22.0",
     "chromadb>=0.6.3",
     "click>=8.0.0",
     "importlib_resources>=5.0.0",
@@ -67,9 +66,22 @@ test = [
     "pytest-cov>=4.0.0",
 ]
 
+# Provider-specific dependencies
+providers-anthropic = [
+    "anthropic>=0.22.0",
+]
+
+providers-gemini = [
+    "google-generativeai>=0.8.0",
+]
+
+providers-all = [
+    "vtk-prompt[providers-anthropic,providers-gemini]",
+]
+
 # All optional dependencies
 all = [
-    "vtk-prompt[dev,test]",
+    "vtk-prompt[dev,test,providers-all]",
 ]
 
 [project.urls]
@@ -78,7 +90,7 @@ Repository = "https://github.com/vicentebolea/vtk-prompt"
 Issues = "https://github.com/vicentebolea/vtk-prompt/issues"
 
 [project.scripts]
-vtk-prompt = "vtk_prompt.prompt:main"
+vtk-prompt = "vtk_prompt.cli:main"
 gen-vtk-file = "vtk_prompt.generate_files:main"
 vtk-build-rag = "vtk_prompt.build_rag_db:main"
 vtk-test-rag = "vtk_prompt.test_rag:main"
@@ -132,7 +144,9 @@ module = [
     "sentence_transformers.*",
     "tree_sitter_languages.*",
     "llama_index.*",
-    "query_db.*"
+    "query_db.*",
+    "google.*",
+    "anthropic.*",
 ]
 ignore_missing_imports = true
 
