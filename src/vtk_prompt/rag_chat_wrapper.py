@@ -14,7 +14,7 @@ Features:
 - CLI interface for standalone RAG chat testing
 
 Example:
-    >>> vtk-rag-chat --query "sphere creation" --model gpt-4o
+    >>> vtk-rag-chat --query "sphere creation" --model gpt-5
 """
 
 import importlib.util
@@ -93,7 +93,7 @@ class OpenAIRAGChat:
     """OpenAI-compatible wrapper for RAG chat functionality."""
 
     def __init__(
-        self, model: str = "gpt-4o", database: str = "./db/codesage-codesage-large-v2"
+        self, model: str = "gpt-5", database: str = "./db/codesage-codesage-large-v2"
     ) -> None:
         """Initialize the OpenAI RAG chat system.
 
@@ -207,7 +207,7 @@ class OpenAIRAGChat:
     default=15,
     help="Retrieve the top k examples from the database",
 )
-@click.option("--model", default="gpt-4o", help="OpenAI model to use")
+@click.option("--model", default="gpt-5", help="OpenAI model to use")
 def main(database: str, collection_name: str, top_k: int, model: str) -> None:
     """Query database for code snippets using OpenAI API only."""
     # Initialize the chat system

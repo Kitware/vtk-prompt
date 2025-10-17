@@ -98,13 +98,13 @@ vtk-prompt "Create a red sphere"
 # Advanced options
 vtk-prompt "Create a textured cone with 32 resolution" \
   --provider anthropic \
-  --model claude-3-5-sonnet-20241022 \
+  --model claude-opus-4-1-20250805 \
   --max-tokens 4000 \
   --rag \
   --verbose
 
 # Using different providers
-vtk-prompt "Create a blue cube" --provider openai --model gpt-4o
+vtk-prompt "Create a blue cube" --provider openai --model gpt-5
 vtk-prompt "Create a cylinder" --provider nim --model meta/llama3-70b-instruct
 ```
 
@@ -149,12 +149,12 @@ print(code)
 
 ### Supported Providers & Models
 
-| Provider      | Default Model             | Base URL                            |
-| ------------- | ------------------------- | ----------------------------------- |
-| **anthropic** | claude-3-5-haiku-20241022 | https://api.anthropic.com/v1        |
-| **openai**    | gpt-4o                    | https://api.openai.com/v1           |
-| **nim**       | meta/llama3-70b-instruct  | https://integrate.api.nvidia.com/v1 |
-| **custom**    | User-defined              | User-defined (for local models)     |
+| Provider      | Default Model            | Base URL                            |
+| ------------- | ------------------------ | ----------------------------------- |
+| **anthropic** | claude-opus-4-1-20250805 | https://api.anthropic.com/v1        |
+| **openai**    | gpt-5                    | https://api.openai.com/v1           |
+| **nim**       | meta/llama3-70b-instruct | https://integrate.api.nvidia.com/v1 |
+| **custom**    | User-defined             | User-defined (for local models)     |
 
 ### Custom/Local Models
 
