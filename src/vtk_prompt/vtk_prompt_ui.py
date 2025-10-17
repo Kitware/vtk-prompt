@@ -310,6 +310,7 @@ class VTKPromptApp(TrameApp):
                     top_k=int(self.state.top_k),
                     rag=self.state.use_rag,
                     retry_attempts=int(self.state.retry_attempts),
+                    provider=self.state.provider,
                 )
                 # Keep UI in sync with conversation
                 self.state.conversation = self.prompt_client.conversation
@@ -318,8 +319,8 @@ class VTKPromptApp(TrameApp):
                 if isinstance(result, tuple) and len(result) == 3:
                     generated_explanation, generated_code, usage = result
                     if usage:
-                        self.state.input_tokens = usage.prompt_tokens
-                        self.state.output_tokens = usage.completion_tokens
+                        self.state.input_tokens = usage["prompt_tokens"]
+                        self.state.output_tokens = usage["completion_tokens"]
                 else:
                     # Handle string result
                     generated_explanation = str(result)
