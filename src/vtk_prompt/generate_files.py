@@ -26,11 +26,7 @@ import openai
 
 from . import get_logger
 
-# Import our template system
-from .prompts import (
-    get_vtk_xml_context,
-    get_xml_role,
-)
+from .prompts import YAMLPromptLoader
 
 logger = get_logger(__name__)
 
@@ -63,15 +59,13 @@ class VTKXMLGenerator:
         else:
             _ = ""
 
-        context = get_vtk_xml_context(message)
+        yaml_loader = YAMLPromptLoader()
+        yaml_messages = yaml_loader.get_yaml_prompt("vtk_xml_generation", description=message)
 
         response = self.client.chat.completions.create(
             model=model,
-            messages=[
-                {"role": "system", "content": get_xml_role()},
-                {"role": "user", "content": context},
-            ],
-            max_tokens=max_tokens,
+            max_completion_tokens=max_tokens,
+            messages=yaml_messages,
             temperature=temperature,
         )
 
@@ -112,7 +106,7 @@ def openai_query(
     default="openai",
     help="LLM provider to use",
 )
-@click.option("-m", "--model", default="gpt-4o", help="Model to use for generation")
+@click.option("-m", "--model", default="gpt-5", help="Model to use for generation")
 @click.option("-t", "--token", required=True, help="API token for the selected provider")
 @click.option("--base-url", help="Base URL for API (auto-detected or custom)")
 @click.option(
@@ -154,10 +148,10 @@ def main(
         base_url = base_urls.get(provider)
 
     # Set default models based on provider
-    if model == "gpt-4o":
+    if model == "gpt-5":
         default_models = {
-            "anthropic": "claude-3-5-sonnet-20241022",
-            "gemini": "gemini-1.5-pro",
+            "anthropic": "claude-opus-4-1-20250805",
+            "gemini": "gemini-2.5-pro",
             "nim": "meta/llama3-70b-instruct",
         }
         model = default_models.get(provider, model)

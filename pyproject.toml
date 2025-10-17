@@ -6,7 +6,7 @@ authors = [
     {name = "Vicente Adolfo Bolea Sanchez", email = "vicente.bolea@kitware.com"},
 ]
 dependencies = [
-    "anthropic>=0.22.0",
+    "PyYAML>=6.0",
     "chromadb>=0.6.3",
     "click>=8.0.0",
     "importlib_resources>=5.0.0",
@@ -46,7 +46,6 @@ dev = [
     "pre-commit",
     "ruff",
     "pytest >=6",
-    "pytest-cov >=3",
     "tox",
     "black>=23.0.0",
     "isort>=5.12.0",
@@ -59,12 +58,12 @@ dev = [
     "types-requests",
     "types-click",
     "types-setuptools",
+    "types-PyYAML",
 ]
 
 # Testing dependencies
 test = [
     "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
 ]
 
 # All optional dependencies
@@ -78,7 +77,7 @@ Repository = "https://github.com/vicentebolea/vtk-prompt"
 Issues = "https://github.com/vicentebolea/vtk-prompt/issues"
 
 [project.scripts]
-vtk-prompt = "vtk_prompt.prompt:main"
+vtk-prompt = "vtk_prompt.cli:main"
 gen-vtk-file = "vtk_prompt.generate_files:main"
 vtk-build-rag = "vtk_prompt.build_rag_db:main"
 vtk-test-rag = "vtk_prompt.test_rag:main"
@@ -113,6 +112,7 @@ warn_return_any = false
 warn_unused_configs = true
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
+mypy_path = "src"
 exclude = [
     "rag-components/",
     "node_modules/",

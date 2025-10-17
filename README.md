@@ -98,13 +98,13 @@ vtk-prompt "Create a red sphere"
 # Advanced options
 vtk-prompt "Create a textured cone with 32 resolution" \
   --provider anthropic \
-  --model claude-3-5-sonnet-20241022 \
+  --model claude-opus-4-1-20250805 \
   --max-tokens 4000 \
   --rag \
   --verbose
 
 # Using different providers
-vtk-prompt "Create a blue cube" --provider openai --model gpt-4o
+vtk-prompt "Create a blue cube" --provider openai --model gpt-5
 vtk-prompt "Create a cylinder" --provider nim --model meta/llama3-70b-instruct
 ```
 
@@ -140,6 +140,61 @@ code = client.generate_code("Create a red sphere")
 print(code)
 ```
 
+## Model Configuration
+
+**Model configuration with YAML prompt files:**
+
+```yaml
+# Model and parameter configuration
+model: anthropic/claude-opus-4-1-20250805
+modelParameters:
+  temperature: 0.2
+  max_tokens: 6000
+```
+
+**Using custom prompt files:**
+
+```bash
+# CLI: Use your custom prompt file
+vtk-prompt "Create a sphere" --prompt-file custom_vtk_prompt.yml
+
+# CLI: Or with additional CLI overrides
+vtk-prompt "Create a complex scene" --prompt-file custom_vtk_prompt.yml --retry-attempts 3
+
+# UI: Use your custom prompt file
+vtk-prompt-ui --server --prompt-file custom_vtk_prompt.yml
+```
+
+### Model Parameters Guide
+
+**Temperature Settings:**
+
+- `0.1-0.3`: More focused, deterministic code generation
+- `0.4-0.7`: Balanced creativity and consistency (recommended)
+- `0.8-1.0`: More creative but potentially less reliable
+
+**Token Limits:** Token usage can vary significantly between models and
+providers. These are general guidelines:
+
+- `1000-2000`: Simple visualizations and basic VTK objects
+- `3000-4000`: Complex scenes with multiple objects
+- `5000+`: Detailed implementations with extensive documentation
+
+_Note: Different models have different token limits and costs. Check your
+provider's documentation for specific model capabilities._
+
+## Testing
+
+Run the test suite using the project's standard tools:
+
+```bash
+# Run all tests with tox
+tox -e test
+
+# Run pre-commit hooks (includes testing)
+pre-commit run --all-files
+```
+
 ## Configuration
 
 ### Environment Variables
@@ -149,12 +204,12 @@ print(code)
 
 ### Supported Providers & Models
 
-| Provider      | Default Model             | Base URL                            |
-| ------------- | ------------------------- | ----------------------------------- |
-| **anthropic** | claude-3-5-haiku-20241022 | https://api.anthropic.com/v1        |
-| **openai**    | gpt-4o                    | https://api.openai.com/v1           |
-| **nim**       | meta/llama3-70b-instruct  | https://integrate.api.nvidia.com/v1 |
-| **custom**    | User-defined              | User-defined (for local models)     |
+| Provider      | Default Model            | Base URL                            |
+| ------------- | ------------------------ | ----------------------------------- |
+| **anthropic** | claude-opus-4-1-20250805 | https://api.anthropic.com/v1        |
+| **openai**    | gpt-5                    | https://api.openai.com/v1           |
+| **nim**       | meta/llama3-70b-instruct | https://integrate.api.nvidia.com/v1 |
+| **custom**    | User-defined             | User-defined (for local models)     |
 
 ### Custom/Local Models
 

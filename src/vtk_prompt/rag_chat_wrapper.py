@@ -14,7 +14,7 @@ Features:
 - CLI interface for standalone RAG chat testing
 
 Example:
-    >>> vtk-rag-chat --query "sphere creation" --model gpt-4o
+    >>> vtk-rag-chat --query "sphere creation" --model gpt-5
 """
 
 import importlib.util
@@ -29,7 +29,7 @@ from llama_index.core.llms import ChatMessage
 from llama_index.llms.openai import OpenAI
 
 from . import get_logger
-from .prompts import get_rag_chat_context
+from .prompts import YAMLPromptLoader
 
 logger = get_logger(__name__)
 
@@ -93,7 +93,7 @@ class OpenAIRAGChat:
     """OpenAI-compatible wrapper for RAG chat functionality."""
 
     def __init__(
-        self, model: str = "gpt-4o", database: str = "./db/codesage-codesage-large-v2"
+        self, model: str = "gpt-5", database: str = "./db/codesage-codesage-large-v2"
     ) -> None:
         """Initialize the OpenAI RAG chat system.
 
@@ -152,11 +152,17 @@ class OpenAIRAGChat:
         # Combine the retrieved documents into a single text
         retrieved_text = "\n\n## Next example:\n\n".join(snippets)
 
-        # Use our template system instead of the hardcoded PROMPT
-        content = get_rag_chat_context(retrieved_text, query.rstrip())
+        # Use YAML prompt instead of legacy template function
+        yaml_loader = YAMLPromptLoader()
+        yaml_messages = yaml_loader.get_yaml_prompt(
+            "rag_chat", CONTEXT=retrieved_text, QUERY=query.rstrip()
+        )
 
-        # Add the enhanced context as a message
-        self.history.append(ChatMessage(role="assistant", content=content.rstrip()))
+        # Extract the user message content (should be the last message)
+        if yaml_messages:
+            content = yaml_messages[-1]["content"]
+            # Add the enhanced context as a message
+            self.history.append(ChatMessage(role="assistant", content=content.rstrip()))
 
         # Generate a response using the LLM
         if self.llm is None:
@@ -207,7 +213,7 @@ class OpenAIRAGChat:
     default=15,
     help="Retrieve the top k examples from the database",
 )
-@click.option("--model", default="gpt-4o", help="OpenAI model to use")
+@click.option("--model", default="gpt-5", help="OpenAI model to use")
 def main(database: str, collection_name: str, top_k: int, model: str) -> None:
     """Query database for code snippets using OpenAI API only."""
     # Initialize the chat system

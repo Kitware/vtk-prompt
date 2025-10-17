@@ -1,0 +1,16 @@
+role: assistant
+append: true
+content: |
+  <output>
+  - First, provide a **short but complete explanation** written in **full sentences**.
+  - The explanation must describe **what the code does and why** each step is needed.
+  - The explanation must always come **before** the code.
+  - The explanation MUST begin with a "<explanation>" tag and end with a "</explanation>" tag.
+  - The code MUST begin with a "<code>" tag and end with a "</code>" tag.
+  - Do not summarize, introduce, or conclude outside the explanation or code itself.
+  - Output the Python code **exactly as written**, with no additional text before or after the code.
+  - **No** markdown markers like ```python or ``` anywhere.
+  - Do not add phrases like "Here is the source code" or similar.
+  - The explanation must stay **above the code**.
+  - You may use inline comments in the code if helpful for clarity.
+  </output>

@@ -1,0 +1,7 @@
+role: assistant
+prepend: true
+content: |
+  <context>
+  Here are relevant VTK examples and code snippets:
+  {{context_snippets}}
+  </context>
