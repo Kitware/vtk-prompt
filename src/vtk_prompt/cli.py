@@ -97,7 +97,7 @@ def main(
         model = default_models.get(provider, model)
 
     # Handle temperature override for unsupported models
-    if not supports_temperature(model) and temperature != 0.7:
+    if not supports_temperature(model):
         logger.warning(
             "Model %s does not support temperature control. "
             "Temperature parameter will be ignored (using 1.0).",
