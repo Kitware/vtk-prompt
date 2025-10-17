@@ -77,9 +77,7 @@ class VTKPromptClient:
                 if isinstance(data, list):
                     return data
                 else:
-                    logger.warning(
-                        "Invalid conversation file format, no history loaded."
-                    )
+                    logger.warning("Invalid conversation file format, no history loaded.")
                     return []
         except Exception as e:
             logger.error("Could not load conversation file: %s", e)
