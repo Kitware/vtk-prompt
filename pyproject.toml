@@ -66,9 +66,22 @@ test = [
     "pytest-cov>=4.0.0",
 ]
 
+# Provider-specific dependencies
+providers-anthropic = [
+    "anthropic>=0.22.0",
+]
+
+providers-gemini = [
+    "google-generativeai>=0.8.0",
+]
+
+providers-all = [
+    "vtk-prompt[providers-anthropic,providers-gemini]",
+]
+
 # All optional dependencies
 all = [
-    "vtk-prompt[dev,test]",
+    "vtk-prompt[dev,test,providers-all]",
 ]
 
 [project.urls]
@@ -131,7 +144,9 @@ module = [
     "sentence_transformers.*",
     "tree_sitter_languages.*",
     "llama_index.*",
-    "query_db.*"
+    "query_db.*",
+    "google.*",
+    "anthropic.*",
 ]
 ignore_missing_imports = true
 

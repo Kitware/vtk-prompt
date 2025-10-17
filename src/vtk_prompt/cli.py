@@ -122,6 +122,7 @@ def main(
             top_k=top_k,
             rag=rag,
             retry_attempts=retry_attempts,
+            provider=provider,
         )
 
         if isinstance(result, tuple) and len(result) == 3:
@@ -129,9 +130,10 @@ def main(
             if verbose and usage:
                 logger.info(
                     "Used tokens: input=%d output=%d",
-                    usage.prompt_tokens,
-                    usage.completion_tokens,
+                    usage["prompt_tokens"],
+                    usage["completion_tokens"],
                 )
+            logger.info("Explanation:\n%s", explanation)
             client.run_code(generated_code)
         else:
             # Handle string result
