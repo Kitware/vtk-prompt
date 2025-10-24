@@ -28,18 +28,17 @@ from trame.ui.vuetify3 import SinglePageWithDrawerLayout
 from trame.widgets import html
 from trame.widgets import vuetify3 as vuetify
 from trame_vtk.widgets import vtk as vtk_widgets
-
-# Add VTK and Trame imports
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
-# Import logging
 from . import get_logger
-
-# Import our prompt functionality
-from .prompt import VTKPromptClient
-
-# Import our template system
+from .client import VTKPromptClient
 from .prompts import get_ui_post_prompt
+from .provider_utils import (
+    get_available_models,
+    get_default_model,
+    get_supported_providers,
+    supports_temperature,
+)
 
 logger = get_logger(__name__)
 
@@ -142,28 +141,12 @@ class VTKPromptApp(TrameApp):
 
         # Cloud model configuration
         self.state.provider = "openai"
-        self.state.model = "gpt-4o"
-        self.state.available_providers = [
-            "openai",
-            "anthropic",
-            "gemini",
-            "nim",
-        ]
-        self.state.available_models = {
-            "openai": ["gpt-4o", "gpt-4o-mini", "o1-preview", "o1-mini"],
-            "anthropic": [
-                "claude-3-5-sonnet-20241022",
-                "claude-3-5-haiku-20241022",
-                "claude-3-opus-20240229",
-            ],
-            "gemini": ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"],
-            "nim": [
-                "meta/llama3-70b-instruct",
-                "meta/llama3-8b-instruct",
-                "microsoft/phi-3-medium-4k-instruct",
-                "nvidia/llama3-chatqa-1.5-70b",
-            ],
-        }
+        self.state.model = "gpt-5"
+        self.state.temperature_supported = True
+
+        # Initialize with supported providers and fallback models
+        self.state.available_providers = get_supported_providers()
+        self.state.available_models = get_available_models()
 
         self.state.api_token = ""
 
@@ -214,7 +197,7 @@ class VTKPromptApp(TrameApp):
     def _get_model(self) -> str:
         """Get model name based on configuration mode."""
         if self.state.use_cloud_models:
-            return getattr(self.state, "model", "gpt-4o")
+            return getattr(self.state, "model", "gpt-5")
         else:
             local_model = getattr(self.state, "local_model", "")
             return local_model.strip() if local_model and local_model.strip() else "llama3.2:latest"
@@ -263,6 +246,14 @@ class VTKPromptApp(TrameApp):
     def on_tab_change(self, tab_index: int, **_: Any) -> None:
         """Handle tab change to sync use_cloud_models state."""
         self.state.use_cloud_models = tab_index == 0
+
+    @change("model", "local_model")
+    def _on_model_change(self, **_: Any) -> None:
+        """Handle model change to update temperature support."""
+        current_model = self._get_model()
+        self.state.temperature_supported = supports_temperature(current_model)
+        if not self.state.temperature_supported:
+            self.state.temperature = 1
 
     @controller.set("generate_code")
     def generate_code(self) -> None:
@@ -572,6 +563,15 @@ class VTKPromptApp(TrameApp):
             return json.dumps(self.prompt_client.conversation, indent=2)
         return ""
 
+    @change("provider")
+    def _on_provider_change(self, provider, **kwargs) -> None:
+        """Handle provider selection change."""
+        # Set default model for the provider if current model not available
+        if provider in self.state.available_models:
+            models = self.state.available_models[provider]
+            if models and self.state.model not in models:
+                self.state.model = get_default_model(provider)
+
     def _build_ui(self) -> None:
         """Build a simplified Vuetify UI."""
         # Initialize drawer state as collapsed
@@ -653,7 +653,7 @@ class VTKPromptApp(TrameApp):
                                     # Model selection
                                     vuetify.VSelect(
                                         label="Model",
-                                        v_model=("model", "gpt-4o"),
+                                        v_model=("model", "gpt-5"),
                                         items=("available_models[provider] || []",),
                                         density="compact",
                                         variant="outlined",
@@ -750,6 +750,7 @@ class VTKPromptApp(TrameApp):
                                 color="orange",
                                 prepend_icon="mdi-thermometer",
                                 classes="mt-2",
+                                disabled=("!temperature_supported",),
                             )
                             vuetify.VTextField(
                                 label="Max Tokens",
