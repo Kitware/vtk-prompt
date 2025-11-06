@@ -112,6 +112,7 @@ warn_return_any = false
 warn_unused_configs = true
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
+mypy_path = ["src"]
 exclude = [
     "rag-components/",
     "node_modules/",
@@ -144,7 +145,7 @@ disable_error_code = ["misc"]
 
 [tool.tox]
 requires = ["tox>=4.22"]
-env_list = ["format", "lint", "type", "py310", "py311", "py312"]
+env_list = ["format", "lint", "type", "test", "py310", "py311", "py312"]
 
 [tool.tox.env_run_base]
 deps = [".[dev]"]
@@ -169,7 +170,78 @@ commands = [["flake8", "src/"]]
 
 [tool.tox.env.type]
 description = "Type check with mypy"
-commands = [["mypy", "src/"]]
+commands = [["mypy", "src", "tests"]]
+
+[tool.tox.env.test]
+description = "Run tests with coverage reporting"
+deps = [".[test]"]
+passenv = [
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GOOGLE_API_KEY",
+    "NVIDIA_API_KEY",
+    "CI",
+    "GITHUB_ACTIONS"
+]
+commands = [
+    ["pytest", "tests/"]
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--cov=vtk_prompt",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-report=xml:coverage.xml",
+    "--cov-branch",
+    "--strict-markers",
+    "-v"
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "smoke: marks tests as smoke tests for API connectivity"
+]
+
+[tool.coverage.run]
+source = ["vtk_prompt"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__init__.py",
+    "*/conftest.py"
+]
+branch = true
+
+[tool.coverage.paths]
+vtk_prompt = [
+    "src/vtk_prompt",
+    ".tox/*/site-packages/vtk_prompt"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod"
+]
+show_missing = true
+skip_covered = false
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
 
 [tool.flake8]
 max-line-length = 100

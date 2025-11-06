@@ -4,6 +4,7 @@
 [![Build and Publish](https://github.com/vicentebolea/vtk-prompt/actions/workflows/publish.yml/badge.svg)](https://github.com/vicentebolea/vtk-prompt/actions/workflows/publish.yml)
 [![PyPI version](https://badge.fury.io/py/vtk-prompt.svg)](https://badge.fury.io/py/vtk-prompt)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Coverage](https://img.shields.io/badge/coverage-11.0%25-red.svg)](htmlcov/index.html)
 
 A command-line interface and web-based UI for generating VTK visualization code
 using Large Language Models (Anthropic Claude, OpenAI GPT, NVIDIA NIM, and local
@@ -235,6 +236,35 @@ which covers:
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+## Testing
+
+The project includes a comprehensive test suite with code coverage reporting.
+
+### Running Tests
+
+```bash
+# Run all tests with coverage
+pytest
+
+# Run specific test categories
+pytest tests/test_cli.py                    # CLI functionality tests
+pytest tests/test_providers_smoke.py        # Provider smoke tests
+pytest -m "not smoke"                       # Exclude API-dependent tests
+
+# Generate coverage report
+pytest --cov=src/vtk_prompt --cov-report=html
+```
+
+### Test Categories
+
+- **CLI Tests**: Argument parsing, provider integration, error handling
+- **Smoke Tests**: Real API connectivity testing (requires API keys)
+- **Client Tests**: Core VTKPromptClient functionality
+- **Integration Tests**: End-to-end workflow testing
+
+Coverage reports are generated in `htmlcov/` directory. Current coverage:
+**11.0%** (improving with ongoing test development).
 
 ## License
 
