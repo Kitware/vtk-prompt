@@ -157,7 +157,7 @@ def main(
     # Set default models based on provider
     if model == "gpt-5":
         default_models = {
-            "anthropic": "claude-opus-4-1-20250805",
+            "anthropic": "claude-opus-4-1",
             "gemini": "gemini-2.5-pro",
             "nim": "meta/llama3-70b-instruct",
         }
