@@ -752,7 +752,7 @@ class VTKPromptApp(TrameApp):
     def _build_ui(self) -> None:
         """Build a simplified Vuetify UI."""
         # Initialize drawer state as collapsed
-        self.state.main_drawer = True
+        self.state.main_drawer = False
 
         with SinglePageWithDrawerLayout(
             self.server, theme=("theme_mode", "light"), style="max-height: 100vh;"
@@ -760,43 +760,104 @@ class VTKPromptApp(TrameApp):
             layout.title.set_text("VTK Prompt UI")
             with layout.toolbar:
                 vuetify.VSpacer()
-                # Token usage display
-                with vuetify.VChip(
-                    small=True,
-                    color="primary",
-                    text_color="white",
-                    v_show="input_tokens > 0 || output_tokens > 0",
-                    classes="mr-2",
+                with vuetify.VTooltip(
+                    text=("conversation_file", "No file loaded"),
+                    location="bottom",
+                    disabled=("!conversation_object",),
                 ):
-                    html.Span("Tokens: In: {{ input_tokens }} | Out: {{ output_tokens }}")
-
-                # VTK control buttons
-                with vuetify.VBtn(
-                    click=self.ctrl.clear_scene,
-                    icon=True,
-                    v_tooltip_bottom="Clear Scene",
+                    with vuetify.Template(v_slot_activator="{ props }"):
+                        vuetify.VFileInput(
+                            label="Conversation File",
+                            v_model=("conversation_object", None),
+                            accept=".json",
+                            variant="solo",
+                            density="compact",
+                            prepend_icon="mdi-forum-outline",
+                            hide_details="auto",
+                            classes="py-1 pr-1 mr-2 text-truncate",
+                            open_on_focus=False,
+                            clearable=False,
+                            v_bind="props",
+                            rules=["[utils.vtk_prompt.rules.json_file]"],
+                            color="primary",
+                            style="max-width: 25%;",
+                        )
+                with vuetify.VTooltip(
+                    text=(
+                        "auto_run_conversation_file ? "
+                        + "'Auto-run conversation files on load' : "
+                        + "'Do not auto-run conversation files on load'",
+                        "Auto-run conversation files on load",
+                    ),
+                    location="bottom",
                 ):
-                    vuetify.VIcon("mdi-reload")
-                with vuetify.VBtn(
-                    click=self.ctrl.reset_camera,
-                    icon=True,
-                    v_tooltip_bottom="Reset Camera",
+                    with vuetify.Template(v_slot_activator="{ props }"):
+                        with vuetify.VBtn(
+                            icon=True,
+                            v_bind="props",
+                            click="auto_run_conversation_file = !auto_run_conversation_file",
+                            classes="mr-2",
+                            color="primary",
+                        ):
+                            vuetify.VIcon(
+                                "mdi-autorenew",
+                                v_show="auto_run_conversation_file",
+                            )
+                            vuetify.VIcon(
+                                "mdi-autorenew-off",
+                                v_show="!auto_run_conversation_file",
+                            )
+                with vuetify.VTooltip(
+                    text="Download conversation file",
+                    location="bottom",
                 ):
-                    vuetify.VIcon("mdi-camera-retake-outline")
-
+                    with vuetify.Template(v_slot_activator="{ props }"):
+                        with vuetify.VBtn(
+                            icon=True,
+                            v_bind="props",
+                            disabled=("!conversation",),
+                            click="utils.download("
+                            + "`vtk-prompt_${provider}_${model}.json`,"
+                            + "trigger('save_conversation'),"
+                            + "'application/json'"
+                            + ")",
+                            classes="mr-2",
+                            color="primary",
+                            density="compact",
+                        ):
+                            vuetify.VIcon("mdi-file-download-outline")
+                with vuetify.VTooltip(
+                    text="Download config file",
+                    location="bottom",
+                ):
+                    with vuetify.Template(v_slot_activator="{ props }"):
+                        with vuetify.VBtn(
+                            icon=True,
+                            v_bind="props",
+                            click="utils.download("
+                            + "`vtk-prompt_config.yml`,"
+                            + "trigger('save_config'),"
+                            + "'application/x-yaml'"
+                            + ")",
+                            classes="mr-4",
+                            color="primary",
+                            density="compact",
+                        ):
+                            vuetify.VIcon("mdi-content-save-cog-outline")
                 vuetify.VSwitch(
                     v_model=("theme_mode", "light"),
                     hide_details=True,
                     density="compact",
-                    label="Dark Mode",
                     classes="mr-2",
-                    true_value="dark",
-                    false_value="light",
+                    true_value="light",
+                    false_value="dark",
+                    append_icon=(
+                        "theme_mode === 'light' ? 'mdi-weather-sunny' : 'mdi-weather-night'",
+                    ),
                 )
 
             with layout.drawer as drawer:
                 drawer.width = 350
-
                 with vuetify.VContainer():
                     # Tab Navigation - Centered
                     with vuetify.VRow(justify="center"):
@@ -810,7 +871,6 @@ class VTKPromptApp(TrameApp):
                             ):
                                 vuetify.VTab("☁️ Cloud")
                                 vuetify.VTab("🏠Local")
-
                     # Tab Content
                     with vuetify.VTabsWindow(v_model="tab_index"):
                         # Cloud Providers Tab Content
@@ -826,7 +886,6 @@ class VTKPromptApp(TrameApp):
                                         variant="outlined",
                                         prepend_icon="mdi-cloud",
                                     )
-
                                     # Model selection
                                     vuetify.VSelect(
                                         label="Model",
@@ -836,7 +895,6 @@ class VTKPromptApp(TrameApp):
                                         variant="outlined",
                                         prepend_icon="mdi-brain",
                                     )
-
                                     # API Token
                                     vuetify.VTextField(
                                         label="API Token",
@@ -850,7 +908,6 @@ class VTKPromptApp(TrameApp):
                                         persistent_hint=True,
                                         error=("!api_token", False),
                                     )
-
                         # Local Models Tab Content
                         with vuetify.VTabsWindowItem():
                             with vuetify.VCard(flat=True, style="mt-2"):
@@ -868,7 +925,6 @@ class VTKPromptApp(TrameApp):
                                         hint="Ollama, LM Studio, etc.",
                                         persistent_hint=True,
                                     )
-
                                     vuetify.VTextField(
                                         label="Model Name",
                                         v_model=("local_model", "devstral"),
@@ -879,7 +935,6 @@ class VTKPromptApp(TrameApp):
                                         hint="Model identifier",
                                         persistent_hint=True,
                                     )
-
                                     # Optional API Token for local
                                     vuetify.VTextField(
                                         label="API Token (Optional)",
@@ -892,7 +947,6 @@ class VTKPromptApp(TrameApp):
                                         hint="Optional for local servers",
                                         persistent_hint=True,
                                     )
-
                     with vuetify.VCard(classes="mt-2"):
                         vuetify.VCardTitle("⚙️  RAG settings", classes="pb-0")
                         with vuetify.VCardText():
@@ -913,7 +967,6 @@ class VTKPromptApp(TrameApp):
                                 variant="outlined",
                                 prepend_icon="mdi-chart-scatter-plot",
                             )
-
                     with vuetify.VCard(classes="mt-2"):
                         vuetify.VCardTitle("⚙️ Generation Settings", classes="pb-0")
                         with vuetify.VCardText():
@@ -948,80 +1001,20 @@ class VTKPromptApp(TrameApp):
                                 prepend_icon="mdi-repeat",
                             )
 
-                    with vuetify.VCard(classes="mt-2"):
-                        vuetify.VCardTitle("⚙️ Files", hide_details=True, density="compact")
-                        with vuetify.VCardText():
-                            vuetify.VCheckbox(
-                                label="Run new conversation files",
-                                v_model=("auto_run_conversation_file", True),
-                                prepend_icon="mdi-file-refresh-outline",
-                                density="compact",
-                                color="primary",
-                                hide_details=True,
-                            )
-                            with html.Div(classes="d-flex align-center justify-space-between"):
-                                with vuetify.VTooltip(
-                                    text=("conversation_file", "No file loaded"),
-                                    location="top",
-                                    disabled=("!conversation_object",),
-                                ):
-                                    with vuetify.Template(v_slot_activator="{ props }"):
-                                        vuetify.VFileInput(
-                                            label="Conversation File",
-                                            v_model=("conversation_object", None),
-                                            accept=".json",
-                                            density="compact",
-                                            variant="solo",
-                                            prepend_icon="mdi-forum-outline",
-                                            hide_details="auto",
-                                            classes="py-1 pr-1 mr-1 text-truncate",
-                                            open_on_focus=False,
-                                            clearable=False,
-                                            v_bind="props",
-                                            rules=["[utils.vtk_prompt.rules.json_file]"],
-                                        )
-                                with vuetify.VTooltip(
-                                    text="Download conversation file",
-                                    location="right",
-                                ):
-                                    with vuetify.Template(v_slot_activator="{ props }"):
-                                        with vuetify.VBtn(
-                                            icon=True,
-                                            density="comfortable",
-                                            color="secondary",
-                                            rounded="lg",
-                                            v_bind="props",
-                                            disabled=("!conversation",),
-                                            click="utils.download("
-                                            + "`vtk-prompt_${provider}_${model}.json`,"
-                                            + "trigger('save_conversation'),"
-                                            + "'application/json'"
-                                            + ")",
-                                        ):
-                                            vuetify.VIcon("mdi-file-download-outline")
-                            vuetify.VBtn(
-                                text="Download config file",
-                                color="secondary",
-                                rounded="lg",
-                                click="utils.download("
-                                + "`vtk-prompt_config.yml`,"
-                                + "trigger('save_config'),"
-                                + "'application/x-yaml'"
-                                + ")",
-                            )
-
             with layout.content:
-                with vuetify.VContainer(classes="fluid fill-height pt-0", style="min-width: 100%;"):
-                    with vuetify.VRow(rows=12, classes="fill-height"):
+                with vuetify.VContainer(
+                    classes="fluid fill-height", style="min-width: 100%; padding: 0!important;"
+                ):
+                    with vuetify.VRow(rows=12, classes="fill-height px-4 pt-1 pb-1"):
                         # Left column - Generated code view
-                        with vuetify.VCol(cols=7, classes="fill-height"):
+                        with vuetify.VCol(cols=7, classes="fill-height pa-0"):
                             with vuetify.VExpansionPanels(
                                 v_model=("explanation_expanded", [0, 1]),
-                                classes="fill-height",
+                                classes="fill-height pb-1 pr-1",
                                 multiple=True,
                             ):
                                 with vuetify.VExpansionPanel(
-                                    classes="mt-1 flex-grow-1 flex-shrink-0 d-flex flex-column",
+                                    classes="flex-grow-1 flex-shrink-0 d-flex flex-column pa-0 mt-0",
                                     style="max-height: 25%;",
                                 ):
                                     vuetify.VExpansionPanelTitle("Explanation", classes="text-h6")
@@ -1043,13 +1036,14 @@ class VTKPromptApp(TrameApp):
                                         )
                                 with vuetify.VExpansionPanel(
                                     classes=(
-                                        "mt-1 fill-height flex-grow-2 flex-shrink-0"
-                                        + "d-flex flex-column"
+                                        "fill-height flex-grow-2 flex-shrink-0"
+                                        + " d-flex flex-column mt-1"
                                     ),
                                     readonly=True,
                                     style=(
                                         "explanation_expanded.length > 1 ? "
                                         + "'max-height: 75%;' : 'max-height: 95%;'",
+                                        "box-sizing: border-box;",
                                     ),
                                 ):
                                     vuetify.VExpansionPanelTitle(
@@ -1073,16 +1067,62 @@ class VTKPromptApp(TrameApp):
                                         )
 
                         # Right column - VTK viewer and prompt
-                        with vuetify.VCol(cols=5, classes="fill-height"):
+                        with vuetify.VCol(cols=5, classes="fill-height pa-0"):
                             with vuetify.VRow(no_gutters=True, classes="fill-height"):
                                 # Top: VTK render view
                                 with vuetify.VCol(
                                     cols=12,
-                                    classes="mb-2 flex-grow-1 flex-shrink-0",
+                                    classes="flex-grow-1 flex-shrink-0 pa-0",
                                     style="min-height: calc(100% - 256px);",
                                 ):
                                     with vuetify.VCard(classes="fill-height"):
-                                        vuetify.VCardTitle("VTK Visualization")
+                                        with vuetify.VCardTitle(
+                                            "VTK Visualization", classes="d-flex align-center"
+                                        ):
+                                            vuetify.VSpacer()
+                                            # Token usage display
+                                            with vuetify.VChip(
+                                                small=True,
+                                                color="secondary",
+                                                text_color="white",
+                                                v_show="input_tokens > 0 || output_tokens > 0",
+                                                classes="mr-2",
+                                                density="compact",
+                                            ):
+                                                html.Span(
+                                                    "Tokens: In: {{ input_tokens }} | Out: {{ output_tokens }}"
+                                                )
+                                            # VTK control buttons
+                                            with vuetify.VTooltip(
+                                                text="Clear Scene",
+                                                location="bottom",
+                                            ):
+                                                with vuetify.Template(v_slot_activator="{ props }"):
+                                                    with vuetify.VBtn(
+                                                        click=self.ctrl.clear_scene,
+                                                        icon=True,
+                                                        color="secondary",
+                                                        v_bind="props",
+                                                        classes="mr-2",
+                                                        density="compact",
+                                                        variant="text",
+                                                    ):
+                                                        vuetify.VIcon("mdi-reload")
+                                            with vuetify.VTooltip(
+                                                text="Reset Camera",
+                                                location="bottom",
+                                            ):
+                                                with vuetify.Template(v_slot_activator="{ props }"):
+                                                    with vuetify.VBtn(
+                                                        click=self.ctrl.reset_camera,
+                                                        icon=True,
+                                                        color="secondary",
+                                                        v_bind="props",
+                                                        classes="mr-2",
+                                                        density="compact",
+                                                        variant="text",
+                                                    ):
+                                                        vuetify.VIcon("mdi-camera-retake-outline")
                                         with vuetify.VCardText(style="height: 90%;"):
                                             # VTK render window
                                             view = vtk_widgets.VtkRemoteView(
