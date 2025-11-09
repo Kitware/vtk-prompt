@@ -999,16 +999,16 @@ class VTKPromptApp(TrameApp):
                                             + ")",
                                         ):
                                             vuetify.VIcon("mdi-file-download-outline")
-                                vuetify.VBtn(
-                                    text="Download config file",
-                                    color="secondary",
-                                    rounded="lg",
-                                    click="utils.download("
-                                    + "`vtk-prompt_config.yml`,"
-                                    + "trigger('save_config'),"
-                                    + "'application/x-yaml'"
-                                    + ")",
-                                )
+                            vuetify.VBtn(
+                                text="Download config file",
+                                color="secondary",
+                                rounded="lg",
+                                click="utils.download("
+                                + "`vtk-prompt_config.yml`,"
+                                + "trigger('save_config'),"
+                                + "'application/x-yaml'"
+                                + ")",
+                            )
 
             with layout.content:
                 with vuetify.VContainer(classes="fluid fill-height pt-0", style="min-width: 100%;"):
