@@ -98,7 +98,7 @@ vtk-prompt "Create a red sphere"
 # Advanced options
 vtk-prompt "Create a textured cone with 32 resolution" \
   --provider anthropic \
-  --model claude-opus-4-1-20250805 \
+  --model claude-opus-4-1 \
   --max-tokens 4000 \
   --rag \
   --verbose
@@ -151,7 +151,7 @@ print(code)
 
 | Provider      | Default Model            | Base URL                            |
 | ------------- | ------------------------ | ----------------------------------- |
-| **anthropic** | claude-opus-4-1-20250805 | https://api.anthropic.com/v1        |
+| **anthropic** | claude-opus-4-1          | https://api.anthropic.com/v1        |
 | **openai**    | gpt-5                    | https://api.openai.com/v1           |
 | **nim**       | meta/llama3-70b-instruct | https://integrate.api.nvidia.com/v1 |
 | **custom**    | User-defined             | User-defined (for local models)     |
