@@ -4,6 +4,7 @@
 [![Build and Publish](https://github.com/vicentebolea/vtk-prompt/actions/workflows/publish.yml/badge.svg)](https://github.com/vicentebolea/vtk-prompt/actions/workflows/publish.yml)
 [![PyPI version](https://badge.fury.io/py/vtk-prompt.svg)](https://badge.fury.io/py/vtk-prompt)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![codecov](https://codecov.io/github/Kitware/vtk-prompt/graph/badge.svg?token=gg8CHNeBKR)](https://codecov.io/github/Kitware/vtk-prompt)
 
 A command-line interface and web-based UI for generating VTK visualization code
 using Large Language Models (Anthropic Claude, OpenAI GPT, NVIDIA NIM, and local
@@ -138,6 +139,61 @@ from vtk_prompt import VTKPromptClient
 client = VTKPromptClient()
 code = client.generate_code("Create a red sphere")
 print(code)
+```
+
+## Model Configuration
+
+**Model configuration with YAML prompt files:**
+
+```yaml
+# Model and parameter configuration
+model: anthropic/claude-opus-4-1-20250805
+modelParameters:
+  temperature: 0.2
+  max_tokens: 6000
+```
+
+**Using custom prompt files:**
+
+```bash
+# CLI: Use your custom prompt file
+vtk-prompt "Create a sphere" --prompt-file custom_vtk_prompt.yml
+
+# CLI: Or with additional CLI overrides
+vtk-prompt "Create a complex scene" --prompt-file custom_vtk_prompt.yml --retry-attempts 3
+
+# UI: Use your custom prompt file
+vtk-prompt-ui --server --prompt-file custom_vtk_prompt.yml
+```
+
+### Model Parameters Guide
+
+**Temperature Settings:**
+
+- `0.1-0.3`: More focused, deterministic code generation
+- `0.4-0.7`: Balanced creativity and consistency (recommended)
+- `0.8-1.0`: More creative but potentially less reliable
+
+**Token Limits:** Token usage can vary significantly between models and
+providers. These are general guidelines:
+
+- `1000-2000`: Simple visualizations and basic VTK objects
+- `3000-4000`: Complex scenes with multiple objects
+- `5000+`: Detailed implementations with extensive documentation
+
+_Note: Different models have different token limits and costs. Check your
+provider's documentation for specific model capabilities._
+
+## Testing
+
+Run the test suite using the project's standard tools:
+
+```bash
+# Run all tests with tox
+tox -e test
+
+# Run pre-commit hooks (includes testing)
+pre-commit run --all-files
 ```
 
 ## Configuration

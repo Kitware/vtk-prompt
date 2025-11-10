@@ -19,18 +19,14 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 import click
 import openai
+from openai.types.chat import ChatCompletionMessageParam
 
 from . import get_logger
-
-# Import our template system
-from .prompts import (
-    get_vtk_xml_context,
-    get_xml_role,
-)
+from .prompts import YAMLPromptLoader
 
 logger = get_logger(__name__)
 
@@ -63,16 +59,14 @@ class VTKXMLGenerator:
         else:
             _ = ""
 
-        context = get_vtk_xml_context(message)
+        yaml_loader = YAMLPromptLoader()
+        yaml_messages = yaml_loader.get_yaml_prompt("vtk_xml_generation", description=message)
+        messages_param = cast(list[ChatCompletionMessageParam], yaml_messages)
 
         response = self.client.chat.completions.create(
             model=model,
-            messages=[
-                {"role": "system", "content": get_xml_role()},
-                {"role": "user", "content": context},
-            ],
             max_completion_tokens=max_tokens,
-            # max_tokens=max_tokens,
+            messages=messages_param,
             temperature=temperature,
         )
 

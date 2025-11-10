@@ -18,10 +18,12 @@ Example:
 
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any, Optional
 
 import vtk
+import yaml
 from trame.app import TrameApp
 from trame.decorators import change, controller, trigger
 from trame.ui.vuetify3 import SinglePageWithDrawerLayout
@@ -32,7 +34,6 @@ from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
 from .client import VTKPromptClient
-from .prompts import get_ui_post_prompt
 from .provider_utils import (
     get_available_models,
     get_default_model,
@@ -66,10 +67,28 @@ def load_js(server: Any) -> None:
 class VTKPromptApp(TrameApp):
     """VTK Prompt interactive application with 3D visualization and AI chat interface."""
 
-    def __init__(self, server: Optional[Any] = None) -> None:
-        """Initialize VTK Prompt application."""
+    def __init__(
+        self, server: Optional[Any] = None, custom_prompt_file: Optional[str] = None
+    ) -> None:
+        """Initialize VTK Prompt application.
+
+        Args:
+            server: Trame server instance
+            custom_prompt_file: Path to custom YAML prompt file
+        """
         super().__init__(server=server, client_type="vue3")
         self.state.trame__title = "VTK Prompt"
+
+        # Store custom prompt file path and data
+        self.custom_prompt_file = custom_prompt_file
+        self.custom_prompt_data = None
+
+        # Add CLI argument for custom prompt file
+        self.server.cli.add_argument(
+            "--prompt-file",
+            help="Path to custom YAML prompt file (overrides built-in prompts and defaults)",
+            dest="prompt_file",
+        )
 
         # Make sure JS is loaded
         load_js(self.server)
@@ -94,8 +113,102 @@ class VTKPromptApp(TrameApp):
         self._conversation_loading = False
         self._add_default_scene()
 
-        # Initial render
-        self.render_window.Render()
+        # Load custom prompt file after VTK initialization
+        if custom_prompt_file:
+            self._load_custom_prompt_file()
+
+    def _load_custom_prompt_file(self) -> None:
+        """Load custom YAML prompt file and extract model parameters."""
+        if not self.custom_prompt_file:
+            return
+
+        try:
+            custom_file_path = Path(self.custom_prompt_file)
+            if not custom_file_path.exists():
+                logger.error("Custom prompt file not found: %s", self.custom_prompt_file)
+                return
+
+            with open(custom_file_path, "r") as f:
+                self.custom_prompt_data = yaml.safe_load(f)
+
+            logger.info("Loaded custom prompt file: %s", custom_file_path.name)
+
+            # Override UI defaults with custom prompt parameters
+            if self.custom_prompt_data and isinstance(self.custom_prompt_data, dict):
+                model_value = self.custom_prompt_data.get("model")
+                if isinstance(model_value, str) and model_value:
+                    if "/" in model_value:
+                        provider_part, model_part = model_value.split("/", 1)
+                        # Validate provider
+                        supported = set(get_supported_providers() + ["local"])
+                        if provider_part not in supported or not model_part.strip():
+                            msg = (
+                                "Invalid 'model' in prompt file. Expected '<provider>/<model>' "
+                                "with provider in {openai, anthropic, gemini, nim, local}."
+                            )
+                            self.state.error_message = msg
+                            raise ValueError(msg)
+                        if provider_part == "local":
+                            # Switch to local mode
+                            self.state.use_cloud_models = False
+                            self.state.tab_index = 1
+                            self.state.local_model = model_part
+                        else:
+                            # Cloud provider/model
+                            self.state.use_cloud_models = True
+                            self.state.tab_index = 0
+                            self.state.provider = provider_part
+                            self.state.model = model_part
+                    else:
+                        # Enforce explicit provider/model format
+                        msg = (
+                            "Invalid 'model' format in prompt file. Expected '<provider>/<model>' "
+                            "(e.g., 'openai/gpt-5' or 'local/llama3')."
+                        )
+                        self.state.error_message = msg
+                        raise ValueError(msg)
+
+                # RAG and generation controls
+                if "rag" in self.custom_prompt_data:
+                    self.state.use_rag = bool(self.custom_prompt_data.get("rag"))
+                if "top_k" in self.custom_prompt_data:
+                    _top_k = self.custom_prompt_data.get("top_k")
+                    if isinstance(_top_k, int):
+                        self.state.top_k = _top_k
+                    elif isinstance(_top_k, str) and _top_k.isdigit():
+                        self.state.top_k = int(_top_k)
+                    else:
+                        logger.warning("Invalid top_k in prompt file: %r; keeping existing", _top_k)
+                if "retries" in self.custom_prompt_data:
+                    _retries = self.custom_prompt_data.get("retries")
+                    if isinstance(_retries, int):
+                        self.state.retry_attempts = _retries
+                    elif isinstance(_retries, str) and _retries.isdigit():
+                        self.state.retry_attempts = int(_retries)
+                    else:
+                        logger.warning(
+                            "Invalid retries in prompt file: %r; keeping existing", _retries
+                        )
+
+                self.state.temperature_supported = supports_temperature(model_part)
+                # Set model parameters from prompt file
+                model_params = self.custom_prompt_data.get("modelParameters", {})
+                if isinstance(model_params, dict):
+                    if "temperature" in model_params:
+                        if not self.state.temperature_supported:
+                            self.state.temperature = 1.0  # enforce
+                            logger.warning(
+                                "Temperature not supported for model %s; forcing 1.0", model_part
+                            )
+                        else:
+                            self.state.temperature = model_params["temperature"]
+                    if "max_tokens" in model_params:
+                        self.state.max_tokens = model_params["max_tokens"]
+        except (yaml.YAMLError, ValueError) as e:
+            # Log error and surface to UI as well
+            logger.error("Failed to load custom prompt file %s: %s", self.custom_prompt_file, e)
+            self.state.error_message = str(e)
+            self.custom_prompt_data = None
 
     def _add_default_scene(self) -> None:
         """Add default coordinate axes to prevent empty scene segfaults."""
@@ -143,10 +256,40 @@ class VTKPromptApp(TrameApp):
         self.state.provider = "openai"
         self.state.model = "gpt-5"
         self.state.temperature_supported = True
-
         # Initialize with supported providers and fallback models
         self.state.available_providers = get_supported_providers()
         self.state.available_models = get_available_models()
+
+        # Load component defaults and sync UI state
+        try:
+            from .prompts import assemble_vtk_prompt
+
+            prompt_data = assemble_vtk_prompt("placeholder")  # Just to get defaults
+            model_params = prompt_data.get("modelParameters", {})
+
+            # Update state with component model configuration
+            if "temperature" in model_params:
+                self.state.temperature = str(model_params["temperature"])
+            if "max_tokens" in model_params:
+                self.state.max_tokens = str(model_params["max_tokens"])
+
+            # Parse default model from component data
+            default_model = prompt_data.get("model", "openai/gpt-5")
+            if "/" in default_model:
+                provider, model = default_model.split("/", 1)
+                self.state.provider = provider
+            logger.debug(
+                "Loaded component defaults: provider=%s, model=%s, temp=%s, max_tokens=%s",
+                self.state.provider,
+                self.state.model,
+                self.state.temperature,
+                self.state.max_tokens,
+            )
+        except Exception as e:
+            logger.warning("Could not load component defaults: %s", e)
+            # Fall back to default values
+            self.state.temperature = "0.5"
+            self.state.max_tokens = "10000"
 
         self.state.api_token = ""
 
@@ -289,11 +432,15 @@ class VTKPromptApp(TrameApp):
 
         try:
             if not self._conversation_loading:
-                # Generate code using prompt functionality - reuse existing methods
-                enhanced_query = self.state.query_text
-                if self.state.query_text:
-                    post_prompt = get_ui_post_prompt()
-                    enhanced_query = post_prompt + self.state.query_text
+                # Use custom prompt if provided, otherwise use built-in YAML prompts
+                if self.custom_prompt_data:
+                    # Use the query text directly when using custom prompts
+                    enhanced_query = self.state.query_text
+                    logger.debug("Using custom prompt file")
+                else:
+                    # Let the client handle prompt selection based on RAG and UI mode
+                    enhanced_query = self.state.query_text
+                    logger.debug("Using UI mode - client will select appropriate prompt")
 
                 # Reinitialize client with current settings
                 self._init_prompt_client()
@@ -310,6 +457,9 @@ class VTKPromptApp(TrameApp):
                     top_k=int(self.state.top_k),
                     rag=self.state.use_rag,
                     retry_attempts=int(self.state.retry_attempts),
+                    provider=self.state.provider,
+                    custom_prompt=self.custom_prompt_data,
+                    ui_mode=True,  # This tells the client to use UI-specific components
                 )
                 # Keep UI in sync with conversation
                 self.state.conversation = self.prompt_client.conversation
@@ -563,6 +713,33 @@ class VTKPromptApp(TrameApp):
             return json.dumps(self.prompt_client.conversation, indent=2)
         return ""
 
+    @trigger("save_config")
+    def save_config(self) -> str:
+        """Save current configuration as YAML string for download."""
+        use_cloud = bool(getattr(self.state, "use_cloud_models", True))
+        provider = getattr(self.state, "provider", "openai")
+        model = self._get_model()
+        provider_model = f"{provider}/{model}" if use_cloud else f"local/{model}"
+        temperature = float(getattr(self.state, "temperature", 0.0))
+        max_tokens = int(getattr(self.state, "max_tokens", 1000))
+        retries = int(getattr(self.state, "retry_attempts", 1))
+        rag_enabled = bool(getattr(self.state, "use_rag", False))
+        top_k = int(getattr(self.state, "top_k", 5))
+
+        content = {
+            "name": "Custom VTK Prompt config file",
+            "description": f"Exported from UI - {'Cloud' if use_cloud else 'Local'} configuration",
+            "model": provider_model,
+            "rag": rag_enabled,
+            "top_k": top_k,
+            "retries": retries,
+            "modelParameters": {
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            },
+        }
+        return yaml.safe_dump(content, sort_keys=False)
+
     @change("provider")
     def _on_provider_change(self, provider, **kwargs) -> None:
         """Handle provider selection change."""
@@ -575,7 +752,7 @@ class VTKPromptApp(TrameApp):
     def _build_ui(self) -> None:
         """Build a simplified Vuetify UI."""
         # Initialize drawer state as collapsed
-        self.state.main_drawer = True
+        self.state.main_drawer = False
 
         with SinglePageWithDrawerLayout(
             self.server, theme=("theme_mode", "light"), style="max-height: 100vh;"
@@ -583,43 +760,104 @@ class VTKPromptApp(TrameApp):
             layout.title.set_text("VTK Prompt UI")
             with layout.toolbar:
                 vuetify.VSpacer()
-                # Token usage display
-                with vuetify.VChip(
-                    small=True,
-                    color="primary",
-                    text_color="white",
-                    v_show="input_tokens > 0 || output_tokens > 0",
-                    classes="mr-2",
+                with vuetify.VTooltip(
+                    text=("conversation_file", "No file loaded"),
+                    location="bottom",
+                    disabled=("!conversation_object",),
                 ):
-                    html.Span("Tokens: In: {{ input_tokens }} | Out: {{ output_tokens }}")
-
-                # VTK control buttons
-                with vuetify.VBtn(
-                    click=self.ctrl.clear_scene,
-                    icon=True,
-                    v_tooltip_bottom="Clear Scene",
+                    with vuetify.Template(v_slot_activator="{ props }"):
+                        vuetify.VFileInput(
+                            label="Conversation File",
+                            v_model=("conversation_object", None),
+                            accept=".json",
+                            variant="solo",
+                            density="compact",
+                            prepend_icon="mdi-forum-outline",
+                            hide_details="auto",
+                            classes="py-1 pr-1 mr-2 text-truncate",
+                            open_on_focus=False,
+                            clearable=False,
+                            v_bind="props",
+                            rules=["[utils.vtk_prompt.rules.json_file]"],
+                            color="primary",
+                            style="max-width: 25%;",
+                        )
+                with vuetify.VTooltip(
+                    text=(
+                        "auto_run_conversation_file ? "
+                        + "'Auto-run conversation files on load' : "
+                        + "'Do not auto-run conversation files on load'",
+                        "Auto-run conversation files on load",
+                    ),
+                    location="bottom",
                 ):
-                    vuetify.VIcon("mdi-reload")
-                with vuetify.VBtn(
-                    click=self.ctrl.reset_camera,
-                    icon=True,
-                    v_tooltip_bottom="Reset Camera",
+                    with vuetify.Template(v_slot_activator="{ props }"):
+                        with vuetify.VBtn(
+                            icon=True,
+                            v_bind="props",
+                            click="auto_run_conversation_file = !auto_run_conversation_file",
+                            classes="mr-2",
+                            color="primary",
+                        ):
+                            vuetify.VIcon(
+                                "mdi-autorenew",
+                                v_show="auto_run_conversation_file",
+                            )
+                            vuetify.VIcon(
+                                "mdi-autorenew-off",
+                                v_show="!auto_run_conversation_file",
+                            )
+                with vuetify.VTooltip(
+                    text="Download conversation file",
+                    location="bottom",
                 ):
-                    vuetify.VIcon("mdi-camera-retake-outline")
-
+                    with vuetify.Template(v_slot_activator="{ props }"):
+                        with vuetify.VBtn(
+                            icon=True,
+                            v_bind="props",
+                            disabled=("!conversation",),
+                            click="utils.download("
+                            + "`vtk-prompt_${provider}_${model}.json`,"
+                            + "trigger('save_conversation'),"
+                            + "'application/json'"
+                            + ")",
+                            classes="mr-2",
+                            color="primary",
+                            density="compact",
+                        ):
+                            vuetify.VIcon("mdi-file-download-outline")
+                with vuetify.VTooltip(
+                    text="Download config file",
+                    location="bottom",
+                ):
+                    with vuetify.Template(v_slot_activator="{ props }"):
+                        with vuetify.VBtn(
+                            icon=True,
+                            v_bind="props",
+                            click="utils.download("
+                            + "`vtk-prompt_config.yml`,"
+                            + "trigger('save_config'),"
+                            + "'application/x-yaml'"
+                            + ")",
+                            classes="mr-4",
+                            color="primary",
+                            density="compact",
+                        ):
+                            vuetify.VIcon("mdi-content-save-cog-outline")
                 vuetify.VSwitch(
                     v_model=("theme_mode", "light"),
                     hide_details=True,
                     density="compact",
-                    label="Dark Mode",
                     classes="mr-2",
-                    true_value="dark",
-                    false_value="light",
+                    true_value="light",
+                    false_value="dark",
+                    append_icon=(
+                        "theme_mode === 'light' ? 'mdi-weather-sunny' : 'mdi-weather-night'",
+                    ),
                 )
 
             with layout.drawer as drawer:
                 drawer.width = 350
-
                 with vuetify.VContainer():
                     # Tab Navigation - Centered
                     with vuetify.VRow(justify="center"):
@@ -633,7 +871,6 @@ class VTKPromptApp(TrameApp):
                             ):
                                 vuetify.VTab("☁️ Cloud")
                                 vuetify.VTab("🏠Local")
-
                     # Tab Content
                     with vuetify.VTabsWindow(v_model="tab_index"):
                         # Cloud Providers Tab Content
@@ -649,7 +886,6 @@ class VTKPromptApp(TrameApp):
                                         variant="outlined",
                                         prepend_icon="mdi-cloud",
                                     )
-
                                     # Model selection
                                     vuetify.VSelect(
                                         label="Model",
@@ -659,7 +895,6 @@ class VTKPromptApp(TrameApp):
                                         variant="outlined",
                                         prepend_icon="mdi-brain",
                                     )
-
                                     # API Token
                                     vuetify.VTextField(
                                         label="API Token",
@@ -673,7 +908,6 @@ class VTKPromptApp(TrameApp):
                                         persistent_hint=True,
                                         error=("!api_token", False),
                                     )
-
                         # Local Models Tab Content
                         with vuetify.VTabsWindowItem():
                             with vuetify.VCard(flat=True, style="mt-2"):
@@ -691,7 +925,6 @@ class VTKPromptApp(TrameApp):
                                         hint="Ollama, LM Studio, etc.",
                                         persistent_hint=True,
                                     )
-
                                     vuetify.VTextField(
                                         label="Model Name",
                                         v_model=("local_model", "devstral"),
@@ -702,7 +935,6 @@ class VTKPromptApp(TrameApp):
                                         hint="Model identifier",
                                         persistent_hint=True,
                                     )
-
                                     # Optional API Token for local
                                     vuetify.VTextField(
                                         label="API Token (Optional)",
@@ -715,7 +947,6 @@ class VTKPromptApp(TrameApp):
                                         hint="Optional for local servers",
                                         persistent_hint=True,
                                     )
-
                     with vuetify.VCard(classes="mt-2"):
                         vuetify.VCardTitle("⚙️  RAG settings", classes="pb-0")
                         with vuetify.VCardText():
@@ -736,7 +967,6 @@ class VTKPromptApp(TrameApp):
                                 variant="outlined",
                                 prepend_icon="mdi-chart-scatter-plot",
                             )
-
                     with vuetify.VCard(classes="mt-2"):
                         vuetify.VCardTitle("⚙️ Generation Settings", classes="pb-0")
                         with vuetify.VCardText():
@@ -771,70 +1001,20 @@ class VTKPromptApp(TrameApp):
                                 prepend_icon="mdi-repeat",
                             )
 
-                    with vuetify.VCard(classes="mt-2"):
-                        vuetify.VCardTitle("⚙️ Files", hide_details=True, density="compact")
-                        with vuetify.VCardText():
-                            vuetify.VCheckbox(
-                                label="Run new conversation files",
-                                v_model=("auto_run_conversation_file", True),
-                                prepend_icon="mdi-file-refresh-outline",
-                                density="compact",
-                                color="primary",
-                                hide_details=True,
-                            )
-                            with html.Div(classes="d-flex align-center justify-space-between"):
-                                with vuetify.VTooltip(
-                                    text=("conversation_file", "No file loaded"),
-                                    location="top",
-                                    disabled=("!conversation_object",),
-                                ):
-                                    with vuetify.Template(v_slot_activator="{ props }"):
-                                        vuetify.VFileInput(
-                                            label="Conversation File",
-                                            v_model=("conversation_object", None),
-                                            accept=".json",
-                                            density="compact",
-                                            variant="solo",
-                                            prepend_icon="mdi-forum-outline",
-                                            hide_details="auto",
-                                            classes="py-1 pr-1 mr-1 text-truncate",
-                                            open_on_focus=False,
-                                            clearable=False,
-                                            v_bind="props",
-                                            rules=["[utils.vtk_prompt.rules.json_file]"],
-                                        )
-                                with vuetify.VTooltip(
-                                    text="Download conversation file",
-                                    location="right",
-                                ):
-                                    with vuetify.Template(v_slot_activator="{ props }"):
-                                        with vuetify.VBtn(
-                                            icon=True,
-                                            density="comfortable",
-                                            color="secondary",
-                                            rounded="lg",
-                                            v_bind="props",
-                                            disabled=("!conversation",),
-                                            click="utils.download("
-                                            + "`${model}_${new Date().toISOString()}.json`,"
-                                            + "trigger('save_conversation'),"
-                                            + "'application/json'"
-                                            + ")",
-                                        ):
-                                            vuetify.VIcon("mdi-file-download-outline")
-
             with layout.content:
-                with vuetify.VContainer(classes="fluid fill-height pt-0", style="min-width: 100%;"):
-                    with vuetify.VRow(rows=12, classes="fill-height"):
+                with vuetify.VContainer(
+                    classes="fluid fill-height", style="min-width: 100%; padding: 0!important;"
+                ):
+                    with vuetify.VRow(rows=12, classes="fill-height px-4 pt-1 pb-1"):
                         # Left column - Generated code view
-                        with vuetify.VCol(cols=7, classes="fill-height"):
+                        with vuetify.VCol(cols=7, classes="fill-height pa-0"):
                             with vuetify.VExpansionPanels(
                                 v_model=("explanation_expanded", [0, 1]),
-                                classes="fill-height",
+                                classes="fill-height pb-1 pr-1",
                                 multiple=True,
                             ):
                                 with vuetify.VExpansionPanel(
-                                    classes="mt-1 flex-grow-1 flex-shrink-0 d-flex flex-column",
+                                    classes="flex-grow-1 flex-shrink-0 d-flex flex-column pa-0 mt-0",
                                     style="max-height: 25%;",
                                 ):
                                     vuetify.VExpansionPanelTitle("Explanation", classes="text-h6")
@@ -856,13 +1036,14 @@ class VTKPromptApp(TrameApp):
                                         )
                                 with vuetify.VExpansionPanel(
                                     classes=(
-                                        "mt-1 fill-height flex-grow-2 flex-shrink-0"
-                                        + "d-flex flex-column"
+                                        "fill-height flex-grow-2 flex-shrink-0"
+                                        + " d-flex flex-column mt-1"
                                     ),
                                     readonly=True,
                                     style=(
                                         "explanation_expanded.length > 1 ? "
                                         + "'max-height: 75%;' : 'max-height: 95%;'",
+                                        "box-sizing: border-box;",
                                     ),
                                 ):
                                     vuetify.VExpansionPanelTitle(
@@ -886,16 +1067,62 @@ class VTKPromptApp(TrameApp):
                                         )
 
                         # Right column - VTK viewer and prompt
-                        with vuetify.VCol(cols=5, classes="fill-height"):
+                        with vuetify.VCol(cols=5, classes="fill-height pa-0"):
                             with vuetify.VRow(no_gutters=True, classes="fill-height"):
                                 # Top: VTK render view
                                 with vuetify.VCol(
                                     cols=12,
-                                    classes="mb-2 flex-grow-1 flex-shrink-0",
+                                    classes="flex-grow-1 flex-shrink-0 pa-0",
                                     style="min-height: calc(100% - 256px);",
                                 ):
                                     with vuetify.VCard(classes="fill-height"):
-                                        vuetify.VCardTitle("VTK Visualization")
+                                        with vuetify.VCardTitle(
+                                            "VTK Visualization", classes="d-flex align-center"
+                                        ):
+                                            vuetify.VSpacer()
+                                            # Token usage display
+                                            with vuetify.VChip(
+                                                small=True,
+                                                color="secondary",
+                                                text_color="white",
+                                                v_show="input_tokens > 0 || output_tokens > 0",
+                                                classes="mr-2",
+                                                density="compact",
+                                            ):
+                                                html.Span(
+                                                    "Tokens: In: {{ input_tokens }} | Out: {{ output_tokens }}"
+                                                )
+                                            # VTK control buttons
+                                            with vuetify.VTooltip(
+                                                text="Clear Scene",
+                                                location="bottom",
+                                            ):
+                                                with vuetify.Template(v_slot_activator="{ props }"):
+                                                    with vuetify.VBtn(
+                                                        click=self.ctrl.clear_scene,
+                                                        icon=True,
+                                                        color="secondary",
+                                                        v_bind="props",
+                                                        classes="mr-2",
+                                                        density="compact",
+                                                        variant="text",
+                                                    ):
+                                                        vuetify.VIcon("mdi-reload")
+                                            with vuetify.VTooltip(
+                                                text="Reset Camera",
+                                                location="bottom",
+                                            ):
+                                                with vuetify.Template(v_slot_activator="{ props }"):
+                                                    with vuetify.VBtn(
+                                                        click=self.ctrl.reset_camera,
+                                                        icon=True,
+                                                        color="secondary",
+                                                        v_bind="props",
+                                                        classes="mr-2",
+                                                        density="compact",
+                                                        variant="text",
+                                                    ):
+                                                        vuetify.VIcon("mdi-camera-retake-outline")
                                         with vuetify.VCardText(style="height: 90%;"):
                                             # VTK render window
                                             view = vtk_widgets.VtkRemoteView(
@@ -1059,8 +1286,17 @@ def main() -> None:
     print("Supported providers: OpenAI, Anthropic, Google Gemini, NVIDIA NIM")
     print("For local Ollama, use custom base URL and model configuration.")
 
+    # Check for custom prompt file in CLI arguments
+    custom_prompt_file = None
+
+    # Extract --prompt-file before Trame processes args
+    for i, arg in enumerate(sys.argv):
+        if arg == "--prompt-file" and i + 1 < len(sys.argv):
+            custom_prompt_file = sys.argv[i + 1]
+            break
+
     # Create and start the app
-    app = VTKPromptApp()
+    app = VTKPromptApp(custom_prompt_file=custom_prompt_file)
     app.start()
 
 
