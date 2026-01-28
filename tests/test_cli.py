@@ -2,8 +2,9 @@
 CLI tests for VTK Prompt (excluding RAG functionality).
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 from click.testing import CliRunner
 
 from vtk_prompt.cli import main

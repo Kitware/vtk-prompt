@@ -1113,7 +1113,9 @@ class VTKPromptApp(TrameApp):
                                 multiple=True,
                             ):
                                 with vuetify.VExpansionPanel(
-                                    classes="flex-grow-1 flex-shrink-0 d-flex flex-column pa-0 mt-0",
+                                    classes=(
+                                        "flex-grow-1 flex-shrink-0 d-flex flex-column pa-0 mt-0"
+                                    ),
                                     style="max-height: 25%;",
                                 ):
                                     vuetify.VExpansionPanelTitle("Explanation", classes="text-h6")
@@ -1189,7 +1191,8 @@ class VTKPromptApp(TrameApp):
                                                 density="compact",
                                             ):
                                                 html.Span(
-                                                    "Tokens: In: {{ input_tokens }} | Out: {{ output_tokens }}"
+                                                    "Tokens: In: {{ input_tokens }} | "
+                                                    "Out: {{ output_tokens }}"
                                                 )
                                             # VTK control buttons
                                             with vuetify.VTooltip(
