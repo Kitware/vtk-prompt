@@ -14,18 +14,17 @@ logger = logging.getLogger(__name__)
 OPENAI_MODELS = ["gpt-5", "gpt-4.1", "o4-mini", "o3"]
 
 ANTHROPIC_MODELS = [
-    "claude-opus-4-1",
-    "claude-sonnet-4",
-    "claude-3-7-sonnet",
+    "claude-opus-4-6",
+    "claude-sonnet-4-5",
+    "claude-haiku-4-5",
 ]
 
 GEMINI_MODELS = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
 
 NIM_MODELS = [
     "meta/llama3-70b-instruct",
-    "meta/llama3-8b-instruct",
+    "meta/llama-3.1-8b-instruct",
     "microsoft/phi-3-medium-4k-instruct",
-    "nvidia/llama-3.1-nemotron-70b-instruct",
 ]
 
 
@@ -80,7 +79,7 @@ def get_default_model(provider: str) -> str:
     """Get the default/recommended model for a provider."""
     defaults = {
         "openai": "gpt-5",
-        "anthropic": "claude-opus-4-1",
+        "anthropic": "claude-opus-4-6",
         "gemini": "gemini-2.5-pro",
         "nim": "meta/llama3-70b-instruct",
     }
