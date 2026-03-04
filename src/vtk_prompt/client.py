@@ -25,6 +25,7 @@ import openai
 
 from . import get_logger
 from .prompts import get_yaml_prompt
+from .provider_utils import DEFAULT_MODEL
 
 logger = get_logger(__name__)
 
@@ -170,7 +171,7 @@ class VTKPromptClient:
         self,
         message: str = "",
         api_key: Optional[str] = None,
-        model: str = "gpt-5",
+        model: str = DEFAULT_MODEL,
         base_url: Optional[str] = None,
         max_tokens: int = 1000,
         temperature: float = 0.1,

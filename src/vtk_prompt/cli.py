@@ -15,7 +15,7 @@ import click
 
 from . import get_logger
 from .client import VTKPromptClient
-from .provider_utils import supports_temperature
+from .provider_utils import DEFAULT_MODEL, DEFAULT_PROVIDER, supports_temperature, get_default_model
 
 logger = get_logger(__name__)
 
@@ -25,10 +25,10 @@ logger = get_logger(__name__)
 @click.option(
     "--provider",
     type=click.Choice(["openai", "anthropic", "gemini", "nim"]),
-    default="openai",
+    default=DEFAULT_PROVIDER,
     help="LLM provider to use",
 )
-@click.option("-m", "--model", default="gpt-5", help="Model name to use")
+@click.option("-m", "--model", default=DEFAULT_MODEL, help="Model name to use")
 @click.option("-k", "--max-tokens", type=int, default=1000, help="Max # of tokens to generate")
 @click.option(
     "--temperature",
@@ -93,13 +93,8 @@ def main(
         base_url = base_urls.get(provider)
 
     # Set default models based on provider
-    if model == "gpt-5":
-        default_models = {
-            "anthropic": "claude-opus-4-1",
-            "gemini": "gemini-2.5-pro",
-            "nim": "meta/llama3-70b-instruct",
-        }
-        model = default_models.get(provider, model)
+    if model == DEFAULT_MODEL:
+        model = get_default_model(provider)
 
     # Load custom prompt file if provided
     custom_prompt_data = None
@@ -124,7 +119,7 @@ def main(
             # Only override if CLI argument is still the default value
             if custom_prompt_data and isinstance(custom_prompt_data, dict):
                 # Override model if CLI didn't specify a custom one
-                if model == "gpt-5" and custom_prompt_data.get("model"):
+                if model == DEFAULT_MODEL and custom_prompt_data.get("model"):
                     model = custom_prompt_data.get("model")
                     logger.info("Using model from prompt file: %s", model)
 

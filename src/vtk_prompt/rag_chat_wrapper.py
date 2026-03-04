@@ -30,6 +30,7 @@ from llama_index.llms.openai import OpenAI
 
 from . import get_logger
 from .prompts import get_yaml_prompt
+from .provider_utils import DEFAULT_MODEL
 
 logger = get_logger(__name__)
 
@@ -93,7 +94,7 @@ class OpenAIRAGChat:
     """OpenAI-compatible wrapper for RAG chat functionality."""
 
     def __init__(
-        self, model: str = "gpt-5", database: str = "./db/codesage-codesage-large-v2"
+        self, model: str = DEFAULT_MODEL, database: str = "./db/codesage-codesage-large-v2"
     ) -> None:
         """Initialize the OpenAI RAG chat system.
 
@@ -210,7 +211,7 @@ class OpenAIRAGChat:
     default=15,
     help="Retrieve the top k examples from the database",
 )
-@click.option("--model", default="gpt-5", help="OpenAI model to use")
+@click.option("--model", default=DEFAULT_MODEL, help="OpenAI model to use")
 def main(database: str, collection_name: str, top_k: int, model: str) -> None:
     """Query database for code snippets using OpenAI API only."""
     # Initialize the chat system

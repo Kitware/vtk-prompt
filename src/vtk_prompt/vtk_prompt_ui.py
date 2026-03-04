@@ -20,8 +20,9 @@ import json
 import re
 from pathlib import Path
 from typing import Any, Optional
-
+import yaml
 import vtk
+
 from trame.app import TrameApp
 from trame.decorators import change, controller, trigger
 from trame.ui.vuetify3 import SinglePageWithDrawerLayout
@@ -34,6 +35,8 @@ from . import get_logger
 from .client import VTKPromptClient
 from .prompts import load_yaml_prompt
 from .provider_utils import (
+    DEFAULT_MODEL,
+    DEFAULT_PROVIDER,
     get_available_models,
     get_default_model,
     get_supported_providers,
@@ -122,9 +125,6 @@ class VTKPromptApp(TrameApp):
             return
 
         try:
-            from pathlib import Path
-            import yaml
-
             custom_file_path = Path(self.custom_prompt_file)
             if not custom_file_path.exists():
                 logger.error("Custom prompt file not found: %s", self.custom_prompt_file)
@@ -255,8 +255,8 @@ class VTKPromptApp(TrameApp):
         self.state.tab_index = 0  # Tab navigation state
 
         # Cloud model configuration
-        self.state.provider = "openai"
-        self.state.model = "gpt-5"
+        self.state.provider = DEFAULT_PROVIDER
+        self.state.model = DEFAULT_MODEL
         self.state.temperature_supported = True
 
         # Initialize with supported providers and fallback models
@@ -269,7 +269,7 @@ class VTKPromptApp(TrameApp):
             model_params = yaml_prompt_data.get("modelParameters", {})
 
             # Update state with YAML model configuration
-            default_model = yaml_prompt_data.get("model", "openai/gpt-5")
+            default_model = yaml_prompt_data.get("model", f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}")
             if "/" in default_model:
                 provider, model = default_model.split("/", 1)
                 self.state.provider = provider
@@ -341,7 +341,7 @@ class VTKPromptApp(TrameApp):
     def _get_model(self) -> str:
         """Get model name based on configuration mode."""
         if self.state.use_cloud_models:
-            return getattr(self.state, "model", "gpt-5")
+            return getattr(self.state, "model", DEFAULT_MODEL)
         else:
             local_model = getattr(self.state, "local_model", "")
             return local_model.strip() if local_model and local_model.strip() else "llama3.2:latest"
@@ -718,7 +718,7 @@ class VTKPromptApp(TrameApp):
     def save_config(self) -> str:
         """Save current configuration as YAML string for download."""
         use_cloud = bool(getattr(self.state, "use_cloud_models", True))
-        provider = getattr(self.state, "provider", "openai")
+        provider = getattr(self.state, "provider", DEFAULT_PROVIDER)
         model = self._get_model()
         provider_model = f"{provider}/{model}" if use_cloud else f"local/{model}"
         temperature = float(getattr(self.state, "temperature", 0.0))
@@ -821,7 +821,7 @@ class VTKPromptApp(TrameApp):
                                     # Provider selection
                                     vuetify.VSelect(
                                         label="Provider",
-                                        v_model=("provider", "openai"),
+                                        v_model=("provider", DEFAULT_PROVIDER),
                                         items=("available_providers", []),
                                         density="compact",
                                         variant="outlined",
@@ -831,7 +831,7 @@ class VTKPromptApp(TrameApp):
                                     # Model selection
                                     vuetify.VSelect(
                                         label="Model",
-                                        v_model=("model", "gpt-5"),
+                                        v_model=("model", DEFAULT_MODEL),
                                         items=("available_models[provider] || []",),
                                         density="compact",
                                         variant="outlined",

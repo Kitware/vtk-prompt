@@ -28,6 +28,7 @@ from . import get_logger
 
 # Import our template system
 from .prompts import get_yaml_prompt
+from .provider_utils import DEFAULT_MODEL, DEFAULT_PROVIDER
 
 logger = get_logger(__name__)
 
@@ -104,10 +105,10 @@ def openai_query(
 @click.option(
     "--provider",
     type=click.Choice(["openai", "anthropic", "gemini", "nim"]),
-    default="openai",
+    default=DEFAULT_PROVIDER,
     help="LLM provider to use",
 )
-@click.option("-m", "--model", default="gpt-5", help="Model to use for generation")
+@click.option("-m", "--model", default=DEFAULT_MODEL, help="Model to use for generation")
 @click.option("-t", "--token", required=True, help="API token for the selected provider")
 @click.option("--base-url", help="Base URL for API (auto-detected or custom)")
 @click.option(
@@ -149,7 +150,7 @@ def main(
         base_url = base_urls.get(provider)
 
     # Set default models based on provider
-    if model == "gpt-5":
+    if model == DEFAULT_MODEL:
         default_models = {
             "anthropic": "claude-opus-4-1",
             "gemini": "gemini-2.5-pro",
