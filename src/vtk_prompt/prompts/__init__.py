@@ -20,6 +20,7 @@ conditional inclusion, variable substitution, and message composition.
 """
 
 from pathlib import Path
+from typing import Any
 
 from .constants import PYTHON_VERSION, VTK_VERSION
 from .prompt_component_assembler import (
