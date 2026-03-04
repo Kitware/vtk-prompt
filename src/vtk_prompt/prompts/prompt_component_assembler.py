@@ -21,6 +21,28 @@ _yaml_variable_substituter = YAMLPromptLoader()
 _MODEL_PARAM_KEYS = frozenset(["model", "modelParameters"])
 
 
+# Module-level cache for component files (avoids memory leak with instance methods)
+@lru_cache(maxsize=32)
+def _load_component_file(component_file_path: str) -> dict[str, Any]:
+    """Load a component file with module-level caching.
+
+    Args:
+        component_file_path: Full path to component file
+
+    Returns:
+        Component data from YAML file
+
+    Raises:
+        FileNotFoundError: If component file doesn't exist
+    """
+    component_path = Path(component_file_path)
+    if not component_path.exists():
+        raise FileNotFoundError(f"Component not found: {component_path}")
+
+    with open(component_path) as f:
+        return yaml.safe_load(f)
+
+
 class PromptData(TypedDict, total=False):
     """Type definition for assembled prompt data."""
 
@@ -44,7 +66,6 @@ class PromptComponentLoader:
         if not self.components_dir.exists():
             raise FileNotFoundError(f"Components directory not found: {self.components_dir}")
 
-    @lru_cache(maxsize=32)
     def load_component(self, component_name: str) -> dict[str, Any]:
         """Load a component file with caching.
 
@@ -58,15 +79,11 @@ class PromptComponentLoader:
             FileNotFoundError: If component file doesn't exist
         """
         component_file = self.components_dir / f"{component_name}.yml"
-        if not component_file.exists():
-            raise FileNotFoundError(f"Component not found: {component_file}")
-
-        with open(component_file) as f:
-            return yaml.safe_load(f)
+        return _load_component_file(str(component_file))
 
     def clear_cache(self) -> None:
         """Clear component cache (useful for development)."""
-        self.load_component.cache_clear()
+        _load_component_file.cache_clear()
 
     def list_components(self) -> list[str]:
         """List available component names."""
