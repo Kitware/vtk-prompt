@@ -27,7 +27,7 @@ VTK_VERSION = vtk.__version__
 # Path to the prompts directory
 PROMPTS_DIR = Path(__file__).parent
 
-# Global singleton instance
+# Global instance
 _loader = YAMLPromptLoader()
 
 
@@ -52,13 +52,10 @@ def get_yaml_prompt(prompt_name: str, **variables: Any) -> List[Dict[str, str]]:
     return _loader.get_yaml_prompt(prompt_name, **variables)
 
 
-# Export the YAMLPromptLoader class for direct access
 __all__ = [
-    # YAML prompt functions
     "load_yaml_prompt",
     "get_yaml_prompt",
     "substitute_yaml_variables",
     "format_messages_for_client",
-    # YAMLPromptLoader class
     "YAMLPromptLoader",
 ]

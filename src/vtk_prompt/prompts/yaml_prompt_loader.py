@@ -7,7 +7,7 @@ formatting for LLM clients.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 import yaml
 import vtk
 
@@ -19,24 +19,13 @@ PROMPTS_DIR = Path(__file__).parent
 
 
 class YAMLPromptLoader:
-    """Singleton class for loading and processing YAML prompts."""
-
-    _instance: Optional["YAMLPromptLoader"] = None
-    _initialized: bool = False
-
-    def __new__(cls) -> "YAMLPromptLoader":
-        """Ensure only one instance is created (singleton pattern)."""
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+    """Class for loading and processing YAML prompts."""
 
     def __init__(self) -> None:
-        """Initialize the loader if not already initialized."""
-        if not YAMLPromptLoader._initialized:
-            self.prompts_dir = PROMPTS_DIR
-            self.vtk_version = VTK_VERSION
-            self.python_version = PYTHON_VERSION
-            YAMLPromptLoader._initialized = True
+        """Initialize the loader."""
+        self.prompts_dir = PROMPTS_DIR
+        self.vtk_version = VTK_VERSION
+        self.python_version = PYTHON_VERSION
 
     def substitute_yaml_variables(self, content: str, variables: Dict[str, Any]) -> str:
         """Substitute {{variable}} placeholders in YAML content.

@@ -137,7 +137,7 @@ class VTKPromptApp(TrameApp):
 
             # Override UI defaults with custom prompt parameters
             if self.custom_prompt_data and isinstance(self.custom_prompt_data, dict):
-                model_value = self.custom_prompt_data.get("model")
+                model_value = self.custom_prompt_data.get("model", DEFAULT_MODEL)
                 if isinstance(model_value, str) and model_value:
                     if "/" in model_value:
                         provider_part, model_part = model_value.split("/", 1)
