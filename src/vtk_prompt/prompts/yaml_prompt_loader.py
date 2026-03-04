@@ -6,6 +6,7 @@ used in VTK code generation. It supports variable substitution and message
 formatting for LLM clients.
 """
 
+import re
 from pathlib import Path
 from typing import Any, Dict, List
 import yaml
@@ -27,6 +28,44 @@ class YAMLPromptLoader:
         self.vtk_version = VTK_VERSION
         self.python_version = PYTHON_VERSION
 
+    def _validate_variable_value(self, key: str, value: Any) -> str:
+        """Validate and sanitize variable values for YAML substitution.
+
+        Args:
+            key: Variable name
+            value: Variable value
+
+        Returns:
+            Sanitized string value
+
+        Raises:
+            ValueError: If value is invalid or potentially dangerous
+        """
+        if value is None:
+            raise ValueError(f"Variable '{key}' cannot be None")
+
+        str_value = str(value)
+
+        # Check for potentially dangerous content
+        dangerous_patterns = [
+            r"__[a-zA-Z]+__",  # Python double underscore methods
+            r"\$\{[^}]*\}",  # Shell-style variable expansion
+            r"`[^`]*`",  # Command substitution
+            r"\{\{[^}]*\}\}",  # Nested template variables
+        ]
+
+        for pattern in dangerous_patterns:
+            if re.search(pattern, str_value):
+                raise ValueError(
+                    f"Variable '{key}' contains potentially dangerous content: {str_value}"
+                )
+
+        # Length limit to prevent DoS
+        if len(str_value) > 10000:
+            raise ValueError(f"Variable '{key}' is too long (max 10000 characters)")
+
+        return str_value
+
     def substitute_yaml_variables(self, content: str, variables: Dict[str, Any]) -> str:
         """Substitute {{variable}} placeholders in YAML content.
 
@@ -36,11 +75,16 @@ class YAMLPromptLoader:
 
         Returns:
             Content with variables substituted
+
+        Raises:
+            ValueError: If variable validation fails
         """
         result = content
         for key, value in variables.items():
+            validated_value = self._validate_variable_value(key, value)
             placeholder = f"{{{{{key}}}}}"
-            result = result.replace(placeholder, str(value))
+            result = result.replace(placeholder, validated_value)
+
         return result
 
     def load_yaml_prompt(self, prompt_name: str, **variables: Any) -> Dict[str, Any]:
@@ -76,7 +120,16 @@ class YAMLPromptLoader:
 
         # Parse the substituted YAML
         try:
-            return yaml.safe_load(substituted_content)
+            result = yaml.safe_load(substituted_content)
+
+            # Validate YAML structure
+            if not isinstance(result, dict):
+                raise ValueError(
+                    f"YAML prompt {prompt_name} must contain a dictionary at root level"
+                )
+
+            return result
+
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML in prompt {prompt_name}: {e}")
 
