@@ -6,7 +6,6 @@ rather than dynamically fetching all available models from providers.
 """
 
 import logging
-from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +57,7 @@ def get_model_temperature(model: str, requested_temperature: float = 0.7) -> flo
         return 1.0
 
 
-def get_available_models() -> Dict[str, List[str]]:
+def get_available_models() -> dict[str, list[str]]:
     """Get curated models for all providers."""
     return {
         "openai": OPENAI_MODELS,
@@ -68,13 +67,13 @@ def get_available_models() -> Dict[str, List[str]]:
     }
 
 
-def get_provider_models(provider: str) -> List[str]:
+def get_provider_models(provider: str) -> list[str]:
     """Get curated models for a specific provider."""
     models = get_available_models()
     return models.get(provider, [])
 
 
-def get_supported_providers() -> List[str]:
+def get_supported_providers() -> list[str]:
     """Get list of supported providers."""
     return ["openai", "anthropic", "gemini", "nim"]
 
