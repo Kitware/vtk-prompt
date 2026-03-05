@@ -102,7 +102,7 @@ class TestProviders:
         # Ensure no fallback is available via environment for duration of test
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         with pytest.raises(ValueError, match="No API key provided"):
-            client.query(message="Create a sphere", api_key=None, model="claude-opus-4-1-20250805")
+            client.query(message="Create a sphere", api_key=None, model="claude-opus-4-1")
 
     # Gemini Provider Tests
     @pytest.mark.parametrize("model", GEMINI_MODELS)

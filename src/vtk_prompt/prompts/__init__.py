@@ -17,6 +17,7 @@ and context snippets.
 
 from pathlib import Path
 from typing import Any, Dict, List
+
 import vtk
 
 from .yaml_prompt_loader import YAMLPromptLoader

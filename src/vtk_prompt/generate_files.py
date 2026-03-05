@@ -67,7 +67,7 @@ class VTKXMLGenerator:
         response = self.client.chat.completions.create(
             model=model,
             max_completion_tokens=max_tokens,
-            messages=yaml_messages,
+            messages=yaml_messages,  # type: ignore[arg-type]
             temperature=temperature,
         )
 

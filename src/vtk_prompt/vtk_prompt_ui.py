@@ -20,9 +20,9 @@ import json
 import re
 from pathlib import Path
 from typing import Any, Optional
-import yaml
-import vtk
 
+import vtk
+import yaml
 from trame.app import TrameApp
 from trame.decorators import change, controller, trigger
 from trame.ui.vuetify3 import SinglePageWithDrawerLayout

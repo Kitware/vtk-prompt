@@ -9,8 +9,9 @@ formatting for LLM clients.
 import re
 from pathlib import Path
 from typing import Any, Dict, List
-import yaml
+
 import vtk
+import yaml
 
 PYTHON_VERSION = ">=3.10"
 VTK_VERSION = vtk.__version__

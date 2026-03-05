@@ -15,7 +15,7 @@ import click
 
 from . import get_logger
 from .client import VTKPromptClient
-from .provider_utils import DEFAULT_MODEL, DEFAULT_PROVIDER, supports_temperature, get_default_model
+from .provider_utils import DEFAULT_MODEL, DEFAULT_PROVIDER, get_default_model, supports_temperature
 
 logger = get_logger(__name__)
 

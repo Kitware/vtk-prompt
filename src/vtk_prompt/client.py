@@ -142,8 +142,9 @@ class VTKPromptClient:
         Returns:
             List of formatted messages ready for LLM client
         """
-        from .prompts import substitute_yaml_variables
         import vtk
+
+        from .prompts import substitute_yaml_variables
 
         # Prepare variables for substitution
         variables = {
