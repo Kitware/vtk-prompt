@@ -42,6 +42,13 @@ from .provider_utils import (
     get_supported_providers,
     supports_temperature,
 )
+from .rendering import (
+    add_default_scene,
+    clear_scene as clear_vtk_scene,
+    execute_vtk_code,
+    reset_camera as reset_vtk_camera,
+    setup_vtk_renderer,
+)
 
 logger = get_logger(__name__)
 
@@ -99,21 +106,12 @@ class VTKPromptApp(TrameApp):
         vtk.vtkObject.GlobalWarningDisplayOff()
 
         # Initialize VTK components for trame
-        self.renderer = vtk.vtkRenderer()
-        self.render_window = vtk.vtkRenderWindow()
-        self.render_window.AddRenderer(self.renderer)
-        self.render_window.OffScreenRenderingOn()  # Prevent external window
-        self.render_window.SetSize(800, 600)
-
-        # Initialize render window interactor properly
-        self.render_window_interactor = vtk.vtkRenderWindowInteractor()
-        self.render_window_interactor.SetRenderWindow(self.render_window)
-        self.render_window_interactor.GetInteractorStyle().SetCurrentStyleToTrackballCamera()
-
-        # Set a default background and add a simple default scene to prevent segfault
-        self.renderer.SetBackground(0.1, 0.1, 0.1)
+        self.renderer, self.render_window, self.render_window_interactor = setup_vtk_renderer()
         self._conversation_loading = False
-        self._add_default_scene()
+        add_default_scene(self.renderer)
+
+        # Initialize application state
+        self._initialize_state()
 
         # Load custom prompt file after VTK initialization
         if custom_prompt_file:
@@ -212,23 +210,8 @@ class VTKPromptApp(TrameApp):
             self.state.error_message = str(e)
             self.custom_prompt_data = None
 
-    def _add_default_scene(self) -> None:
-        """Add default coordinate axes to prevent empty scene segfaults."""
-        try:
-            # Create simple axes
-            axes = vtk.vtkAxesActor()
-            axes.SetTotalLength(1, 1, 1)
-            axes.SetShaftType(0)  # Line shaft
-            axes.SetCylinderRadius(0.02)
-
-            # Add to renderer
-            self.renderer.AddActor(axes)
-
-            # Reset camera to show axes
-            self.renderer.ResetCamera()
-        except Exception as e:
-            logger.warning("Could not add default scene: %s", e)
-
+    def _initialize_state(self) -> None:
+        """Initialize application state variables."""
         # App state variables
         self.state.query_text = ""
         self.state.generated_code = ""
@@ -414,10 +397,7 @@ class VTKPromptApp(TrameApp):
     def clear_scene(self) -> None:
         """Clear the VTK scene and restore default axes."""
         try:
-            self.renderer.RemoveAllViewProps()
-            self._add_default_scene()
-            self.renderer.ResetCamera()
-            self.render_window.Render()
+            clear_vtk_scene(self.renderer, self.render_window)
             self.ctrl.view_update()
         except Exception as e:
             logger.error("Error clearing scene: %s", e)
@@ -426,8 +406,7 @@ class VTKPromptApp(TrameApp):
     def reset_camera(self) -> None:
         """Reset camera view."""
         try:
-            self.renderer.ResetCamera()
-            self.render_window.Render()
+            reset_vtk_camera(self.renderer, self.render_window)
             self.ctrl.view_update()
         except Exception as e:
             logger.error("Error resetting camera: %s", e)
@@ -537,43 +516,17 @@ class VTKPromptApp(TrameApp):
             self.state.is_loading = False
 
     def _execute_with_renderer(self, code_string: str) -> None:
-        """Execute VTK code with our renderer using prompt.py's run_code logic."""
+        """Execute VTK code with our renderer."""
+        success, error_message = execute_vtk_code(code_string, self.renderer, self.render_window)
+
+        if not success and error_message:
+            self.state.error_message = error_message
+
+        # Always update view
         try:
-            # Clear previous actors
-            self.renderer.RemoveAllViewProps()
-
-            # Use the same code cleaning logic from prompt.py
-            pos = code_string.find("import vtk")
-            if pos != -1:
-                code_string = code_string[pos:]
-
-            # Ensure vtk is imported
-            code_segment = code_string
-            if "import vtk" not in code_segment:
-                code_segment = "import vtk\n" + code_segment
-
-            # Create execution globals with our renderer available
-            exec_globals = {
-                "vtk": vtk,
-                "renderer": self.renderer,
-            }
-
-            # Use the pre-initialized interactor
-            # No need to create a new one
-
-            exec(code_segment, exec_globals, {})
-
-            # Reset camera and update view safely
-            try:
-                self.renderer.ResetCamera()
-                self.render_window.Render()
-                self.ctrl.view_update()
-            except Exception as render_error:
-                logger.warning("Render error: %s", render_error)
-                # Still update the view even if render fails
-                self.ctrl.view_update()
+            self.ctrl.view_update()
         except Exception as e:
-            self.state.error_message = f"Error executing code: {str(e)}"
+            logger.warning("View update error: %s", e)
 
     @change("conversation_object")
     def on_conversation_file_data_change(
