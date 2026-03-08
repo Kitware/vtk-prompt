@@ -64,6 +64,24 @@ dev = [
 # Testing dependencies
 test = [
     "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+# Minimal test dependencies (for faster testing)
+test-minimal = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "PyYAML>=6.0.0",
+    "openai>=1.0.0",
+    "click>=8.0.0",
+]
+
+# Ultra-minimal for type checking only
+type-minimal = [
+    "PyYAML>=6.0.0",
+    "openai>=1.0.0",
+    "click>=8.0.0",
+    "importlib_resources>=5.0.0",
 ]
 
 # All optional dependencies
@@ -148,33 +166,65 @@ requires = ["tox>=4.22"]
 env_list = ["format", "lint", "type", "test", "py310", "py311", "py312"]
 
 [tool.tox.env_run_base]
-deps = [".[dev]"]
+recreate = false
 
 [tool.tox.env.format]
 description = "Format code with black and isort"
+deps = [
+    "black>=23.0.0",
+    "isort>=5.12.0"
+]
+skip_install = true
 commands = [
-    ["isort", "src/"],
-    ["black", "src/"]
+    ["isort", "src/", "tests/"],
+    ["black", "src/", "tests/"]
 ]
 
 [tool.tox.env.format-check]
 description = "Check code formatting with black and isort"
+deps = [
+    "black>=23.0.0",
+    "isort>=5.12.0"
+]
+skip_install = true
 commands = [
-    ["isort", "--check-only", "--diff", "src/"],
-    ["black", "--check", "--diff", "src/"]
+    ["isort", "--check-only", "--diff", "src/", "tests/"],
+    ["black", "--check", "--diff", "src/", "tests/"]
 ]
 
 [tool.tox.env.lint]
 description = "Lint code with flake8"
+deps = [
+    "flake8>=6.0.0",
+    "flake8-pyproject>=1.2.0",
+    "flake8-docstrings>=1.7.0",
+    "flake8-bugbear>=23.0.0",
+    "flake8-comprehensions>=3.14.0"
+]
+skip_install = true
 commands = [["flake8", "src/"]]
 
 [tool.tox.env.type]
 description = "Type check with mypy"
+deps = [
+    "mypy>=1.0.0",
+    "types-requests",
+    "types-click",
+    "types-setuptools",
+    "types-PyYAML",
+    "pytest>=7.0.0",
+    "PyYAML>=6.0.0",
+    "openai>=1.0.0",
+    "click>=8.0.0",
+    "importlib_resources>=5.0.0"
+]
+skip_install = true
 commands = [["mypy", "src", "tests"]]
 
 [tool.tox.env.test]
 description = "Run tests with coverage reporting"
 deps = [".[test]"]
+recreate = false
 passenv = [
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
