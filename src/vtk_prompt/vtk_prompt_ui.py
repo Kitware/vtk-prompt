@@ -28,12 +28,9 @@ from trame.ui.vuetify3 import SinglePageWithDrawerLayout
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
-from .client import VTKPromptClient
 from .controllers import configuration, conversation, generation
 from .provider_utils import (
     DEFAULT_MODEL,
-    DEFAULT_PROVIDER,
-    get_available_models,
     get_supported_providers,
     supports_temperature,
 )
@@ -41,6 +38,7 @@ from .rendering import (
     add_default_scene,
     setup_vtk_renderer,
 )
+from .state import config_state, config_validator, initializer
 from .ui.layout import build_content, build_drawer, build_toolbar
 
 logger = get_logger(__name__)
@@ -205,168 +203,31 @@ class VTKPromptApp(TrameApp):
 
     def _initialize_state(self) -> None:
         """Initialize application state variables."""
-        # App state variables
-        self.state.query_text = ""
-        self.state.generated_code = ""
-        self.state.generated_explanation = ""
-        self.state.is_loading = False
-        self.state.use_rag = False
-        self.state.error_message = ""
-        self.state.input_tokens = 0
-        self.state.output_tokens = 0
-
-        # Conversation state variables
-        self._conversation_loading = False
-        self.state.conversation_object = None
-        self.state.conversation_file = None
-        self.state.conversation = None
-        self.state.conversation_index = 0
-        self.state.conversation_navigation = []
-        self.state.can_navigate_left = False
-        self.state.can_navigate_right = False
-        self.state.is_viewing_history = False
-
-        # Toast notification state
-        self.state.toast_message = ""
-        self.state.toast_visible = False
-        self.state.toast_color = "warning"
-
-        # API configuration state
-        self.state.use_cloud_models = True  # Toggle between cloud and local
-        self.state.tab_index = 0  # Tab navigation state
-
-        # Cloud model configuration
-        self.state.provider = DEFAULT_PROVIDER
-        self.state.model = DEFAULT_MODEL
-        self.state.temperature_supported = True
-        # Initialize with supported providers and fallback models
-        self.state.available_providers = get_supported_providers()
-        self.state.available_models = get_available_models()
-
-        # Load component defaults and sync UI state
-        try:
-            from .prompts import assemble_vtk_prompt
-
-            prompt_data = assemble_vtk_prompt("placeholder")  # Just to get defaults
-            model_params = prompt_data.get("modelParameters", {})
-
-            # Update state with component model configuration
-            if "temperature" in model_params:
-                self.state.temperature = str(model_params["temperature"])
-            if "max_tokens" in model_params:
-                self.state.max_tokens = str(model_params["max_tokens"])
-
-            # Parse default model from component data
-            default_model = prompt_data.get("model", f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}")
-            if "/" in default_model:
-                provider, model = default_model.split("/", 1)
-                self.state.provider = provider
-            logger.debug(
-                "Loaded component defaults: provider=%s, model=%s, temp=%s, max_tokens=%s",
-                self.state.provider,
-                self.state.model,
-                self.state.temperature,
-                self.state.max_tokens,
-            )
-        except Exception as e:
-            logger.warning("Could not load component defaults: %s", e)
-            # Fall back to default values
-            self.state.temperature = "0.5"
-            self.state.max_tokens = "10000"
-
-        self.state.api_token = ""
-
-        # Build UI
-        self._build_ui()
-
-        # Initialize the VTK prompt client
-        self._init_prompt_client()
+        initializer.initialize_state(self)
 
     def _init_prompt_client(self) -> None:
         """Initialize the prompt client based on current settings."""
-        try:
-            # Validate configuration
-            validation_error = self._validate_configuration()
-            if validation_error:
-                self.state.error_message = validation_error
-                return
-
-            self.prompt_client = VTKPromptClient(
-                collection_name="vtk-examples",
-                database_path="./db/codesage-codesage-large-v2",
-                verbose=False,
-                conversation=self.state.conversation,
-            )
-        except ValueError as e:
-            self.state.error_message = str(e)
+        initializer.init_prompt_client(self)
 
     def _get_api_key(self) -> Optional[str]:
         """Get API key from state (requires manual input in UI)."""
-        api_token = getattr(self.state, "api_token", "")
-        return api_token.strip() if api_token and api_token.strip() else None
+        return config_state.get_api_key(self)
 
     def _get_base_url(self) -> Optional[str]:
         """Get base URL based on configuration mode."""
-        if self.state.use_cloud_models:
-            # Use predefined base URLs for cloud providers (OpenAI uses default None)
-            base_urls = {
-                "anthropic": "https://api.anthropic.com/v1",
-                "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
-                "nim": "https://integrate.api.nvidia.com/v1",
-            }
-            return base_urls.get(self.state.provider)
-        else:
-            # Use local base URL for local models
-            local_url = getattr(self.state, "local_base_url", "")
-            return local_url.strip() if local_url and local_url.strip() else None
+        return config_state.get_base_url(self)
 
     def _get_model(self) -> str:
         """Get model name based on configuration mode."""
-        if self.state.use_cloud_models:
-            return getattr(self.state, "model", DEFAULT_MODEL)
-        else:
-            local_model = getattr(self.state, "local_model", "")
-            return local_model.strip() if local_model and local_model.strip() else "llama3.2:latest"
+        return config_state.get_model(self)
 
     def _get_current_config_summary(self) -> str:
         """Get a summary of current configuration for display."""
-        if self.state.use_cloud_models:
-            return f"☁️ {self.state.provider}/{self.state.model}"
-        else:
-            base_display = (
-                self.state.local_base_url.replace("http://", "").replace("https://", "")
-                if self.state.local_base_url
-                else "localhost"
-            )
-            model_display = self.state.local_model if self.state.local_model else "default"
-            return f"🏠 {base_display}/{model_display}"
+        return config_state.get_current_config_summary(self)
 
     def _validate_configuration(self) -> Optional[str]:
         """Validate current configuration and return error message if invalid."""
-        if self.state.use_cloud_models:
-            # Validate cloud configuration
-            if not hasattr(self.state, "provider") or not self.state.provider:
-                return "Provider is required for cloud models"
-            if self.state.provider not in self.state.available_providers:
-                return f"Invalid provider: {self.state.provider}"
-            if not hasattr(self.state, "model") or not self.state.model:
-                return "Model is required for cloud models"
-            if self.state.provider in self.state.available_models:
-                if self.state.model not in self.state.available_models[self.state.provider]:
-                    return f"Invalid model {self.state.model} for provider {self.state.provider}"
-        else:
-            # Validate local configuration
-            if not hasattr(self.state, "local_base_url") or not self.state.local_base_url.strip():
-                return "Base URL is required for local models"
-            if not hasattr(self.state, "local_model") or not self.state.local_model.strip():
-                return "Model name is required for local models"
-
-            # Basic URL validation
-            base_url = self.state.local_base_url.strip()
-            if not (base_url.startswith("http://") or base_url.startswith("https://")):
-                return "Base URL must start with http:// or https://"
-
-        return None  # No validation errors
+        return config_validator.validate_configuration(self)
 
     @change("tab_index")
     def on_tab_change(self, tab_index: int, **_: Any) -> None:
