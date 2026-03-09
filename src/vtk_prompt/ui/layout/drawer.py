@@ -7,7 +7,8 @@ The drawer contains model configuration, RAG settings, and file controls.
 
 from typing import Any
 
-from trame.widgets import html, vuetify3 as vuetify
+from trame.widgets import html
+from trame.widgets import vuetify3 as vuetify
 
 from ...provider_utils import DEFAULT_MODEL, DEFAULT_PROVIDER
 

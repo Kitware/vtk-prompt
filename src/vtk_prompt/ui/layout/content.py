@@ -7,7 +7,8 @@ The content area contains code panels, VTK viewer, and prompt input.
 
 from typing import Any
 
-from trame.widgets import html, vuetify3 as vuetify
+from trame.widgets import html
+from trame.widgets import vuetify3 as vuetify
 from trame_vtk.widgets import vtk as vtk_widgets
 
 

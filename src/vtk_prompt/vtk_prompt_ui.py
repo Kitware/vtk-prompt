@@ -41,9 +41,13 @@ from .provider_utils import (
 )
 from .rendering import (
     add_default_scene,
-    clear_scene as clear_vtk_scene,
+)
+from .rendering import clear_scene as clear_vtk_scene
+from .rendering import (
     execute_vtk_code,
-    reset_camera as reset_vtk_camera,
+)
+from .rendering import reset_camera as reset_vtk_camera
+from .rendering import (
     setup_vtk_renderer,
 )
 from .ui.layout import build_content, build_drawer, build_toolbar

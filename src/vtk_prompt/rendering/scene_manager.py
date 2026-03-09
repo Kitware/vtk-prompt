@@ -1,6 +1,4 @@
-"""
-VTK Scene Management Module.
-"""
+"""VTK Scene Management Module."""
 
 import vtk
 
@@ -10,7 +8,9 @@ logger = get_logger(__name__)
 
 
 def setup_vtk_renderer() -> tuple[
-    vtk.vtkRenderer, vtk.vtkRenderWindow, vtk.vtkRenderWindowInteractor
+    vtk.vtkRenderer,
+    vtk.vtkRenderWindow,
+    vtk.vtkRenderWindowInteractor,
 ]:
     """Initialize VTK renderer, render window, and interactor with proper configuration.
 

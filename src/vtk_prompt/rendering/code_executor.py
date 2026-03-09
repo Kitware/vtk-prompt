@@ -1,6 +1,4 @@
-"""
-VTK Code Execution Module.
-"""
+"""VTK Code Execution Module."""
 
 from typing import Optional
 
