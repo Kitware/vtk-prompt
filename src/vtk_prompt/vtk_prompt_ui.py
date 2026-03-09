@@ -16,8 +16,6 @@ Example:
     >>> vtk-prompt-ui --port 9090
 """
 
-import json
-import re
 import sys
 from pathlib import Path
 from typing import Any, Optional
@@ -31,23 +29,16 @@ from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
 from .client import VTKPromptClient
+from .controllers import configuration, conversation, generation
 from .provider_utils import (
     DEFAULT_MODEL,
     DEFAULT_PROVIDER,
     get_available_models,
-    get_default_model,
     get_supported_providers,
     supports_temperature,
 )
 from .rendering import (
     add_default_scene,
-)
-from .rendering import clear_scene as clear_vtk_scene
-from .rendering import (
-    execute_vtk_code,
-)
-from .rendering import reset_camera as reset_vtk_camera
-from .rendering import (
     setup_vtk_renderer,
 )
 from .ui.layout import build_content, build_drawer, build_toolbar
@@ -380,38 +371,27 @@ class VTKPromptApp(TrameApp):
     @change("tab_index")
     def on_tab_change(self, tab_index: int, **_: Any) -> None:
         """Handle tab change to sync use_cloud_models state."""
-        self.state.use_cloud_models = tab_index == 0
+        configuration.on_tab_change(self, tab_index, **_)
 
     @change("model", "local_model")
     def _on_model_change(self, **_: Any) -> None:
         """Handle model change to update temperature support."""
-        current_model = self._get_model()
-        self.state.temperature_supported = supports_temperature(current_model)
-        if not self.state.temperature_supported:
-            self.state.temperature = 1
+        configuration.on_model_change(self, **_)
 
     @controller.set("generate_code")
     def generate_code(self) -> None:
         """Generate VTK code from user query."""
-        self._generate_and_execute_code()
+        generation.generate_code(self)
 
     @controller.set("clear_scene")
     def clear_scene(self) -> None:
         """Clear the VTK scene and restore default axes."""
-        try:
-            clear_vtk_scene(self.renderer, self.render_window)
-            self.ctrl.view_update()
-        except Exception as e:
-            logger.error("Error clearing scene: %s", e)
+        generation.clear_scene(self)
 
     @controller.set("reset_camera")
     def reset_camera(self) -> None:
         """Reset camera view."""
-        try:
-            reset_vtk_camera(self.renderer, self.render_window)
-            self.ctrl.view_update()
-        except Exception as e:
-            logger.error("Error resetting camera: %s", e)
+        generation.reset_camera(self)
 
     @controller.set("trigger_warning_toast")
     def trigger_warning_toast(self, message: str) -> None:
@@ -420,325 +400,67 @@ class VTKPromptApp(TrameApp):
         Args:
             message: Warning message to display
         """
-        self.state.toast_message = message
-        self.state.toast_color = "warning"
-        self.state.toast_visible = True
-        logger.warning("Toast notification: %s", message)
+        generation.trigger_warning_toast(self, message)
 
     def _generate_and_execute_code(self) -> None:
-        """Generate VTK code using Anthropic API and execute it."""
-        self.state.is_loading = True
-        self.state.error_message = ""
-
-        try:
-            if not self._conversation_loading:
-                # Use custom prompt if provided, otherwise use built-in YAML prompts
-                if self.custom_prompt_data:
-                    # Use the query text directly when using custom prompts
-                    enhanced_query = self.state.query_text
-                    logger.debug("Using custom prompt file")
-                else:
-                    # Let the client handle prompt selection based on RAG and UI mode
-                    enhanced_query = self.state.query_text
-                    logger.debug("Using UI mode - client will select appropriate prompt")
-
-                # Reinitialize client with current settings
-                self._init_prompt_client()
-                if hasattr(self.state, "error_message") and self.state.error_message:
-                    return
-
-                result = self.prompt_client.query(
-                    enhanced_query,
-                    api_key=self._get_api_key(),
-                    model=self._get_model(),
-                    base_url=self._get_base_url(),
-                    max_tokens=int(self.state.max_tokens),
-                    temperature=float(self.state.temperature),
-                    top_k=int(self.state.top_k),
-                    rag=self.state.use_rag,
-                    retry_attempts=int(self.state.retry_attempts),
-                    provider=self.state.provider,
-                    custom_prompt=self.custom_prompt_data,
-                    ui_mode=True,  # This tells the client to use UI-specific components
-                )
-                # Keep UI in sync with conversation
-                self.state.conversation = self.prompt_client.conversation
-
-                # Handle result with optional validation warnings
-                validation_warnings: list[str] = []
-                if isinstance(result, tuple):
-                    if len(result) == 4:
-                        # Result includes validation warnings
-                        generated_explanation, generated_code, usage, validation_warnings = result
-                    elif len(result) == 3:
-                        generated_explanation, generated_code, usage = result
-                    else:
-                        generated_explanation = str(result)
-                        generated_code = ""
-                        usage = None
-
-                    if usage:
-                        self.state.input_tokens = usage.prompt_tokens
-                        self.state.output_tokens = usage.completion_tokens
-                    else:
-                        self.state.input_tokens = 0
-                        self.state.output_tokens = 0
-                else:
-                    # Handle string result
-                    generated_explanation = str(result)
-                    generated_code = ""
-                    self.state.input_tokens = 0
-                    self.state.output_tokens = 0
-
-                # Display validation warnings as toast notifications
-                if validation_warnings:
-                    for warning in validation_warnings:
-                        self.ctrl.trigger_warning_toast(warning)
-
-                self.state.generated_explanation = generated_explanation
-                self.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code
-
-                # Update navigation after new conversation entry
-                self._build_conversation_navigation()
-
-            self._conversation_loading = False
-            # Execute the generated code using the existing run_code method
-            # But we need to modify it to work with our renderer
-            self._execute_with_renderer(self.state.generated_code)
-        except ValueError as e:
-            if "max_tokens" in str(e):
-                self.state.error_message = (
-                    f"{str(e)} Current: {self.state.max_tokens}. Try increasing max tokens."
-                )
-            else:
-                self.state.error_message = f"Error generating code: {str(e)}"
-        except Exception as e:
-            self.state.error_message = f"Error generating code: {str(e)}"
-        finally:
-            self.state.is_loading = False
+        """Generate VTK code using AI API and execute it."""
+        generation.generate_and_execute_code(self)
 
     def _execute_with_renderer(self, code_string: str) -> None:
         """Execute VTK code with our renderer."""
-        success, error_message = execute_vtk_code(code_string, self.renderer, self.render_window)
-
-        if not success and error_message:
-            self.state.error_message = error_message
-
-        # Always update view
-        try:
-            self.ctrl.view_update()
-        except Exception as e:
-            logger.warning("View update error: %s", e)
+        generation.execute_with_renderer(self, code_string)
 
     @change("conversation_object")
     def on_conversation_file_data_change(
         self, conversation_object: Optional[dict[str, Any]], **_: Any
     ) -> None:
         """Handle conversation file data changes and load conversation history."""
-        invalid = (
-            conversation_object is None
-            or conversation_object.get("type") != "application/json"
-            or Path(conversation_object.get("name", "")).suffix != ".json"
-            or not conversation_object.get("content")
-        )
-
-        if not invalid and conversation_object is not None:
-            loaded_conversation = json.loads(conversation_object["content"])
-
-            # Append loaded conversation to existing conversation instead of overwriting
-            if self.state.conversation is None:
-                self.state.conversation = []
-
-            # Extend the existing conversation with the loaded one
-            self.state.conversation.extend(loaded_conversation)
-            self.state.conversation_file = conversation_object["name"]
-            self.prompt_client.update_conversation(
-                loaded_conversation, self.state.conversation_file
-            )
-
-            self._process_loaded_conversation()
-        else:
-            self.state.conversation_file = None
-
-        if not invalid and self.state.auto_run_conversation_file:
-            self._conversation_loading = True
-            self.generate_code()
-
-    def _parse_assistant_content(self, content: str) -> tuple[Optional[str], Optional[str]]:
-        """Parse assistant message content for explanation and code."""
-        try:
-            explanation_match = re.findall(r"<explanation>(.*?)</explanation>", content, re.DOTALL)
-            code_match = re.findall(r"<code>(.*?)</code>", content, re.DOTALL)
-
-            if explanation_match and code_match:
-                return explanation_match[0].strip(), code_match[0].strip()
-            return None, None
-        except Exception:
-            return None, None
+        conversation.on_conversation_file_data_change(self, conversation_object, **_)
 
     def _build_conversation_navigation(self) -> None:
         """Build list of conversation pairs (user message + assistant response) for navigation."""
-        if not self.state.conversation:
-            self.state.conversation_navigation = []
-            self.state.conversation_index = 0
-            self._update_navigation_state()
-            return
-
-        pairs = []
-        current_user = None
-
-        for message in self.state.conversation:
-            if message.get("role") == "user":
-                current_user = message
-            elif message.get("role") == "assistant" and current_user:
-                pairs.append({"user": current_user, "assistant": message})
-                current_user = None
-
-        self.state.conversation_navigation = pairs
-        # Reset index to last pair if we have pairs
-        if pairs:
-            self.state.conversation_index = len(pairs) - 1
-        else:
-            self.state.conversation_index = 0
-
-        self._update_navigation_state()
-
-    def _update_navigation_state(self) -> None:
-        """Update navigation button states based on current position."""
-        nav_length = len(self.state.conversation_navigation)
-
-        # Update navigation buttons
-        self.state.can_navigate_left = nav_length > 0 and self.state.conversation_index > 0
-        self.state.can_navigate_right = (
-            nav_length > 0 and self.state.conversation_index < nav_length
-        )
-
-        # Update viewing mode - we're viewing history if not at the "new entry" position
-        self.state.is_viewing_history = (
-            nav_length > 0 and self.state.conversation_index < nav_length
-        )
+        conversation.build_conversation_navigation(self)
 
     def _sync_with_prompt_client(self) -> None:
         """Sync conversation navigation with prompt client conversation."""
-        if self.prompt_client and self.prompt_client.conversation:
-            self.state.conversation = self.prompt_client.conversation
-            self._build_conversation_navigation()
+        conversation.sync_with_prompt_client(self)
 
     def _process_conversation_pair(self, pair_index: Optional[int] = None) -> None:
         """Process a specific conversation pair by index."""
-        if not self.state.conversation_navigation:
-            return
+        from .controllers.conversation import _process_conversation_pair
 
-        if pair_index is None:
-            pair_index = self.state.conversation_index
-
-        if pair_index < 0 or pair_index >= len(self.state.conversation_navigation):
-            return
-
-        pair = self.state.conversation_navigation[pair_index]
-
-        # Process assistant message for explanation and code
-        assistant_content = pair["assistant"].get("content", "")
-        explanation, code = self._parse_assistant_content(assistant_content)
-
-        if explanation and code:
-            # Set explanation and code in UI state
-            self.state.generated_explanation = explanation
-            self.state.generated_code = EXPLAIN_RENDERER + "\n" + code
-
-            # Execute the code to display visualization
-            self._execute_with_renderer(code)
-
-        # Process user message for query text
-        user_content = pair["user"].get("content", "").strip()
-        if "</extra_instructions>" in user_content:
-            parts = user_content.split("</extra_instructions>", 1)
-            query_text = parts[1].strip() if len(parts) > 1 else user_content
-        else:
-            query_text = user_content
-
-        self.state.query_text = query_text
+        _process_conversation_pair(self, pair_index)
 
     def _process_loaded_conversation(self) -> None:
         """Process loaded conversation file."""
-        if not self.state.conversation:
-            return
+        from .controllers.conversation import _process_loaded_conversation
 
-        # Build navigation pairs and process the latest one
-        self._build_conversation_navigation()
-        self._process_conversation_pair()
+        _process_loaded_conversation(self)
 
     @controller.set("navigate_conversation_left")
     def navigate_conversation_left(self) -> None:
         """Navigate to previous conversation pair."""
-        if not self.state.conversation_navigation:
-            return
-
-        if self.state.conversation_index >= 0:
-            self.state.conversation_index -= 1
-            if self.state.conversation_index >= 0:
-                self._process_conversation_pair()
-            self._update_navigation_state()
+        conversation.navigate_conversation_left(self)
 
     @controller.set("navigate_conversation_right")
     def navigate_conversation_right(self) -> None:
         """Navigate to next conversation pair."""
-        if not self.state.conversation_navigation:
-            return
-
-        nav_length = len(self.state.conversation_navigation)
-        if self.state.conversation_index < nav_length:
-            self.state.conversation_index += 1
-            if self.state.conversation_index < nav_length:
-                # Still viewing history
-                self._process_conversation_pair()
-            else:
-                # Moved to "new entry" mode - clear only query text for new input
-                self.state.query_text = ""
-            self._update_navigation_state()
+        conversation.navigate_conversation_right(self)
 
     @trigger("save_conversation")
     def save_conversation(self) -> str:
         """Save current conversation history as JSON string."""
-        if hasattr(self, "prompt_client") and self.prompt_client is not None:
-            return json.dumps(self.prompt_client.conversation, indent=2)
-        return ""
+        return conversation.save_conversation(self)
 
     @trigger("save_config")
     def save_config(self) -> str:
         """Save current configuration as YAML string for download."""
-        use_cloud = bool(getattr(self.state, "use_cloud_models", True))
-        provider = getattr(self.state, "provider", DEFAULT_PROVIDER)
-        model = self._get_model()
-        provider_model = f"{provider}/{model}" if use_cloud else f"local/{model}"
-        temperature = float(getattr(self.state, "temperature", 0.0))
-        max_tokens = int(getattr(self.state, "max_tokens", 1000))
-        retries = int(getattr(self.state, "retry_attempts", 1))
-        rag_enabled = bool(getattr(self.state, "use_rag", False))
-        top_k = int(getattr(self.state, "top_k", 5))
-
-        content = {
-            "name": "Custom VTK Prompt config file",
-            "description": f"Exported from UI - {'Cloud' if use_cloud else 'Local'} configuration",
-            "model": provider_model,
-            "rag": rag_enabled,
-            "top_k": top_k,
-            "retries": retries,
-            "modelParameters": {
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-            },
-        }
-        return yaml.safe_dump(content, sort_keys=False)
+        return configuration.save_config(self)
 
     @change("provider")
     def _on_provider_change(self, provider, **kwargs) -> None:
         """Handle provider selection change."""
-        # Set default model for the provider if current model not available
-        if provider in self.state.available_models:
-            models = self.state.available_models[provider]
-            if models and self.state.model not in models:
-                self.state.model = get_default_model(provider)
+        configuration.on_provider_change(self, provider, **kwargs)
 
     def _build_ui(self) -> None:
         """Build a simplified Vuetify UI."""
