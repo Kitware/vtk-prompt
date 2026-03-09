@@ -5,10 +5,10 @@ This module provides functions for validating VTK Prompt UI configuration
 and checking that all required settings are properly configured.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 
-def validate_configuration(app: Any) -> Optional[str]:
+def validate_configuration(app: Any) -> str | None:
     """Validate current configuration and return error message if invalid."""
     if app.state.use_cloud_models:
         # Validate cloud configuration

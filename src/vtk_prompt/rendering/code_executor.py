@@ -1,7 +1,5 @@
 """VTK Code Execution Module."""
 
-from typing import Optional
-
 import vtk
 
 from .. import get_logger
@@ -11,7 +9,7 @@ logger = get_logger(__name__)
 
 def execute_vtk_code(
     code_string: str, renderer: vtk.vtkRenderer, render_window: vtk.vtkRenderWindow
-) -> tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """Execute VTK code with renderer context.
 
     Clears previous actors, cleans the code string, executes it with the renderer

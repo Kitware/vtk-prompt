@@ -5,18 +5,18 @@ This module provides helper functions for managing configuration state,
 including API keys, base URLs, model selection, and configuration summaries.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from ..provider_utils import DEFAULT_MODEL
 
 
-def get_api_key(app: Any) -> Optional[str]:
+def get_api_key(app: Any) -> str | None:
     """Get API key from state (requires manual input in UI)."""
     api_token = getattr(app.state, "api_token", "")
     return api_token.strip() if api_token and api_token.strip() else None
 
 
-def get_base_url(app: Any) -> Optional[str]:
+def get_base_url(app: Any) -> str | None:
     """Get base URL based on configuration mode."""
     if app.state.use_cloud_models:
         # Use predefined base URLs for cloud providers (OpenAI uses default None)

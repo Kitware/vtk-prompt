@@ -21,7 +21,7 @@ import importlib.util
 import os
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import click
 import query_db
@@ -59,7 +59,7 @@ def get_rag_snippets(
     collection_name: str = "vtk-examples",
     database_path: str = "./db/codesage-codesage-large-v2",
     top_k: int = 5,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Get code snippets from the RAG database."""
     setup_rag_path()
     try:

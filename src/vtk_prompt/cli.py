@@ -9,7 +9,6 @@ Example:
 """
 
 import sys
-from typing import Optional
 
 import click
 
@@ -68,15 +67,15 @@ def main(
     max_tokens: int,
     temperature: float,
     token: str,
-    base_url: Optional[str],
+    base_url: str | None,
     rag: bool,
     verbose: bool,
     collection: str,
     database: str,
     top_k: int,
     retry_attempts: int,
-    conversation: Optional[str],
-    prompt_file: Optional[str],
+    conversation: str | None,
+    prompt_file: str | None,
 ) -> None:
     """
     Generate and execute VTK code using LLMs.

@@ -8,7 +8,7 @@ and conversation state management in the VTK Prompt UI.
 import json
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from .. import get_logger
 
@@ -23,7 +23,7 @@ EXTRA_INSTRUCTIONS_TAG = "</extra_instructions>"
 
 
 def on_conversation_file_data_change(
-    app: Any, conversation_object: Optional[dict[str, Any]], **_: Any
+    app: Any, conversation_object: dict[str, Any] | None, **_: Any
 ) -> None:
     """Handle conversation file data changes and load conversation history."""
     invalid = (
@@ -90,7 +90,7 @@ def save_conversation(app: Any) -> str:
     return ""
 
 
-def _parse_assistant_content(content: str) -> tuple[Optional[str], Optional[str]]:
+def _parse_assistant_content(content: str) -> tuple[str | None, str | None]:
     """Parse assistant message content for explanation and code."""
     try:
         explanation_match = re.findall(r"<explanation>(.*?)</explanation>", content, re.DOTALL)
@@ -150,7 +150,7 @@ def sync_with_prompt_client(app: Any) -> None:
         build_conversation_navigation(app)
 
 
-def _process_conversation_pair(app: Any, pair_index: Optional[int] = None) -> None:
+def _process_conversation_pair(app: Any, pair_index: int | None = None) -> None:
     """Process a specific conversation pair by index."""
     if not app.state.conversation_navigation:
         return

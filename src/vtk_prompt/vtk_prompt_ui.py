@@ -17,7 +17,7 @@ Example:
 """
 
 import sys
-from typing import Any, Optional
+from typing import Any
 
 import vtk
 from trame.app import TrameApp
@@ -41,9 +41,7 @@ logger = get_logger(__name__)
 class VTKPromptApp(TrameApp):
     """VTK Prompt interactive application with 3D visualization and AI chat interface."""
 
-    def __init__(
-        self, server: Optional[Any] = None, custom_prompt_file: Optional[str] = None
-    ) -> None:
+    def __init__(self, server: Any | None = None, custom_prompt_file: str | None = None) -> None:
         """Initialize VTK Prompt application.
 
         Args:
@@ -94,11 +92,11 @@ class VTKPromptApp(TrameApp):
         """Initialize the prompt client based on current settings."""
         initializer.init_prompt_client(self)
 
-    def _get_api_key(self) -> Optional[str]:
+    def _get_api_key(self) -> str | None:
         """Get API key from state (requires manual input in UI)."""
         return config_state.get_api_key(self)
 
-    def _get_base_url(self) -> Optional[str]:
+    def _get_base_url(self) -> str | None:
         """Get base URL based on configuration mode."""
         return config_state.get_base_url(self)
 
@@ -110,7 +108,7 @@ class VTKPromptApp(TrameApp):
         """Get a summary of current configuration for display."""
         return config_state.get_current_config_summary(self)
 
-    def _validate_configuration(self) -> Optional[str]:
+    def _validate_configuration(self) -> str | None:
         """Validate current configuration and return error message if invalid."""
         return config_validator.validate_configuration(self)
 
@@ -158,7 +156,7 @@ class VTKPromptApp(TrameApp):
 
     @change("conversation_object")
     def on_conversation_file_data_change(
-        self, conversation_object: Optional[dict[str, Any]], **_: Any
+        self, conversation_object: dict[str, Any] | None, **_: Any
     ) -> None:
         """Handle conversation file data changes and load conversation history."""
         conversation.on_conversation_file_data_change(self, conversation_object, **_)
@@ -171,7 +169,7 @@ class VTKPromptApp(TrameApp):
         """Sync conversation navigation with prompt client conversation."""
         conversation.sync_with_prompt_client(self)
 
-    def _process_conversation_pair(self, pair_index: Optional[int] = None) -> None:
+    def _process_conversation_pair(self, pair_index: int | None = None) -> None:
         """Process a specific conversation pair by index."""
         from .controllers.conversation import _process_conversation_pair
 
