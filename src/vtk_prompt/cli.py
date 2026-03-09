@@ -162,7 +162,7 @@ def main(
             top_k=top_k,
             rag=rag,
             retry_attempts=retry_attempts,
-            provider=provider,
+            _provider=provider,
             custom_prompt=custom_prompt_data,
         )
 
