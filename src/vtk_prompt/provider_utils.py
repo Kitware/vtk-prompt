@@ -32,6 +32,9 @@ NIM_MODELS = [
 # Models that don't support temperature control (must use temperature=1.0)
 TEMPERATURE_UNSUPPORTED_MODELS = ["gpt-5", "o4-mini", "o3"]
 
+DEFAULT_PROVIDER = "openai"
+DEFAULT_MODEL = "gpt-5"
+
 
 def supports_temperature(model: str) -> bool:
     """Check if a model supports temperature control."""

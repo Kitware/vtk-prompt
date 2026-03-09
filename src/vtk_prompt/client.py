@@ -19,16 +19,13 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import openai
 
 from . import get_logger
-from .prompts import (
-    get_no_rag_context,
-    get_python_role,
-    get_rag_context,
-)
+from .prompts import get_yaml_prompt
+from .provider_utils import DEFAULT_MODEL
 
 logger = get_logger(__name__)
 
@@ -132,17 +129,59 @@ class VTKPromptClient:
                 logger.debug("Failed code:\n%s", code_string)
             return
 
+    def _format_custom_prompt(
+        self, custom_prompt_data: dict, message: str, rag_snippets: Optional[dict] = None
+    ) -> List[Dict[str, str]]:
+        """Format custom prompt data into messages for LLM client.
+
+        Args:
+            custom_prompt_data: The loaded YAML prompt data
+            message: The user request
+            rag_snippets: Optional RAG snippets for context enhancement
+
+        Returns:
+            List of formatted messages ready for LLM client
+        """
+        import vtk
+
+        from .prompts import substitute_yaml_variables
+
+        # Prepare variables for substitution
+        variables = {
+            "VTK_VERSION": vtk.__version__,
+            "PYTHON_VERSION": ">=3.10",
+            "request": message,
+        }
+
+        # Add RAG context if available
+        if rag_snippets:
+            context_snippets = "\n\n".join(rag_snippets["code_snippets"])
+            variables["context_snippets"] = context_snippets
+
+        # Process messages from custom prompt
+        messages = custom_prompt_data.get("messages", [])
+        formatted_messages = []
+
+        for msg in messages:
+            content = substitute_yaml_variables(msg.get("content", ""), variables)
+            formatted_messages.append({"role": msg.get("role", "user"), "content": content})
+
+        return formatted_messages
+
     def query(
         self,
         message: str = "",
         api_key: Optional[str] = None,
-        model: str = "gpt-5",
+        model: str = DEFAULT_MODEL,
         base_url: Optional[str] = None,
         max_tokens: int = 1000,
         temperature: float = 0.1,
         top_k: int = 5,
         rag: bool = False,
         retry_attempts: int = 1,
+        provider: Optional[str] = None,
+        custom_prompt: Optional[dict] = None,
+        ui_mode: bool = False,
     ) -> Union[tuple[str, str, Any], str]:
         """Generate VTK code with optional RAG enhancement and retry logic.
 
@@ -156,6 +195,9 @@ class VTKPromptClient:
             top_k: Number of RAG examples to retrieve
             rag: Whether to use RAG enhancement
             retry_attempts: Number of times to retry if AST validation fails
+            provider: LLM provider to use (overrides instance provider if provided)
+            custom_prompt: Custom YAML prompt data (overrides built-in prompts)
+            ui_mode: Whether the request is coming from UI (affects prompt selection)
         """
         if not api_key:
             api_key = os.environ.get("OPENAI_API_KEY")
@@ -181,38 +223,63 @@ class VTKPromptClient:
 
             if not check_rag_components_available():
                 raise ValueError("RAG components not available")
-
             rag_snippets = get_rag_snippets(
                 message,
                 collection_name=self.collection_name,
                 database_path=self.database_path,
-                top_k=top_k,
+                top_k=5,  # Use default top_k value
             )
 
+        # Use custom prompt if provided, otherwise use built-in YAML prompts
+        if custom_prompt:
+            # Process custom prompt data
+            yaml_messages = self._format_custom_prompt(
+                custom_prompt, message, rag_snippets if rag else None
+            )
+            if self.verbose:
+                logger.debug("Using custom YAML prompt from file")
+        elif rag:
             if not rag_snippets:
                 raise ValueError("Failed to load RAG snippets")
 
             context_snippets = "\n\n".join(rag_snippets["code_snippets"])
-            context = get_rag_context(message, context_snippets)
+
+            # Choose RAG prompt based on UI mode
+            if ui_mode:
+                prompt_name = "vtk_python_rag_ui"
+                logger.debug("Using RAG-enhanced UI YAML prompt")
+            else:
+                prompt_name = "vtk_python_rag"
+                logger.debug("Using RAG-enhanced CLI YAML prompt")
+
+            yaml_messages = get_yaml_prompt(
+                prompt_name, request=message, context_snippets=context_snippets
+            )
 
             if self.verbose:
-                logger.debug("RAG context: %s", context)
                 references = rag_snippets.get("references")
                 if references:
                     logger.info("Using examples from: %s", ", ".join(references))
         else:
-            context = get_no_rag_context(message)
-            if self.verbose:
-                logger.debug("No-RAG context: %s", context)
+            # Choose standard prompt based on UI mode
+            if ui_mode:
+                prompt_name = "vtk_python_generation_ui"
+                logger.debug("Using standard UI YAML prompt")
+            else:
+                prompt_name = "vtk_python_generation"
+                logger.debug("Using standard CLI YAML prompt")
 
-        # Initialize conversation with system message if empty
+            yaml_messages = get_yaml_prompt(prompt_name, request=message)
+
+        # Initialize conversation with YAML messages if empty
         if not self.conversation:
             self.conversation = []
-            self.conversation.append({"role": "system", "content": get_python_role()})
-
-        # Add current user message
-        if message:
-            self.conversation.append({"role": "user", "content": context})
+            # Add all messages from YAML prompt (system + user)
+            self.conversation.extend(yaml_messages)
+        else:
+            # If conversation exists, just add the user message (last message from YAML)
+            if message and yaml_messages:
+                self.conversation.append(yaml_messages[-1])
 
         # Retry loop for AST validation
         for attempt in range(retry_attempts):
