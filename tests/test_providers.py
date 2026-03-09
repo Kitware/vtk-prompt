@@ -15,10 +15,10 @@ import pytest
 
 from vtk_prompt.client import VTKPromptClient
 from vtk_prompt.provider_utils import (
-    OPENAI_MODELS,
     ANTHROPIC_MODELS,
     GEMINI_MODELS,
     NIM_MODELS,
+    OPENAI_MODELS,
     get_model_temperature,
 )
 

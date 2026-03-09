@@ -2,10 +2,11 @@
 Tests for YAML prompt loader functionality.
 """
 
-import pytest
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 import yaml
 
 from vtk_prompt.prompts.yaml_prompt_loader import YAMLPromptLoader

@@ -270,8 +270,6 @@ class VTKPromptClient:
         """
         from .prompts import PYTHON_VERSION, VTK_VERSION, YAMLPromptLoader
 
-        from .prompts import substitute_yaml_variables
-
         # Prepare variables for substitution
         variables = {
             "VTK_VERSION": VTK_VERSION,
@@ -353,7 +351,7 @@ class VTKPromptClient:
                 message,
                 collection_name=self.collection_name,
                 database_path=self.database_path,
-                top_k=5,  # Use default top_k value
+                top_k=top_k,
             )
 
         # Store validation warnings to return to caller

@@ -79,6 +79,9 @@ class PromptComponentLoader:
             FileNotFoundError: If component file doesn't exist
         """
         component_file = self.components_dir / f"{component_name}.yml"
+        if not component_file.exists():
+            raise FileNotFoundError(f"Component not found: {component_file}")
+
         return _load_component_file(str(component_file))
 
     def clear_cache(self) -> None:

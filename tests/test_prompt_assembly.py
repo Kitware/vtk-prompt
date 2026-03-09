@@ -4,9 +4,11 @@ Test suite for VTK prompt assembly system.
 Tests focusing on key prompt functionality.
 """
 
-import pytest
 import re
-from vtk_prompt.prompts import assemble_vtk_prompt, PYTHON_VERSION
+
+import pytest
+
+from vtk_prompt.prompts import PYTHON_VERSION, assemble_vtk_prompt
 
 
 def _assert_basic_structure(result):
