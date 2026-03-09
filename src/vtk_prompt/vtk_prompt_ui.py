@@ -17,11 +17,9 @@ Example:
 """
 
 import sys
-from pathlib import Path
 from typing import Any, Optional
 
 import vtk
-import yaml
 from trame.app import TrameApp
 from trame.decorators import change, controller, trigger
 from trame.ui.vuetify3 import SinglePageWithDrawerLayout
@@ -29,39 +27,15 @@ from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
 from .controllers import configuration, conversation, generation
-from .provider_utils import (
-    DEFAULT_MODEL,
-    get_supported_providers,
-    supports_temperature,
-)
 from .rendering import (
     add_default_scene,
     setup_vtk_renderer,
 )
 from .state import config_state, config_validator, initializer
 from .ui.layout import build_content, build_drawer, build_toolbar
+from .utils import file_handlers, prompt_loader
 
 logger = get_logger(__name__)
-
-EXPLAIN_RENDERER = (
-    "# renderer is a vtkRenderer injected by this webapp"
-    + "\n"
-    + "# Use your own vtkRenderer in your application"
-)
-EXPLANATION_PATTERN = r"<explanation>(.*?)</explanation>"
-CODE_PATTERN = r"<code>(.*?)</code>"
-EXTRA_INSTRUCTIONS_TAG = "</extra_instructions>"
-
-
-def load_js(server: Any) -> None:
-    """Load JavaScript utilities for VTK Prompt UI."""
-    js_file = Path(__file__).with_name("utils.js")
-    server.enable_module(
-        {
-            "serve": {"vtk_prompt": str(js_file.parent)},
-            "scripts": [f"vtk_prompt/{js_file.name}"],
-        }
-    )
 
 
 class VTKPromptApp(TrameApp):
@@ -91,7 +65,7 @@ class VTKPromptApp(TrameApp):
         )
 
         # Make sure JS is loaded
-        load_js(self.server)
+        file_handlers.load_js(self.server)
 
         # Suppress VTK warnings to reduce console noise
         vtk.vtkObject.GlobalWarningDisplayOff()
@@ -110,96 +84,7 @@ class VTKPromptApp(TrameApp):
 
     def _load_custom_prompt_file(self) -> None:
         """Load custom YAML prompt file and extract model parameters."""
-        if not self.custom_prompt_file:
-            return
-
-        try:
-            custom_file_path = Path(self.custom_prompt_file)
-            if not custom_file_path.exists():
-                logger.error("Custom prompt file not found: %s", self.custom_prompt_file)
-                return
-
-            with open(custom_file_path, "r") as f:
-                self.custom_prompt_data = yaml.safe_load(f)
-
-            logger.info("Loaded custom prompt file: %s", custom_file_path.name)
-
-            # Override UI defaults with custom prompt parameters
-            if self.custom_prompt_data and isinstance(self.custom_prompt_data, dict):
-                model_value = self.custom_prompt_data.get("model", DEFAULT_MODEL)
-                if isinstance(model_value, str) and model_value:
-                    if "/" in model_value:
-                        provider_part, model_part = model_value.split("/", 1)
-                        # Validate provider
-                        supported = set(get_supported_providers() + ["local"])
-                        if provider_part not in supported or not model_part.strip():
-                            msg = (
-                                "Invalid 'model' in prompt file. Expected '<provider>/<model>' "
-                                "with provider in {openai, anthropic, gemini, nim, local}."
-                            )
-                            self.state.error_message = msg
-                            raise ValueError(msg)
-                        if provider_part == "local":
-                            # Switch to local mode
-                            self.state.use_cloud_models = False
-                            self.state.tab_index = 1
-                            self.state.local_model = model_part
-                        else:
-                            # Cloud provider/model
-                            self.state.use_cloud_models = True
-                            self.state.tab_index = 0
-                            self.state.provider = provider_part
-                            self.state.model = model_part
-                    else:
-                        # Enforce explicit provider/model format
-                        msg = (
-                            "Invalid 'model' format in prompt file. Expected '<provider>/<model>' "
-                            "(e.g., 'openai/gpt-5' or 'local/llama3')."
-                        )
-                        self.state.error_message = msg
-                        raise ValueError(msg)
-
-                # RAG and generation controls
-                if "rag" in self.custom_prompt_data:
-                    self.state.use_rag = bool(self.custom_prompt_data.get("rag"))
-                if "top_k" in self.custom_prompt_data:
-                    _top_k = self.custom_prompt_data.get("top_k")
-                    if isinstance(_top_k, int):
-                        self.state.top_k = _top_k
-                    elif isinstance(_top_k, str) and _top_k.isdigit():
-                        self.state.top_k = int(_top_k)
-                    else:
-                        logger.warning("Invalid top_k in prompt file: %r; keeping existing", _top_k)
-                if "retries" in self.custom_prompt_data:
-                    _retries = self.custom_prompt_data.get("retries")
-                    if isinstance(_retries, int):
-                        self.state.retry_attempts = _retries
-                    elif isinstance(_retries, str) and _retries.isdigit():
-                        self.state.retry_attempts = int(_retries)
-                    else:
-                        logger.warning(
-                            "Invalid retries in prompt file: %r; keeping existing", _retries
-                        )
-
-                self.state.temperature_supported = supports_temperature(model_part)
-                # Set model parameters from prompt file
-                model_params = self.custom_prompt_data.get("modelParameters", {})
-                if isinstance(model_params, dict):
-                    if "temperature" in model_params:
-                        if not self.state.temperature_supported:
-                            self.state.temperature = 1.0  # enforce
-                            logger.warning(
-                                "Temperature not supported for model %s; forcing 1.0", model_part
-                            )
-                        else:
-                            self.state.temperature = model_params["temperature"]
-                    if "max_tokens" in model_params:
-                        self.state.max_tokens = model_params["max_tokens"]
-        except (yaml.YAMLError, ValueError) as e:
-            # Log error and surface to UI as well
-            logger.error("Failed to load custom prompt file %s: %s", self.custom_prompt_file, e)
-            self.state.error_message = str(e)
-            self.custom_prompt_data = None
+        prompt_loader.load_custom_prompt_file(self)
 
     def _initialize_state(self) -> None:
         """Initialize application state variables."""
