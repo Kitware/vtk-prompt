@@ -167,8 +167,20 @@ def main(
             custom_prompt=custom_prompt_data,
         )
 
-        if isinstance(result, tuple) and len(result) == 3:
-            explanation, generated_code, usage = result
+        # Handle result with optional validation warnings
+        if isinstance(result, tuple):
+            if len(result) == 4:
+                # Result includes validation warnings
+                explanation, generated_code, usage, validation_warnings = result
+                # Display validation warnings
+                for warning in validation_warnings:
+                    logger.warning("Custom prompt validation: %s", warning)
+            elif len(result) == 3:
+                explanation, generated_code, usage = result
+            else:
+                logger.info("Result: %s", result)
+                return
+
             if verbose and usage:
                 logger.info(
                     "Used tokens: input=%d output=%d",

@@ -46,7 +46,6 @@ dev = [
     "pre-commit",
     "ruff",
     "pytest >=6",
-    "pytest-cov >=3",
     "tox",
     "black>=23.0.0",
     "isort>=5.12.0",

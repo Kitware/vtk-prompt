@@ -9,7 +9,7 @@ messages:
     content: |
       You are a XML VTK file generator, the generated file will be read by VTK
       file reader
-  - role: user
+  - role: assistant
     content: |
       Write only text that is the content of a XML VTK file.
 
