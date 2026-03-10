@@ -32,7 +32,7 @@ from .rendering import (
     setup_vtk_renderer,
 )
 from .state import config_state, config_validator, initializer
-from .ui.layout import build_content, build_drawer, build_toolbar
+from .ui.layout import build_content, build_drawer, build_toolbar, build_settings_dialog
 from .utils import file_handlers, prompt_loader
 
 logger = get_logger(__name__)
@@ -217,9 +217,10 @@ class VTKPromptApp(TrameApp):
             layout.title.set_text("VTK Prompt UI")
 
             # Build UI sections using layout modules
-            build_toolbar(layout)
+            build_toolbar(layout, self)
             build_drawer(layout)
             build_content(layout, self)
+            build_settings_dialog(layout, self)
 
     def start(self) -> None:
         """Start the trame server."""

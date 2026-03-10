@@ -10,7 +10,7 @@ from typing import Any
 from trame.widgets import vuetify3 as vuetify
 
 
-def build_toolbar(layout: Any) -> None:
+def build_toolbar(layout: Any, app: Any) -> None:
     """Build the toolbar layout with file controls and settings."""
     with layout.toolbar:
         vuetify.VSpacer()
@@ -87,25 +87,21 @@ def build_toolbar(layout: Any) -> None:
                 ):
                     vuetify.VIcon("mdi-file-download-outline")
 
-        # Download config button
+        # Settings button
         with vuetify.VTooltip(
-            text="Download config file",
+            text="Open settings",
             location="bottom",
         ):
             with vuetify.Template(v_slot_activator="{ props }"):
                 with vuetify.VBtn(
                     icon=True,
                     v_bind="props",
-                    click="utils.download("
-                    + "`vtk-prompt_config.yml`,"
-                    + "trigger('save_config'),"
-                    + "'application/x-yaml'"
-                    + ")",
+                    click="advanced_settings_open = true",
                     classes="mr-4",
                     color="primary",
                     density="compact",
                 ):
-                    vuetify.VIcon("mdi-content-save-cog-outline")
+                    vuetify.VIcon("mdi-cog-outline")
 
         # Theme switcher
         vuetify.VSwitch(

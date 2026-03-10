@@ -30,6 +30,7 @@ def initialize_state(app: Any) -> None:
     app.state.error_message = ""
     app.state.input_tokens = 0
     app.state.output_tokens = 0
+    app.state.advanced_settings_open = False
 
     # Conversation state variables
     app._conversation_loading = False
