@@ -194,3 +194,48 @@ def _process_loaded_conversation(app: Any) -> None:
     # Build navigation pairs and process the latest one
     build_conversation_navigation(app)
     _process_conversation_pair(app)
+
+
+def _process_loaded_prompt(app: Any) -> None:
+    """Process loaded prompt file using existing prompt loader functionality."""
+    if not app.state.prompt_object:
+        return
+
+    try:
+        # Use the existing prompt loader functionality
+        from ..utils import prompt_loader
+        import tempfile
+        import os
+
+        prompt_obj = app.state.prompt_object
+
+        # Get content and ensure it's a string
+        content = prompt_obj["content"]
+        if isinstance(content, bytes):
+            content = content.decode("utf-8")
+
+        # Write content to temp file for the loader
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as tmp:
+            tmp.write(content)  # Now guaranteed to be a string
+            temp_path = tmp.name
+
+        try:
+            # Use existing custom prompt file logic
+            original_prompt_file = app.custom_prompt_file
+            app.custom_prompt_file = temp_path
+            app.custom_prompt_data = None  # Reset
+
+            # Load using existing prompt loader
+            prompt_loader.load_custom_prompt_file(app)
+
+            app.state.prompt_file = prompt_obj["name"]
+            logger.info(f"Loaded custom prompt file: {prompt_obj['name']}")
+
+        finally:
+            # Clean up temp file and restore original
+            os.unlink(temp_path)
+            app.custom_prompt_file = original_prompt_file
+
+    except Exception as e:
+        logger.error(f"Failed to load prompt file: {e}")
+        app.state.prompt_file = None

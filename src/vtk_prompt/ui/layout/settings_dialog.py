@@ -16,79 +16,71 @@ from ...provider_utils import DEFAULT_MODEL, DEFAULT_PROVIDER
 def build_settings_dialog(layout: Any, app: Any) -> None:
     """Build the advanced settings dialog with configuration options."""
     with layout.content:
-        with vuetify.VDialog(v_model=("advanced_settings_open", False)):
+        with vuetify.VDialog(v_model=("advanced_settings_open", True), classes="w-25"):
             with vuetify.VCard():
-                with vuetify.VTabs(v_model=("active_settings_tab", "files")):
+                with vuetify.VTabs(v_model=("active_settings_tab", "files"), color="primary"):
                     vuetify.VTab("Files", value="files")
                     vuetify.VTab("Model", value="model")
                     vuetify.VTab("Advanced", value="advanced")
                 with vuetify.VTabsWindow(v_model=("active_settings_tab", "files")):
                     # Files Tab
                     with vuetify.VTabsWindowItem(value="files"):
-                        # Files Card
-                        with vuetify.VCard(classes="mt-2"):
-                            vuetify.VCardTitle("⚙️ Files", hide_details=True, density="compact")
-                            with vuetify.VCardText():
-                                vuetify.VCheckbox(
-                                    label="Run new conversation files",
-                                    v_model=("auto_run_conversation_file", True),
-                                    prepend_icon="mdi-file-refresh-outline",
-                                    density="compact",
-                                    color="primary",
-                                    hide_details=True,
-                                )
-                                with html.Div(classes="d-flex align-center justify-space-between"):
-                                    with vuetify.VTooltip(
-                                        text=("conversation_file", "No file loaded"),
-                                        location="top",
-                                        disabled=("!conversation_object",),
-                                    ):
-                                        with vuetify.Template(v_slot_activator="{ props }"):
-                                            vuetify.VFileInput(
-                                                label="Conversation File",
-                                                v_model=("conversation_object", None),
-                                                accept=".json",
-                                                density="compact",
-                                                variant="solo",
-                                                prepend_icon="mdi-forum-outline",
-                                                hide_details="auto",
-                                                classes="py-1 pr-1 mr-1 text-truncate",
-                                                open_on_focus=False,
-                                                clearable=False,
-                                                v_bind="props",
-                                                rules=["[utils.vtk_prompt.rules.json_file]"],
-                                            )
-                                    with vuetify.VTooltip(
-                                        text="Download conversation file",
-                                        location="right",
-                                    ):
-                                        with vuetify.Template(v_slot_activator="{ props }"):
-                                            with vuetify.VBtn(
-                                                icon=True,
-                                                density="comfortable",
-                                                color="secondary",
-                                                rounded="lg",
-                                                v_bind="props",
-                                                disabled=("!conversation",),
-                                                click="utils.download("
-                                                + "`vtk-prompt_${provider}_${model}.json`,"
-                                                + "trigger('save_conversation'),"
-                                                + "'application/json'"
-                                                + ")",
-                                            ):
-                                                vuetify.VIcon("mdi-file-download-outline")
-                                vuetify.VBtn(
-                                    text="Download config file",
-                                    color="secondary",
-                                    rounded="lg",
-                                    click="utils.download("
-                                    + "`vtk-prompt_config.yml`,"
-                                    + "trigger('save_config'),"
-                                    + "'application/x-yaml'"
-                                    + ")",
-                                    block=True,
-                                )
-
+                        with vuetify.VRow(classes="ma-2 justify-center"):
+                            html.Span(
+                                "Drag and drop files or click to open file browser",
+                                classes="font-italic",
+                            )
+                        with vuetify.VRow(classes="ma-2"):
+                            with vuetify.VTooltip(
+                                text=("conversation_file", "No file loaded"),
+                                location="top",
+                                disabled=("!conversation_object",),
+                            ):
+                                with vuetify.Template(v_slot_activator="{ props }"):
+                                    vuetify.VFileInput(
+                                        label="Conversation File",
+                                        v_model=("conversation_object", None),
+                                        accept=".json",
+                                        density="compact",
+                                        variant="solo",
+                                        prepend_icon="mdi-forum-outline",
+                                        hide_details="auto",
+                                        classes="py-1 pr-1 mr-1 text-truncate w-100",
+                                        style="height: 100px;",
+                                        open_on_focus=False,
+                                        clearable=False,
+                                        v_bind="props",
+                                        rules=["[utils.vtk_prompt.rules.json_file]"],
+                                    )
+                            with vuetify.VTooltip(
+                                text=("prompt_file", "No file loaded"),
+                                location="top",
+                                disabled=("!prompt_object",),
+                            ):
+                                with vuetify.Template(v_slot_activator="{ props }"):
+                                    vuetify.VFileInput(
+                                        label="Prompt File",
+                                        v_model=("prompt_object", None),
+                                        accept=".yaml,.yml",
+                                        density="compact",
+                                        variant="solo",
+                                        prepend_icon="mdi-forum-outline",
+                                        hide_details="auto",
+                                        classes="py-1 pr-1 mr-1 text-truncate w-100",
+                                        style="height: 100px;",
+                                        open_on_focus=False,
+                                        clearable=False,
+                                        v_bind="props",
+                                        rules=["[utils.vtk_prompt.rules.yaml_file]"],
+                                    )
+                        with vuetify.VRow(classes="ma-2 justify-end"):
+                            vuetify.VCheckbox(
+                                label="Automatically run new conversation files",
+                                v_model=("auto_run_conversation_file", True),
+                                density="compact",
+                                color="primary",
+                                hide_details=True,
+                            )
                     # Model Tab
                     with vuetify.VTabsWindowItem(value="model"):
                         # Tab Navigation - Centered

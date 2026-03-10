@@ -154,6 +154,16 @@ class VTKPromptApp(TrameApp):
         """Execute VTK code with our renderer."""
         generation.execute_with_renderer(self, code_string)
 
+    @change("prompt_object")
+    def _on_prompt_object_change(self, prompt_object, **kwargs):
+        """Handle prompt file upload."""
+        if prompt_object:
+            from .controllers.conversation import _process_loaded_prompt
+
+            _process_loaded_prompt(self)
+        else:
+            self.state.prompt_file = None
+
     @change("conversation_object")
     def on_conversation_file_data_change(
         self, conversation_object: dict[str, Any] | None, **_: Any
