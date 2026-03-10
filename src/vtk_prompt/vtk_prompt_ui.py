@@ -22,7 +22,7 @@ from typing import Any
 import vtk
 from trame.app import TrameApp
 from trame.decorators import change, controller, trigger
-from trame.ui.vuetify3 import SinglePageWithDrawerLayout
+from trame.ui.vuetify3 import SinglePageLayout
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
@@ -32,7 +32,7 @@ from .rendering import (
     setup_vtk_renderer,
 )
 from .state import config_state, config_validator, initializer
-from .ui.layout import build_content, build_drawer, build_toolbar, build_settings_dialog
+from .ui.layout import build_content, build_toolbar, build_settings_dialog
 from .utils import file_handlers, prompt_loader
 
 logger = get_logger(__name__)
@@ -221,14 +221,13 @@ class VTKPromptApp(TrameApp):
         # Initialize drawer state as collapsed
         self.state.main_drawer = False
 
-        with SinglePageWithDrawerLayout(
+        with SinglePageLayout(
             self.server, theme=("theme_mode", "light"), style="max-height: 100vh;"
         ) as layout:
             layout.title.set_text("VTK Prompt UI")
 
             # Build UI sections using layout modules
             build_toolbar(layout, self)
-            build_drawer(layout)
             build_content(layout, self)
             build_settings_dialog(layout, self)
 

@@ -12,7 +12,10 @@ from trame.widgets import vuetify3 as vuetify
 
 def build_toolbar(layout: Any, app: Any) -> None:
     """Build the toolbar layout with file controls and settings."""
-    with layout.toolbar:
+    with layout.toolbar as toolbar:
+        drawer_icon = toolbar.children[0]
+        drawer_icon.hide()
+
         vuetify.VSpacer()
 
         # Conversation file input
