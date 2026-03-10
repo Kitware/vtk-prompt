@@ -19,7 +19,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional, cast
+from typing import cast
 
 import click
 import openai
@@ -37,7 +37,7 @@ logger = get_logger(__name__)
 class VTKXMLGenerator:
     """OpenAI client for VTK XML file generation."""
 
-    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None) -> None:
+    def __init__(self, api_key: str | None, base_url: str | None):
         """Initialize the VTK XML generator.
 
         Args:
@@ -94,8 +94,8 @@ def openai_query(
     model: str,
     api_key: str,
     max_tokens: int,
+    base_url: str | None = None,
     temperature: float = 0.7,
-    base_url: Optional[str] = None,
 ) -> str:
     """Legacy wrapper for VTK XML generation."""
     generator = VTKXMLGenerator(api_key, base_url)
@@ -132,10 +132,10 @@ def main(
     provider: str,
     model: str,
     token: str,
-    base_url: Optional[str],
+    base_url: str | None,
     max_tokens: int,
     temperature: float,
-    output: Optional[str],
+    output: str | None,
 ) -> None:
     """
     Generate VTK XML file content using LLMs.

@@ -13,13 +13,15 @@ Features:
 - Template-based prompt construction with VTK-specific context
 """
 
+from __future__ import annotations
+
 import ast
 import json
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import openai
 
@@ -34,13 +36,13 @@ logger = get_logger(__name__)
 class VTKPromptClient:
     """OpenAI client for VTK code generation."""
 
-    _instance: Optional["VTKPromptClient"] = None
+    _instance: "VTKPromptClient" | None = None
     _initialized: bool = False
     collection_name: str = "vtk-examples"
     database_path: str = "./db/codesage-codesage-large-v2"
     verbose: bool = False
-    conversation_file: Optional[str] = None
-    conversation: Optional[list[dict[str, str]]] = None
+    conversation_file: str | None = None
+    conversation: list[dict[str, str]] | None = None
 
     def __new__(cls, **kwargs: Any) -> "VTKPromptClient":
         """Create singleton instance of VTKPromptClient."""
@@ -89,7 +91,7 @@ class VTKPromptClient:
             logger.error("Could not save conversation file: %s", e)
 
     def update_conversation(
-        self, new_convo: list[dict[str, str]], new_convo_file: Optional[str] = None
+        self, new_convo: list[dict[str, str]], new_convo_file: str | None = None
     ) -> None:
         """Update conversation history with new conversation."""
         if not self.conversation:
@@ -99,7 +101,7 @@ class VTKPromptClient:
         if new_convo_file:
             self.conversation_file = new_convo_file
 
-    def validate_code_syntax(self, code_string: str) -> tuple[bool, Optional[str]]:
+    def validate_code_syntax(self, code_string: str) -> tuple[bool, str | None]:
         """Validate Python code syntax using AST."""
         try:
             ast.parse(code_string)
@@ -252,7 +254,7 @@ class VTKPromptClient:
         return "\n\n".join(rag_snippets["code_snippets"])
 
     def _format_custom_prompt(
-        self, custom_prompt_data: dict, message: str, rag_snippets: Optional[dict] = None
+        self, custom_prompt_data: dict, message: str, rag_snippets: dict | None = None
     ) -> list[dict[str, str]]:
         """Format custom prompt data into messages for LLM client.
 
@@ -295,18 +297,18 @@ class VTKPromptClient:
     def query(
         self,
         message: str = "",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         model: str = DEFAULT_MODEL,
-        base_url: Optional[str] = None,
+        base_url: str | None = None,
         max_tokens: int = 1000,
         temperature: float = 0.1,
         top_k: int = 5,
         rag: bool = False,
         retry_attempts: int = 1,
-        provider: Optional[str] = None,
-        custom_prompt: Optional[dict] = None,
+        provider: str | None = None,
+        custom_prompt: dict | None = None,
         ui_mode: bool = False,
-    ) -> Union[tuple[str, str, Any], tuple[str, str, Any, list[str]], str]:
+    ) -> tuple[str, str, Any] | tuple[str, str, Any, list[str]] | str:
         """Generate VTK code with optional RAG enhancement and retry logic.
 
         Args:

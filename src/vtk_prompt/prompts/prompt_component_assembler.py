@@ -8,7 +8,7 @@ programmatically to create different prompt variations.
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Optional, TypedDict
+from typing import Any, TypedDict
 
 import yaml
 
@@ -54,7 +54,7 @@ class PromptData(TypedDict, total=False):
 class PromptComponentLoader:
     """Load and cache prompt components from files."""
 
-    def __init__(self, components_dir: Optional[Path] = None):
+    def __init__(self, components_dir: Path | None = None):
         """Initialize component loader.
 
         Args:
@@ -96,7 +96,7 @@ class PromptComponentLoader:
 class VTKPromptAssembler:
     """Assemble VTK prompts from file-based components."""
 
-    def __init__(self, loader: Optional[PromptComponentLoader] = None):
+    def __init__(self, loader: PromptComponentLoader | None = None):
         """Initialize prompt assembler.
 
         Args:
@@ -197,7 +197,7 @@ def assemble_vtk_prompt(
     request: str,
     ui_mode: bool = False,
     rag_enabled: bool = False,
-    context_snippets: Optional[str] = None,
+    context_snippets: str | None = None,
     **variables: Any,
 ) -> PromptData:
     """Assemble VTK prompt from file-based components.
