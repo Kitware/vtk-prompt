@@ -19,8 +19,8 @@ def build_content(layout: Any, app: Any) -> None:
             classes="fluid fill-height", style="min-width: 100%; padding: 0!important;"
         ):
             with vuetify.VRow(rows=12, classes="fill-height px-4 pt-1 pb-1"):
-                # Left column - Generated code view
-                with vuetify.VCol(cols=6):
+                # Left column - Prompt and conversation history
+                with vuetify.VCol(cols=3):
                     # Prompt input
                     with vuetify.VCard(classes="h-25"):
                         with vuetify.VCardText(classes="h-100"):
@@ -64,15 +64,6 @@ def build_content(layout: Any, app: Any) -> None:
                                 )
 
                             with html.Div(classes="d-flex", style="height: calc(100% - 75px);"):
-                                with vuetify.VBtn(
-                                    variant="tonal",
-                                    icon=True,
-                                    rounded="0",
-                                    disabled=("!can_navigate_left",),
-                                    classes="h-auto mr-1",
-                                    click=app.ctrl.navigate_conversation_left,
-                                ):
-                                    vuetify.VIcon("mdi-arrow-left-circle")
                                 # Query input
                                 vuetify.VTextarea(
                                     label="Describe VTK visualization",
@@ -83,30 +74,6 @@ def build_content(layout: Any, app: Any) -> None:
                                     hide_details=True,
                                     no_resize=True,
                                 )
-                                with vuetify.VBtn(
-                                    color=(
-                                        "conversation_index ==="
-                                        + " conversation_navigation.length - 1"
-                                        + " ? 'success' : 'default'",
-                                        "default",
-                                    ),
-                                    variant="tonal",
-                                    icon=True,
-                                    rounded="0",
-                                    disabled=("!can_navigate_right",),
-                                    click=app.ctrl.navigate_conversation_right,
-                                ):
-                                    vuetify.VIcon(
-                                        "mdi-arrow-right-circle",
-                                        v_show="conversation_index <"
-                                        + " conversation_navigation.length - 1",
-                                    )
-                                    vuetify.VIcon(
-                                        "mdi-message-plus",
-                                        v_show="conversation_index ==="
-                                        + " conversation_navigation.length - 1",
-                                    )
-
                             # Generate button
                             vuetify.VBtn(
                                 "Generate Code",
@@ -129,8 +96,60 @@ def build_content(layout: Any, app: Any) -> None:
                                 v_show="use_cloud_models && !api_token.trim()",
                             )
 
+                    # Bottom: Conversation History
+                    with vuetify.VCard(classes="h-75 w-100 mt-2"):
+                        with vuetify.VCardTitle(
+                            "Conversation History", classes="d-flex align-center"
+                        ):
+                            vuetify.VSpacer()
+                        with vuetify.VCardText(
+                            style="height: calc(100% - 50px); overflow-y: auto;"
+                        ):
+                            # Show message when no history
+                            with vuetify.VAlert(
+                                text="No conversation history yet."
+                                + " Start by generating some VTK code!",
+                                type="info",
+                                variant="tonal",
+                                v_show="conversation_navigation.length === 0",
+                            ):
+                                pass
+
+                            # Conversation history list
+                            with vuetify.VCard(
+                                v_for=(
+                                    "(pair, idx) in (history_sort_order === 'newest'"
+                                    + " ? conversation_navigation.slice().reverse()"
+                                    + " : conversation_navigation)"
+                                ),
+                                key="idx",
+                                density="compact",
+                                v_show="conversation_navigation.length > 0",
+                                color=(
+                                    "conversation_index === idx ? 'primary' : 'secondary'",
+                                    "secondary",
+                                ),
+                                variant=(
+                                    "conversation_index === idx ? 'outlined' : 'default'",
+                                    "default",
+                                ),
+                            ):
+                                with vuetify.VCardText(
+                                    click=(app.ctrl.navigate_to_conversation, "[idx]"),
+                                    rounded=True,
+                                    classes="mb-2",
+                                ):
+                                    # User query preview
+                                    html.Span(
+                                        "{{ (pair.user.content.includes('</extra_instructions>')"
+                                        + " ? pair.user.content.split('</extra_instructions>')[1]"
+                                        + " : pair.user.content).trim() }}"
+                                    )
+
+                # Middle column - Generated code view
+                with vuetify.VCol(cols=4):
                     # Generated code panel
-                    with vuetify.VCard(readonly=True, classes="h-75 mt-2"):
+                    with vuetify.VCard(readonly=True, classes="h-100 mt-2"):
                         vuetify.VCardTitle("Generated Code")
                         with vuetify.VCardText(style="height: calc(100% - 50px);"):
                             vuetify.VTextarea(
@@ -145,7 +164,7 @@ def build_content(layout: Any, app: Any) -> None:
                             )
 
                 # Right column - VTK viewer and prompt
-                with vuetify.VCol(cols=6):
+                with vuetify.VCol(cols=5):
                     with vuetify.VRow(no_gutters=True, classes="fill-height"):
                         # Top: VTK render view
                         with vuetify.VCard(classes="h-75 w-100"):

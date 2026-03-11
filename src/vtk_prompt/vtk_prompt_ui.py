@@ -203,6 +203,11 @@ class VTKPromptApp(TrameApp):
         """Navigate to next conversation pair."""
         conversation.navigate_conversation_right(self)
 
+    @controller.set("navigate_to_conversation")
+    def navigate_to_conversation(self, target_index: int) -> None:
+        """Navigate directly to a specific conversation pair."""
+        conversation.navigate_to_conversation(self, target_index)
+
     @trigger("save_conversation")
     def save_conversation(self) -> str:
         """Save current conversation history as JSON string."""
