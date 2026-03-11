@@ -97,6 +97,22 @@ def navigate_to_conversation(app: Any, target_index: int) -> None:
     _update_navigation_state(app)
 
 
+def toggle_favorite_conversation(app: Any, conversation_index: int) -> None:
+    """Toggle favorite status for a conversation by index."""
+    if not hasattr(app.state, "favorited_conversations"):
+        app.state.favorited_conversations = []
+
+    current_favorites = app.state.favorited_conversations[:]
+
+    if conversation_index in current_favorites:
+        current_favorites.remove(conversation_index)
+    else:
+        current_favorites.append(conversation_index)
+
+    # Force reactivity by replacing the entire array
+    app.state.favorited_conversations = current_favorites
+
+
 def save_conversation(app: Any) -> str:
     """Save current conversation history as JSON string."""
     if hasattr(app, "prompt_client") and app.prompt_client is not None:

@@ -35,10 +35,36 @@ def build_conversation_history(app: Any) -> None:
                         variant="text",
                         density="compact",
                         color="primary",
+                        disabled=("conversation_navigation.length === 0", False),
                         v_bind="props",
                     )
 
-            # TODO: Filter by favorited prompts
+            # Filter toggle button
+            with vuetify.VTooltip(text="Toggle favorites filter", location="bottom"):
+                with vuetify.Template(v_slot_activator="{ props }"):
+                    vuetify.VBtn(
+                        icon=(
+                            "history_filter_mode === 'favorites'"
+                            + " ? 'mdi-heart' : 'mdi-heart-off'",
+                            "mdi-format-list-bulleted",
+                        ),
+                        click=(
+                            "history_filter_mode = (history_filter_mode === 'all')"
+                            + " ? 'favorites' : 'all'"
+                        ),
+                        variant="text",
+                        density="compact",
+                        color=(
+                            "history_filter_mode === 'favorites' ? 'red' : 'primary'",
+                            "primary",
+                        ),
+                        disabled=(
+                            "conversation_navigation.length === 0"
+                            + " || favorited_conversations.length === 0",
+                            False,
+                        ),
+                        v_bind="props",
+                    )
 
         with vuetify.VCardText(style="height: calc(100% - 50px); overflow-y: auto;"):
             # Show message when no history
@@ -52,48 +78,57 @@ def build_conversation_history(app: Any) -> None:
             # Conversation history list
             with vuetify.VCard(
                 v_for=(
-                    "(pair, idx) in (history_sort_order === 'newest'"
+                    "item in (history_sort_order === 'newest'"
                     + " ? conversation_navigation.slice().reverse()"
-                    + " : conversation_navigation)"
+                    + ".map((pair, idx) => ({pair, originalIndex: "
+                    + "conversation_navigation.length - 1 - idx}))"
+                    + " : conversation_navigation.map((pair, idx) => "
+                    + "({pair, originalIndex: idx})))"
+                    + ".filter(item => history_filter_mode === 'all' || "
+                    + "favorited_conversations.includes(item.originalIndex))"
                 ),
-                key="idx",
+                key="item.originalIndex",
                 density="compact",
                 v_show="conversation_navigation.length > 0",
                 color=(
-                    "conversation_index === (history_sort_order === 'newest'"
-                    + " ? (conversation_navigation.length - 1 - idx) : idx)"
-                    + " ? 'primary' : 'secondary'",
+                    "conversation_index === item.originalIndex" + " ? 'primary' : 'secondary'",
                     "secondary",
                 ),
                 variant=(
-                    "conversation_index === (history_sort_order === 'newest'"
-                    + " ? (conversation_navigation.length - 1 - idx) : idx)"
-                    + " ? 'outlined' : 'default'",
+                    "conversation_index === item.originalIndex" + " ? 'outlined' : 'default'",
                     "default",
                 ),
             ):
-                # TODO: Track favorited prompts
+                # Track favorited prompts
                 with vuetify.VCardTitle(classes="text-end"):
                     vuetify.VIcon(
-                        click=("favorited = !favorited",),
+                        click=(
+                            app.ctrl.toggle_favorite_conversation,
+                            "[item.originalIndex]",
+                        ),
                         icon=(
-                            "favorited ? 'mdi-heart' : 'mdi-heart-outline'",
+                            "favorited_conversations.includes(item.originalIndex) ? "
+                            + "'mdi-heart' : 'mdi-heart-outline'",
                             "mdi-heart-outline",
                         ),
                         size="small",
+                        color=(
+                            "favorited_conversations.includes(item.originalIndex) ? "
+                            + "'red' : 'grey'",
+                            "grey",
+                        ),
                     )
                 with vuetify.VCardText(
                     click=(
                         app.ctrl.navigate_to_conversation,
-                        "[history_sort_order === 'newest' ? "
-                        + " (conversation_navigation.length - 1 - idx) : idx]",
+                        "[item.originalIndex]",
                     ),
                     rounded=True,
                     classes="mb-2",
                 ):
                     # User query preview
                     html.Span(
-                        "{{ (pair.user.content.includes('</extra_instructions>')"
-                        + " ? pair.user.content.split('</extra_instructions>')[1]"
-                        + " : pair.user.content).trim() }}"
+                        "{{ (item.pair.user.content.includes('</extra_instructions>')"
+                        + " ? item.pair.user.content.split('</extra_instructions>')[1]"
+                        + " : item.pair.user.content).trim() }}"
                     )
