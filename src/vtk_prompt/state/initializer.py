@@ -59,6 +59,15 @@ def initialize_state(app: Any) -> None:
     app.state.toast_visible = False
     app.state.toast_color = "warning"
 
+    # Monaco Editor options
+    app.state.editor_options = {
+        "readOnly": True,
+        "minimap": {"enabled": True},
+        "lineNumbers": "on",
+        "scrollBeyondLastLine": False,
+        "fontSize": 13,
+    }
+
     # API configuration state
     app.state.use_cloud_models = True  # Toggle between cloud and local
     app.state.tab_index = 0  # Tab navigation state

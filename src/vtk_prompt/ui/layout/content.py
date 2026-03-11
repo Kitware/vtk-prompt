@@ -9,6 +9,7 @@ from typing import Any
 
 from trame.widgets import html
 from trame.widgets import vuetify3 as vuetify
+from trame_code.widgets import code  # type: ignore[import-not-found]
 from trame_vtk.widgets import vtk as vtk_widgets
 
 from .conversation_history import build_conversation_history
@@ -107,15 +108,12 @@ def build_content(layout: Any, app: Any) -> None:
                     with vuetify.VCard(readonly=True, classes="h-100 mt-2"):
                         vuetify.VCardTitle("Generated Code")
                         with vuetify.VCardText(style="height: calc(100% - 50px);"):
-                            vuetify.VTextarea(
-                                v_model=("generated_code", ""),
-                                readonly=True,
-                                solo=True,
-                                hide_details=True,
-                                no_resize=True,
-                                classes="overflow-y-auto fill-height",
-                                style="font-family: monospace;",
-                                placeholder="Generated VTK code will appear here...",
+                            code.Editor(
+                                model_value=("generated_code", ""),
+                                language="python",
+                                theme=("theme_mode === 'dark' ? 'vs-dark' : 'vs'",),
+                                options=("editor_options",),
+                                style="width: 100%; height: 100%;",
                             )
 
                 # Right column - VTK viewer and prompt
