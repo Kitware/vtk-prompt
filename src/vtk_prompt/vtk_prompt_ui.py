@@ -213,6 +213,16 @@ class VTKPromptApp(TrameApp):
         """Toggle favorite status for a conversation."""
         conversation.toggle_favorite_conversation(self, conversation_index)
 
+    @controller.set("copy_generated_code")
+    def copy_generated_code(self) -> None:
+        """Copy generated code to clipboard."""
+        conversation.copy_generated_code(self)
+
+    @trigger("download_generated_code")
+    def download_generated_code(self) -> str:
+        """Download generated code as a .py file."""
+        return conversation.download_generated_code(self)
+
     @trigger("save_conversation")
     def save_conversation(self) -> str:
         """Save current conversation history as JSON string."""

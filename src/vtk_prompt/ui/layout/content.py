@@ -106,7 +106,22 @@ def build_content(layout: Any, app: Any) -> None:
                 with vuetify.VCol(cols=4):
                     # Generated code panel
                     with vuetify.VCard(readonly=True, classes="h-100 mt-2"):
-                        vuetify.VCardTitle("Generated Code")
+                        with vuetify.VCardTitle(classes="d-flex align-center"):
+                            html.Span("Generated Code")
+                            vuetify.VSpacer()
+                            with vuetify.VTooltip(text="Download as .py", location="bottom"):
+                                with vuetify.Template(v_slot_activator="{ props }"):
+                                    with vuetify.VBtn(
+                                        icon=True,
+                                        density="compact",
+                                        variant="text",
+                                        v_bind="props",
+                                        click=(
+                                            "trame.utils.vtk_prompt.download_generated_code(trame)"
+                                        ),
+                                        disabled=("!generated_code",),
+                                    ):
+                                        vuetify.VIcon("mdi-download")
                         with vuetify.VCardText(style="height: calc(100% - 50px);"):
                             code.Editor(
                                 model_value=("generated_code", ""),
