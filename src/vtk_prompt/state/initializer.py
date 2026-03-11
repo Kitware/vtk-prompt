@@ -30,7 +30,11 @@ def initialize_state(app: Any) -> None:
     app.state.error_message = ""
     app.state.input_tokens = 0
     app.state.output_tokens = 0
-    app.state.advanced_settings_open = True
+    app.state.advanced_settings_open = False
+    app.state.active_settings_tab = "files"
+
+    # File upload state variables
+    app.state.uploaded_files = None
 
     # Conversation state variables
     app._conversation_loading = False

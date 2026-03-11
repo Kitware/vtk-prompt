@@ -32,7 +32,7 @@ from .rendering import (
     setup_vtk_renderer,
 )
 from .state import config_state, config_validator, initializer
-from .ui.layout import build_content, build_toolbar, build_settings_dialog
+from .ui.layout import build_content, build_settings_dialog, build_toolbar
 from .utils import file_handlers, prompt_loader
 
 logger = get_logger(__name__)
@@ -154,15 +154,17 @@ class VTKPromptApp(TrameApp):
         """Execute VTK code with our renderer."""
         generation.execute_with_renderer(self, code_string)
 
-    @change("prompt_object")
-    def _on_prompt_object_change(self, prompt_object, **kwargs):
-        """Handle prompt file upload."""
-        if prompt_object:
-            from .controllers.conversation import _process_loaded_prompt
+    @change("uploaded_files")
+    def _on_uploaded_files_change(self, uploaded_files, **kwargs):
+        """Handle multiple file uploads with intelligent routing."""
+        if uploaded_files:
+            from .controllers.conversation import process_uploaded_files
 
-            _process_loaded_prompt(self)
+            process_uploaded_files(self, uploaded_files)
         else:
+            # Clear file state when no files uploaded
             self.state.prompt_file = None
+            self.state.conversation_file = None
 
     @change("conversation_object")
     def on_conversation_file_data_change(

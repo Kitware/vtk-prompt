@@ -276,8 +276,19 @@ def build_content(layout: Any, app: Any) -> None:
                                             + " !query_text.trim() ||"
                                             + " (use_cloud_models && !api_token.trim())",
                                         ),
+                                        v_show="api_token.trim()",
                                     )
-
+                                    vuetify.VBtn(
+                                        "Set API Key",
+                                        color="error",
+                                        block=True,
+                                        click=(
+                                            "advanced_settings_open = true;"
+                                            + " active_settings_tab = 'model';"
+                                        ),
+                                        classes="mb-2",
+                                        v_show="use_cloud_models && !api_token.trim()",
+                                    )
         # Error alert
         vuetify.VAlert(
             closable=True,

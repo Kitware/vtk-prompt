@@ -186,9 +186,16 @@ def _process_conversation_pair(app: Any, pair_index: int | None = None) -> None:
     app.state.query_text = query_text
 
 
-def _process_loaded_conversation(app: Any) -> None:
+def _process_loaded_conversation(
+    app: Any, conversation_object: dict[str, Any] | None = None
+) -> None:
     """Process loaded conversation file."""
-    if not app.state.conversation:
+    # Use provided object or fall back to state
+    if conversation_object:
+        # Set state without triggering watcher infinite loop
+        app.state.conversation_object = conversation_object
+        app.state.conversation_file = conversation_object["name"]
+    elif not app.state.conversation:
         return
 
     # Build navigation pairs and process the latest one
@@ -196,18 +203,92 @@ def _process_loaded_conversation(app: Any) -> None:
     _process_conversation_pair(app)
 
 
-def _process_loaded_prompt(app: Any) -> None:
+def _process_multiple_conversations(app: Any, conversation_files: list[dict[str, Any]]) -> None:
+    """Process multiple conversation files together to merge them."""
+    merged_conversation = []
+    valid_files = []
+
+    for file_obj in conversation_files:
+        try:
+            # Validate file before processing
+            if (
+                file_obj.get("type") == "application/json"
+                and Path(file_obj.get("name", "")).suffix == ".json"
+                and file_obj.get("content")
+            ):
+                loaded_conversation = json.loads(file_obj["content"])
+                merged_conversation.extend(loaded_conversation)
+                valid_files.append(file_obj["name"])
+                logger.info(f"Loaded conversation file: {file_obj['name']}")
+            else:
+                logger.warning(f"Invalid conversation file: {file_obj.get('name')}")
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON from {file_obj.get('name')}: {e}")
+        except Exception as e:
+            logger.error(f"Failed to process conversation file {file_obj.get('name')}: {e}")
+
+    if merged_conversation and valid_files:
+        # Set the merged conversation
+        app.state.conversation = merged_conversation
+        app.state.conversation_file = ", ".join(valid_files)
+        app.prompt_client.update_conversation(merged_conversation, app.state.conversation_file)
+
+        # Process the merged conversation
+        _process_loaded_conversation(app)
+
+        logger.info(f"Successfully merged {len(valid_files)} conversation files")
+    else:
+        logger.warning("No valid conversation files to process")
+
+
+def process_uploaded_files(app: Any, uploaded_files: list[dict[str, Any]]) -> None:
+    """Process multiple uploaded files with intelligent routing based on file extensions."""
+    if not uploaded_files:
+        return
+
+    try:
+        # Separate files by type for batch processing
+        conversation_files = []
+        prompt_files = []
+
+        for file_obj in uploaded_files:
+            file_name = file_obj.get("name", "").lower()
+
+            if file_name.endswith(".json"):
+                conversation_files.append(file_obj)
+            elif file_name.endswith((".yaml", ".yml")):
+                prompt_files.append(file_obj)
+            else:
+                logger.warning(f"Unsupported file type: {file_obj.get('name')}")
+
+        # Process all conversation files together to merge them
+        if conversation_files:
+            _process_multiple_conversations(app, conversation_files)
+
+        # Process prompt files (last one wins for configuration)
+        for prompt_file in prompt_files:
+            _process_loaded_prompt(app, prompt_file)
+
+    except Exception as e:
+        logger.error(f"Failed to process uploaded files: {e}")
+
+
+def _process_loaded_prompt(app: Any, prompt_object: dict[str, Any] | None = None) -> None:
     """Process loaded prompt file using existing prompt loader functionality."""
-    if not app.state.prompt_object:
+    # Use provided object or fall back to state
+    prompt_obj = prompt_object or app.state.prompt_object
+    if not prompt_obj:
         return
 
     try:
         # Use the existing prompt loader functionality
-        from ..utils import prompt_loader
-        import tempfile
         import os
+        import tempfile
 
-        prompt_obj = app.state.prompt_object
+        from ..utils import prompt_loader
+
+        # Use the parameter we already assigned above
 
         # Get content and ensure it's a string
         content = prompt_obj["content"]
@@ -230,6 +311,14 @@ def _process_loaded_prompt(app: Any) -> None:
 
             app.state.prompt_file = prompt_obj["name"]
             logger.info(f"Loaded custom prompt file: {prompt_obj['name']}")
+
+            # Force UI to recognize state changes by triggering model selection update
+            # This is safe because we're not in a watcher context here
+            if hasattr(app.state, "provider"):
+                # Trigger available models update by re-setting provider
+                current_provider = getattr(app.state, "provider", None)
+                if current_provider:
+                    app.state.provider = current_provider
 
         finally:
             # Clean up temp file and restore original
