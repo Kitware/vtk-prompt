@@ -18,15 +18,36 @@ def build_conversation_history(app: Any) -> None:
         with vuetify.VCardTitle("Conversation History", classes="d-flex align-center"):
             vuetify.VSpacer()
 
+            # Sort toggle button
+            with vuetify.VTooltip(text="Toggle sort order", location="bottom"):
+                with vuetify.Template(v_slot_activator="{ props }"):
+                    vuetify.VBtn(
+                        icon=(
+                            "history_sort_order === 'newest'"
+                            + " ? 'mdi-sort-descending' : 'mdi-sort-ascending'",
+                            "mdi-sort-descending",
+                        ),
+                        click=(
+                            "history_sort_order = "
+                            + "(history_sort_order === 'newest')"
+                            + " ? 'oldest' : 'newest'"
+                        ),
+                        variant="text",
+                        density="compact",
+                        color="primary",
+                        v_bind="props",
+                    )
+
+            # TODO: Filter by favorited prompts
+
         with vuetify.VCardText(style="height: calc(100% - 50px); overflow-y: auto;"):
             # Show message when no history
-            with vuetify.VAlert(
+            vuetify.VAlert(
                 text="No conversation history yet." + " Start by generating some VTK code!",
                 type="info",
                 variant="tonal",
                 v_show="conversation_navigation.length === 0",
-            ):
-                pass
+            )
 
             # Conversation history list
             with vuetify.VCard(
@@ -39,16 +60,34 @@ def build_conversation_history(app: Any) -> None:
                 density="compact",
                 v_show="conversation_navigation.length > 0",
                 color=(
-                    "conversation_index === idx ? 'primary' : 'secondary'",
+                    "conversation_index === (history_sort_order === 'newest'"
+                    + " ? (conversation_navigation.length - 1 - idx) : idx)"
+                    + " ? 'primary' : 'secondary'",
                     "secondary",
                 ),
                 variant=(
-                    "conversation_index === idx ? 'outlined' : 'default'",
+                    "conversation_index === (history_sort_order === 'newest'"
+                    + " ? (conversation_navigation.length - 1 - idx) : idx)"
+                    + " ? 'outlined' : 'default'",
                     "default",
                 ),
             ):
+                # TODO: Track favorited prompts
+                with vuetify.VCardTitle(classes="text-end"):
+                    vuetify.VIcon(
+                        click=("favorited = !favorited",),
+                        icon=(
+                            "favorited ? 'mdi-heart' : 'mdi-heart-outline'",
+                            "mdi-heart-outline",
+                        ),
+                        size="small",
+                    )
                 with vuetify.VCardText(
-                    click=(app.ctrl.navigate_to_conversation, "[idx]"),
+                    click=(
+                        app.ctrl.navigate_to_conversation,
+                        "[history_sort_order === 'newest' ? "
+                        + " (conversation_navigation.length - 1 - idx) : idx]",
+                    ),
                     rounded=True,
                     classes="mb-2",
                 ):
