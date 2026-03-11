@@ -24,7 +24,6 @@ from pathlib import Path
 from typing import Any
 
 import click
-import query_db
 from llama_index.core.llms import ChatMessage
 from llama_index.llms.openai import OpenAI
 
@@ -33,9 +32,6 @@ from .prompts import YAMLPromptLoader
 from .provider_utils import DEFAULT_MODEL
 
 logger = get_logger(__name__)
-
-# Add rag-components to path
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent / "rag-components"))
 
 
 def check_rag_components_available() -> bool:
@@ -46,9 +42,9 @@ def check_rag_components_available() -> bool:
 
 
 def setup_rag_path() -> str:
-    """Add rag-components directory to the Python path."""
+    """Add rag-components src directory to the Python path."""
     repo_root = Path(__file__).resolve().parent.parent.parent
-    rag_path = str(repo_root / "rag-components")
+    rag_path = str(repo_root / "rag-components" / "src")
     if rag_path not in sys.path:
         sys.path.append(rag_path)
     return rag_path
@@ -63,7 +59,8 @@ def get_rag_snippets(
     """Get code snippets from the RAG database."""
     setup_rag_path()
     try:
-        import query_db
+        # Lazy import after path setup
+        from rag_components import query_db  # type: ignore[import-not-found]
 
         client = query_db.initialize_db(database_path)
         results = query_db.query_db(query, collection_name, top_k, client)
@@ -118,6 +115,10 @@ class OpenAIRAGChat:
         except Exception as e:
             raise RuntimeError(f"Unsupported Model {self.model}: {e}")
 
+        # Lazy import after path setup
+        setup_rag_path()
+        from rag_components import query_db  # type: ignore[import-not-found]
+
         self.client = query_db.initialize_db(database_path=self.database)
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -143,6 +144,8 @@ class OpenAIRAGChat:
         self.history.append(ChatMessage(role="user", content=query))
 
         # Query the RAG database for relevant documents
+        from rag_components import query_db  # type: ignore[import-not-found]
+
         results = query_db.query_db(query, collection_name, top_k, self.client)
         relevant_examples = [item["original_id"] for item in results["code_metadata"]] + [
             item["code"] for item in results["text_metadata"]
