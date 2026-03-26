@@ -105,7 +105,7 @@ def build_content(layout: Any, app: Any) -> None:
                 # Middle column - Generated code view
                 with vuetify.VCol(cols=4):
                     # Generated code panel
-                    with vuetify.VCard(readonly=True, classes="h-100 mt-2"):
+                    with vuetify.VCard(readonly=True, classes="h-100"):
                         with vuetify.VCardTitle(classes="d-flex align-center"):
                             html.Span("Generated Code")
                             vuetify.VSpacer()
@@ -128,11 +128,11 @@ def build_content(layout: Any, app: Any) -> None:
                                 language="python",
                                 theme=("theme_mode === 'dark' ? 'vs-dark' : 'vs'",),
                                 options=("editor_options",),
-                                style="width: 100%; height: 100%;",
+                                style="width: 100%; height: calc(100% - 75px);",
                             )
 
                 # Right column - VTK viewer and prompt
-                with vuetify.VCol(cols=5):
+                with vuetify.VCol(cols=5, classes="mb-2"):
                     with vuetify.VRow(no_gutters=True, classes="fill-height"):
                         # Top: VTK render view
                         with vuetify.VCard(classes="h-75 w-100"):
