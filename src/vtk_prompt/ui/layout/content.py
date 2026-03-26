@@ -82,10 +82,6 @@ def build_content(layout: Any, app: Any) -> None:
                                     placeholder=("e.g., Create a red sphere with lighting"),
                                     hide_details=True,
                                     no_resize=True,
-                                    disabled=(
-                                        "is_viewing_history",
-                                        False,
-                                    ),
                                 )
                                 with vuetify.VBtn(
                                     color=(
@@ -119,7 +115,6 @@ def build_content(layout: Any, app: Any) -> None:
                                 loading=("trame__busy", False),
                                 click=app.ctrl.generate_code,
                                 classes="my-2",
-                                disabled="is_viewing_history || !query_text.trim()",
                                 v_show="api_token.trim()",
                             )
                             vuetify.VBtn(
