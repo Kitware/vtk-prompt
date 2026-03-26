@@ -19,47 +19,48 @@ def build_toolbar(layout: Any, app: Any) -> None:
         vuetify.VSpacer()
 
         # Settings buttons
-        with vuetify.VTooltip(
-            text="Load or download files",
-            location="bottom",
+        with vuetify.VBtnGroup(
+            variant="outlined",
+            rounded="lg",
+            color="primary",
+            classes="mr-4",
+            divided=True,
         ):
-            with vuetify.Template(v_slot_activator="{ props }"):
-                with vuetify.VBtn(
-                    icon=True,
-                    v_bind="props",
-                    click="advanced_settings_open = true; active_settings_tab = 'files';",
-                    classes="mr-4",
-                    color="primary",
-                ):
-                    vuetify.VIcon("mdi-file-cog-outline")
+            with vuetify.VTooltip(
+                text="Load or download files",
+                location="bottom",
+            ):
+                with vuetify.Template(v_slot_activator="{ props }"):
+                    with vuetify.VBtn(
+                        icon=True,
+                        v_bind="props",
+                        click="advanced_settings_open = true; active_settings_tab = 'files';",
+                    ):
+                        vuetify.VIcon("mdi-file-cog-outline")
 
-        with vuetify.VTooltip(
-            text="Change model settings",
-            location="bottom",
-        ):
-            with vuetify.Template(v_slot_activator="{ props }"):
-                with vuetify.VBtn(
-                    icon=True,
-                    v_bind="props",
-                    click="advanced_settings_open = true; active_settings_tab = 'model';",
-                    classes="mr-4",
-                    color="primary",
-                ):
-                    vuetify.VIcon("mdi-brain")
+            with vuetify.VTooltip(
+                text="Change model settings",
+                location="bottom",
+            ):
+                with vuetify.Template(v_slot_activator="{ props }"):
+                    with vuetify.VBtn(
+                        icon=True,
+                        v_bind="props",
+                        click="advanced_settings_open = true; active_settings_tab = 'model';",
+                    ):
+                        vuetify.VIcon("mdi-brain")
 
-        with vuetify.VTooltip(
-            text="Advanced settings",
-            location="bottom",
-        ):
-            with vuetify.Template(v_slot_activator="{ props }"):
-                with vuetify.VBtn(
-                    icon=True,
-                    v_bind="props",
-                    click="advanced_settings_open = true; active_settings_tab = 'advanced';",
-                    classes="mr-4",
-                    color="primary",
-                ):
-                    vuetify.VIcon("mdi-cog-outline")
+            with vuetify.VTooltip(
+                text="Advanced settings",
+                location="bottom",
+            ):
+                with vuetify.Template(v_slot_activator="{ props }"):
+                    with vuetify.VBtn(
+                        icon=True,
+                        v_bind="props",
+                        click="advanced_settings_open = true; active_settings_tab = 'advanced';",
+                    ):
+                        vuetify.VIcon("mdi-cog-outline")
 
         # Theme switcher
         vuetify.VSwitch(
@@ -69,4 +70,5 @@ def build_toolbar(layout: Any, app: Any) -> None:
             true_value="light",
             false_value="dark",
             append_icon=("theme_mode === 'light' ? 'mdi-weather-sunny' : 'mdi-weather-night'",),
+            icon_color=("theme_mode === 'light' ? 'orange-darken-4' : 'purple-lighten-4'",),
         )
