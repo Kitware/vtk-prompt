@@ -239,7 +239,7 @@ def main(database: str, collection_name: str, top_k: int, model: str) -> None:
         try:
             reply = chat.ask(user_input, collection_name, top_k, streaming=True)
             for item in reply["response"]:
-                print(item.delta, end="")
+                logger.info(item.delta)
                 full_reply += item.delta
 
             logger.info("\n Here are some relevant references:")

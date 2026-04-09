@@ -187,7 +187,7 @@ def main(
                 f.write(xml_content)
             logger.info("VTK XML content written to %s", output)
         else:
-            print(xml_content)
+            logger.info(xml_content)
     else:
         logger.warning("Generated content may not be valid VTK XML")
         if output:
@@ -195,7 +195,7 @@ def main(
                 f.write(xml_content)
             logger.info("Content written to %s (please verify)", output)
         else:
-            print(xml_content)
+            logger.info(xml_content)
 
 
 if __name__ == "__main__":
