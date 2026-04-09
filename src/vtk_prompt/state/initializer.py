@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 def initialize_state(app: Any) -> None:
     """Initialize application state variables."""
     # App state variables
-    app.state.query_text = ""
+    app.state.query_text = "Create a red sphere with lighting"
     app.state.generated_code = ""
     app.state.generated_explanation = ""
     app.state.is_loading = False

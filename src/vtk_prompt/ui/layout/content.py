@@ -70,12 +70,12 @@ def build_content(layout: Any, app: Any) -> None:
                                 # Query input
                                 vuetify.VTextarea(
                                     label="Describe VTK visualization",
-                                    v_model=("query_text", ""),
+                                    v_model=("query_text", "Create a red sphere with lighting"),
                                     rows=4,
                                     variant="outlined",
-                                    placeholder=("e.g., Create a red sphere with lighting"),
                                     hide_details=True,
                                     no_resize=True,
+                                    clearable=True,
                                 )
                             # Generate button
                             vuetify.VBtn(
