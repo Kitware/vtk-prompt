@@ -39,17 +39,3 @@ def get_model(app: Any) -> str:
     else:
         local_model = getattr(app.state, "local_model", "")
         return local_model.strip() if local_model and local_model.strip() else "llama3.2:latest"
-
-
-def get_current_config_summary(app: Any) -> str:
-    """Get a summary of current configuration for display."""
-    if app.state.use_cloud_models:
-        return f"☁️ {app.state.provider}/{app.state.model}"
-    else:
-        base_display = (
-            app.state.local_base_url.replace("http://", "").replace("https://", "")
-            if app.state.local_base_url
-            else "localhost"
-        )
-        model_display = app.state.local_model if app.state.local_model else "default"
-        return f"🏠 {base_display}/{model_display}"

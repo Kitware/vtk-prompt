@@ -19,8 +19,6 @@ Components are stored as YAML files and assembled at runtime with support for
 conditional inclusion, variable substitution, and message composition.
 """
 
-from typing import Any
-
 from .constants import PYTHON_VERSION, VTK_VERSION, PROMPTS_DIR
 from .prompt_component_assembler import (
     PromptComponentLoader,
@@ -30,36 +28,7 @@ from .prompt_component_assembler import (
 from .yaml_prompt_loader import YAMLPromptLoader
 
 
-# Global instance
-_loader = YAMLPromptLoader()
-
-
-# Public API functions that delegate to the singleton
-def substitute_yaml_variables(content: str, variables: dict[str, Any]) -> str:
-    """Substitute {{variable}} placeholders in YAML content."""
-    return _loader.substitute_yaml_variables(content, variables)
-
-
-def load_yaml_prompt(prompt_name: str, **variables: Any) -> dict[str, Any]:
-    """Load a YAML prompt file and substitute variables."""
-    return _loader.load_yaml_prompt(prompt_name, **variables)
-
-
-def format_messages_for_client(messages: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Format messages from YAML prompt for LLM client."""
-    return _loader.format_messages_for_client(messages)
-
-
-def get_yaml_prompt(prompt_name: str, **variables: Any) -> list[dict[str, str]]:
-    """Get a YAML prompt and format it for the LLM client."""
-    return _loader.get_yaml_prompt(prompt_name, **variables)
-
-
 __all__ = [
-    "load_yaml_prompt",
-    "get_yaml_prompt",
-    "substitute_yaml_variables",
-    "format_messages_for_client",
     "assemble_vtk_prompt",
     "YAMLPromptLoader",
     "PromptComponentLoader",
