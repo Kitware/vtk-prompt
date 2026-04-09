@@ -17,6 +17,7 @@ Example:
 """
 
 import sys
+import textwrap
 from typing import Any
 
 import vtk
@@ -261,11 +262,22 @@ class VTKPromptApp(TrameApp):
         self.server.start()
 
 
+def _print_startup_banner() -> None:
+    """Print a styled startup banner with ANSI colors."""
+    banner = textwrap.dedent("""\
+        \033[36m╭────────────────────────────────────────────────────────────────────╮
+        │  \033[1mVTK Prompt UI\033[0m\033[36m                                                     │
+        │  \033[97mEnter your API token in the application settings.\033[36m                 │
+        │  \033[97mSupported providers: OpenAI, Anthropic, Gemini, NVIDIA NIM\033[36m        │
+        │  \033[97mFor local Ollama, use custom base URL and model config.\033[36m           │
+        ╰────────────────────────────────────────────────────────────────────╯\033[0m
+    """)
+    print(banner)
+
+
 def main() -> None:
     """Start the trame app."""
-    print("VTK Prompt UI - Enter your API token in the application settings.")
-    print("Supported providers: OpenAI, Anthropic, Google Gemini, NVIDIA NIM")
-    print("For local Ollama, use custom base URL and model configuration.")
+    _print_startup_banner()
 
     # Check for custom prompt file in CLI arguments
     custom_prompt_file = None
