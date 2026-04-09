@@ -71,7 +71,7 @@ def build_settings_dialog(layout: Any, app: Any) -> None:
                                 with vuetify.VRow(cols=12):
                                     with vuetify.VCol(cols=6):
                                         vuetify.VBtn(
-                                            "Download Conversation File",
+                                            "Conversation File",
                                             color="secondary",
                                             classes="mr-2 mt-2 w-100",
                                             click="download_conversation_file",
@@ -79,7 +79,7 @@ def build_settings_dialog(layout: Any, app: Any) -> None:
                                         )
                                     with vuetify.VCol(cols=6):
                                         vuetify.VBtn(
-                                            "Download Prompt File",
+                                            "Prompt File",
                                             color="secondary",
                                             classes="mr-2 mt-2 w-100",
                                             click="download_prompt_file",
