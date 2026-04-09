@@ -11,15 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from .. import get_logger
+from ..utils.helpers import EXPLAIN_RENDERER, EXTRA_INSTRUCTIONS_TAG
 
 logger = get_logger(__name__)
-
-EXPLAIN_RENDERER = (
-    "# renderer is a vtkRenderer injected by this webapp"
-    + "\n"
-    + "# Use your own vtkRenderer in your application"
-)
-EXTRA_INSTRUCTIONS_TAG = "</extra_instructions>"
 
 
 def on_conversation_file_data_change(

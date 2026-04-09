@@ -26,6 +26,7 @@ from typing import Any
 import openai
 
 from . import get_logger
+from .utils.helpers import CODE_PATTERN, EXPLANATION_PATTERN
 from .prompts import assemble_vtk_prompt
 from .provider_utils import DEFAULT_MODEL
 
@@ -455,10 +456,8 @@ class VTKPromptClient:
                         "Please increase max_tokens."
                     )
 
-                generated_explanation = re.findall(
-                    "<explanation>(.*?)</explanation>", content, re.DOTALL
-                )[0]
-                generated_code = re.findall("<code>(.*?)</code>", content, re.DOTALL)[0]
+                generated_explanation = re.findall(EXPLANATION_PATTERN, content, re.DOTALL)[0]
+                generated_code = re.findall(CODE_PATTERN, content, re.DOTALL)[0]
                 if "import vtk" not in generated_code:
                     generated_code = "import vtk\n" + generated_code
                 else:

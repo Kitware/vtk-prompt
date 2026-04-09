@@ -13,14 +13,9 @@ from ..rendering import (
     execute_vtk_code,
 )
 from ..rendering import reset_camera as reset_vtk_camera
+from ..utils.helpers import EXPLAIN_RENDERER
 
 logger = get_logger(__name__)
-
-EXPLAIN_RENDERER = (
-    "# renderer is a vtkRenderer injected by this webapp"
-    + "\n"
-    + "# Use your own vtkRenderer in your application"
-)
 
 
 def generate_code(app: Any) -> None:

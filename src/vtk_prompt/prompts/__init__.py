@@ -19,10 +19,9 @@ Components are stored as YAML files and assembled at runtime with support for
 conditional inclusion, variable substitution, and message composition.
 """
 
-from pathlib import Path
 from typing import Any
 
-from .constants import PYTHON_VERSION, VTK_VERSION
+from .constants import PYTHON_VERSION, VTK_VERSION, PROMPTS_DIR
 from .prompt_component_assembler import (
     PromptComponentLoader,
     VTKPromptAssembler,
@@ -30,8 +29,6 @@ from .prompt_component_assembler import (
 )
 from .yaml_prompt_loader import YAMLPromptLoader
 
-# Path to the prompts directory
-PROMPTS_DIR = Path(__file__).parent
 
 # Global instance
 _loader = YAMLPromptLoader()
