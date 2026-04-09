@@ -234,7 +234,7 @@ class VTKPromptApp(TrameApp):
         self.state.main_drawer = False
 
         with SinglePageLayout(
-            self.server, theme=("theme_mode", "light"), style="max-height: 100vh;"
+            self.server, theme=("theme_mode", "light"), style="max-height: 100vh; overflow: hidden;"
         ) as layout:
             layout.title.set_text("VTK Prompt UI")
 
@@ -242,6 +242,9 @@ class VTKPromptApp(TrameApp):
             build_toolbar(layout, self)
             build_content(layout, self)
             build_settings_dialog(layout, self)
+
+            with layout.footer as footer:
+                footer.hide()
 
     def start(self) -> None:
         """Start the trame server."""

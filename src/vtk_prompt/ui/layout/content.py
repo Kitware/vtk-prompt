@@ -22,7 +22,7 @@ def build_content(layout: Any, app: Any) -> None:
         ):
             with vuetify.VRow(rows=12, classes="fill-height px-4 pt-1 pb-1"):
                 # Left column - Prompt and conversation history
-                with vuetify.VCol(cols=3):
+                with vuetify.VCol(cols=3, classes="fill-height"):
                     # Prompt input
                     with vuetify.VCard(classes="h-25"):
                         with vuetify.VCardText(classes="h-100"):

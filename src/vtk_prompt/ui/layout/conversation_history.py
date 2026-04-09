@@ -130,5 +130,6 @@ def build_conversation_history(app: Any) -> None:
                     html.Span(
                         "{{ (item.pair.user.content.includes('</extra_instructions>')"
                         + " ? item.pair.user.content.split('</extra_instructions>')[1]"
-                        + " : item.pair.user.content).trim() }}"
+                        + " : item.pair.user.content)"
+                        + ".trim().replace(/^Request:\\s*/i, '') }}"
                     )
