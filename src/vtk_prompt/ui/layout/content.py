@@ -53,18 +53,6 @@ def build_content(layout: Any, app: Any) -> None:
                                     classes="mb-2",
                                     v_show="!use_cloud_models",
                                 )
-                                vuetify.VSpacer()
-                                # API token warning chip
-                                vuetify.VChip(
-                                    "API token is required for cloud models.",
-                                    small=True,
-                                    color="error",
-                                    text_color="white",
-                                    label=True,
-                                    classes="mb-2",
-                                    v_show="use_cloud_models && !api_token.trim()",
-                                    prepend_icon="mdi-alert",
-                                )
 
                             with html.Div(classes="d-flex", style="height: calc(100% - 75px);"):
                                 # Query input
