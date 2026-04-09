@@ -18,11 +18,6 @@ from ..utils.helpers import EXPLAIN_RENDERER
 logger = get_logger(__name__)
 
 
-def generate_code(app: Any) -> None:
-    """Generate VTK code from user query."""
-    generate_and_execute_code(app)
-
-
 def generate_and_execute_code(app: Any) -> None:
     """Generate VTK code using AI API and execute it."""
     app.state.is_loading = True

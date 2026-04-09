@@ -32,7 +32,7 @@ from .rendering import (
     add_default_scene,
     setup_vtk_renderer,
 )
-from .state import config_state, config_validator, initializer
+from .state import config_state, initializer
 from .ui.layout import build_content, build_settings_dialog, build_toolbar
 from .utils import file_handlers, prompt_loader
 
@@ -105,14 +105,6 @@ class VTKPromptApp(TrameApp):
         """Get model name based on configuration mode."""
         return config_state.get_model(self)
 
-    def _get_current_config_summary(self) -> str:
-        """Get a summary of current configuration for display."""
-        return config_state.get_current_config_summary(self)
-
-    def _validate_configuration(self) -> str | None:
-        """Validate current configuration and return error message if invalid."""
-        return config_validator.validate_configuration(self)
-
     @change("tab_index")
     def on_tab_change(self, tab_index: int, **_: Any) -> None:
         """Handle tab change to sync use_cloud_models state."""
@@ -126,7 +118,7 @@ class VTKPromptApp(TrameApp):
     @controller.set("generate_code")
     def generate_code(self) -> None:
         """Generate VTK code from user query."""
-        generation.generate_code(self)
+        generation.generate_and_execute_code(self)
 
     @controller.set("clear_scene")
     def clear_scene(self) -> None:
@@ -146,10 +138,6 @@ class VTKPromptApp(TrameApp):
             message: Warning message to display
         """
         generation.trigger_warning_toast(self, message)
-
-    def _generate_and_execute_code(self) -> None:
-        """Generate VTK code using AI API and execute it."""
-        generation.generate_and_execute_code(self)
 
     def _execute_with_renderer(self, code_string: str) -> None:
         """Execute VTK code with our renderer."""
@@ -173,26 +161,6 @@ class VTKPromptApp(TrameApp):
     ) -> None:
         """Handle conversation file data changes and load conversation history."""
         conversation.on_conversation_file_data_change(self, conversation_object, **_)
-
-    def _build_conversation_navigation(self) -> None:
-        """Build list of conversation pairs (user message + assistant response) for navigation."""
-        conversation.build_conversation_navigation(self)
-
-    def _sync_with_prompt_client(self) -> None:
-        """Sync conversation navigation with prompt client conversation."""
-        conversation.sync_with_prompt_client(self)
-
-    def _process_conversation_pair(self, pair_index: int | None = None) -> None:
-        """Process a specific conversation pair by index."""
-        from .controllers.conversation import _process_conversation_pair
-
-        _process_conversation_pair(self, pair_index)
-
-    def _process_loaded_conversation(self) -> None:
-        """Process loaded conversation file."""
-        from .controllers.conversation import _process_loaded_conversation
-
-        _process_loaded_conversation(self)
 
     @controller.set("navigate_conversation_left")
     def navigate_conversation_left(self) -> None:
