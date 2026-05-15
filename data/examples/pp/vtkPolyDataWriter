@@ -1,6 +1,0 @@
-    writer = vtkPolyDataWriter()
-    if best_distance == distance_before_align:
-        writer.SetInputData(original_source_polydata)
-    elif best_distance == distance_after_align:
-        writer.SetInputData(source_polydata)
-    else:

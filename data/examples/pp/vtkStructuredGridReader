@@ -1,6 +1,0 @@
-    reader = vtkStructuredGridReader()
-    reader.SetFileName(fileName)
-    reader.Update()  # Force a read to occur.
-    reader.GetOutput().GetLength()
-
-    if reader.GetOutput().GetPointData().GetScalars():

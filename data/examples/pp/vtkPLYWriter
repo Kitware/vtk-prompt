@@ -1,6 +1,0 @@
-    plyWriter = vtkPLYWriter()
-    plyWriter.SetFileName(filename)
-    plyWriter.SetInputConnection(sphereSource.GetOutputPort())
-    plyWriter.Write()
-
-    # Read and display for verification

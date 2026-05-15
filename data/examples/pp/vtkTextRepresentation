@@ -1,6 +1,0 @@
-    text_representation = vtkTextRepresentation()
-    text_representation.GetPositionCoordinate().SetValue(0.15, 0.15)
-    text_representation.GetPosition2Coordinate().SetValue(0.7, 0.2)
-
-    # Create the TextWidget
-    # Note that the SelectableOff method MUST be invoked!

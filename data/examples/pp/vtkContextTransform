@@ -1,6 +1,0 @@
-    placeLegend = vtkContextTransform()
-    placeLegend.AddItem(legend)
-    placeLegend.Translate(640 - 20, 480 - 12 * 16)
-
-    contextView = vtkContextView()
-    contextView.GetScene().AddItem(placeLegend)

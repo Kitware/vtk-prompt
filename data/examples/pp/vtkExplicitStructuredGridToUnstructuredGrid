@@ -1,6 +1,0 @@
-    converter = vtkExplicitStructuredGridToUnstructuredGrid()
-    converter.SetInputData(grid)
-    converter.Update()
-    return converter.GetOutput()
-
-

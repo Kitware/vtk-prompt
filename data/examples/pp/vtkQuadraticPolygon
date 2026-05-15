@@ -1,6 +1,0 @@
-    quadratic_polygon = vtkQuadraticPolygon()
-
-    quadratic_polygon.points.SetNumberOfPoints(8)
-
-    quadratic_polygon.points.SetPoint(0, 0.0, 0.0, 0.0)
-    quadratic_polygon.points.SetPoint(1, 2.0, 0.0, 0.0)

@@ -1,6 +1,0 @@
-v = vtkVariantCreate(1, 'unsigned int')
-
-# Value extraction
-v = vtkVariant(6.0)
-f = vtkVariantExtract(v)
-

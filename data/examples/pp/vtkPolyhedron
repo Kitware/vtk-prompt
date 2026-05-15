@@ -1,6 +1,0 @@
-    aDodecahedron = vtkPolyhedron()
-
-    for i in range(0, 20):
-        aDodecahedron.GetPointIds().InsertNextId(i)
-
-    aDodecahedron.GetPoints().InsertNextPoint(1.21412, 0, 1.58931)

@@ -1,6 +1,0 @@
-    cb = vtkTimerCallback(200, actor, renderWindowInteractor)
-    renderWindowInteractor.AddObserver('TimerEvent', cb.execute)
-    cb.timerId = renderWindowInteractor.CreateRepeatingTimer(500)
-
-    # start the interaction and timer
-    renderWindow.Render()

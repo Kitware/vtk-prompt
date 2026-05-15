@@ -1,6 +1,0 @@
-    legend = vtkCategoryLegend()
-    legend.SetScalarsToColors(categoricalLut)
-    legend.SetValues(legendValues)
-    legend.SetTitle('Cell Type')
-    legend.GetBrush().SetColor(colors.GetColor4ub('Silver'))
-

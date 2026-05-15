@@ -1,6 +1,0 @@
-    booleanTexture = vtkBooleanTexture()
-
-    booleanTexture.SetXSize(resolution)
-    booleanTexture.SetYSize(resolution)
-    booleanTexture.SetThickness(thickness)
-

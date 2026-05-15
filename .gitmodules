@@ -1,3 +1,0 @@
-[submodule "rag-components"]
-	path = rag-components
-	url = git@gitlab.kitware.com:christos.tsolakis/rag-components.git

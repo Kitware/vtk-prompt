@@ -1,6 +1,0 @@
-    iso = vtkMarchingSquares()
-    iso.SetInputConnection(reader.GetOutputPort())
-    iso.SetValue(0, iso_value)
-
-    iso_mapper = vtkDataSetMapper()
-    iso_mapper.SetInputConnection(iso.GetOutputPort())

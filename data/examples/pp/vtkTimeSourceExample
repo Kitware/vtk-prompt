@@ -1,6 +1,0 @@
-tse = vtk.vtkTimeSourceExample()
-ex = tse.GetExecutive()
-tse.UpdateInformation()
-
-# inspect available time range and time steps
-print(ex.GetOutputInformation())

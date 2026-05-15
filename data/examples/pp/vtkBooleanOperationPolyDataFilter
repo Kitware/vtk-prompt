@@ -1,6 +1,0 @@
-    booleanOperation = vtkBooleanOperationPolyDataFilter()
-    if operation.lower() == 'union':
-        booleanOperation.SetOperationToUnion()
-    elif operation.lower() == 'intersection':
-        booleanOperation.SetOperationToIntersection()
-    elif operation.lower() == 'difference':

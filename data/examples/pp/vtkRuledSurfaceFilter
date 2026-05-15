@@ -1,6 +1,0 @@
-    ruledSurfaceFilter = vtkRuledSurfaceFilter()
-    ruledSurfaceFilter.SetInputData(polydata)
-    ruledSurfaceFilter.SetResolution(21, 21)
-    ruledSurfaceFilter.SetRuledModeToResample()
-
-    # Create the mapper with the ruledSurfaceFilter as input

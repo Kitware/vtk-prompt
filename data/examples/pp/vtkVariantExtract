@@ -1,9 +1,0 @@
-f = vtkVariantExtract(v)
-
-# Value extraction with type specified
-f = vtkVariantExtract(v, 'double')
-
-# Casting a variant
-v = vtkVariant("10")
-i = vtkVariantCast(v, 'int')
-print(f"Valid cast result: {repr(i)}")

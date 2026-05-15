@@ -1,6 +1,0 @@
-    reader = vtkExodusIIReader()
-    reader.SetFileName(filename)
-    reader.UpdateInformation()
-    reader.SetTimeStep(10)
-    reader.SetAllArrayStatus(vtkExodusIIReader.NODAL, 1)  # enables all NODAL variables
-    reader.Update()

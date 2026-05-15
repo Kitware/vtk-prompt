@@ -1,6 +1,0 @@
-    glyph2D = vtkGlyph2D()
-    glyph2D.SetSourceConnection(polygonSource.GetOutputPort())
-    glyph2D.SetInputData(polydata)
-    glyph2D.Update()
-
-    mapper = vtkPolyDataMapper()

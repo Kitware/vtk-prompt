@@ -1,6 +1,0 @@
-    merge = vtkMergeFilter()
-    merge.SetGeometryConnection(warp.GetOutputPort())
-    merge.SetScalarsConnection(reader.GetOutputPort())
-    mapper = vtkDataSetMapper()
-    mapper.SetInputConnection(merge.GetOutputPort())
-    mapper.SetScalarRange(0, 255)

@@ -5,7 +5,7 @@ This module provides the CLI interface for VTK code generation using LLMs.
 It handles argument parsing, validation, and orchestrates the VTKPromptClient.
 
 Example:
-    >>> vtk-prompt "create sphere" --rag --model gpt-5
+    >>> vtk-prompt "create sphere" --mcp-url http://localhost:8000 --model claude-sonnet-4-6
 """
 
 import sys
@@ -37,15 +37,9 @@ logger = get_logger(__name__)
 )
 @click.option("-t", "--token", required=True, help="API token for the selected provider")
 @click.option("--base-url", help="Base URL for API (auto-detected or custom)")
-@click.option("-r", "--rag", is_flag=True, help="Use RAG to improve code generation")
 @click.option("-v", "--verbose", is_flag=True, help="Show generated source code")
-@click.option("--collection", default="vtk-examples", help="Collection name for RAG")
-@click.option(
-    "--database",
-    default="./db/codesage-codesage-large-v2",
-    help="Database path for RAG",
-)
-@click.option("--top-k", type=int, default=5, help="Number of examples to retrieve from RAG")
+@click.option("--mcp-url", default=None, help="vtk-mcp server URL")
+@click.option("--top-k", type=int, default=5, help="Number of examples to retrieve from vtk-mcp")
 @click.option(
     "--retry-attempts",
     type=int,
@@ -68,10 +62,8 @@ def main(
     temperature: float,
     token: str,
     base_url: str | None,
-    rag: bool,
     verbose: bool,
-    collection: str,
-    database: str,
+    mcp_url: str | None,
     top_k: int,
     retry_attempts: int,
     conversation: str | None,
@@ -119,7 +111,7 @@ def main(
             if custom_prompt_data and isinstance(custom_prompt_data, dict):
                 # Override model if CLI didn't specify a custom one
                 if model == DEFAULT_MODEL and custom_prompt_data.get("model"):
-                    model = custom_prompt_data.get("model")
+                    model = custom_prompt_data.get("model") or model
                     logger.info("Using model from prompt file: %s", model)
 
                 # Override model parameters if CLI used defaults
@@ -147,10 +139,9 @@ def main(
 
     try:
         client = VTKPromptClient(
-            collection_name=collection,
-            database_path=database,
             verbose=verbose,
             conversation_file=conversation,
+            mcp_url=mcp_url,
         )
         result = client.query(
             input_string,
@@ -160,7 +151,6 @@ def main(
             max_tokens=max_tokens,
             temperature=temperature,
             top_k=top_k,
-            rag=rag,
             retry_attempts=retry_attempts,
             provider=provider,
             custom_prompt=custom_prompt_data,
@@ -192,13 +182,7 @@ def main(
             logger.info("Result: %s", result)
 
     except ValueError as e:
-        if "RAG components" in str(e):
-            logger.error("RAG components not found")
-            sys.exit(1)
-        elif "Failed to load RAG snippets" in str(e):
-            logger.error("Failed to load RAG snippets")
-            sys.exit(2)
-        elif "max_tokens" in str(e):
+        if "max_tokens" in str(e):
             logger.error("Error: %s", e)
             logger.error("Current max_tokens: %d", max_tokens)
             logger.error("Try increasing with: --max-tokens <higher_number>")

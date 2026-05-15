@@ -1,6 +1,0 @@
-    gGlyph = vtkGraphToGlyphs()
-    rGraph.SafeDownCast(layout_view.GetRepresentation()).SetGlyphType(gGlyph.CIRCLE)
-    layout_view.GetRenderer().SetBackground(colors.GetColor3d('Navy'))
-    layout_view.GetRenderer().SetBackground2(colors.GetColor3d('MidnightBlue'))
-    layout_view.GetRenderWindow().SetWindowName('ScaleVertices')
-    layout_view.Render()

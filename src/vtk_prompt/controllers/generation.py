@@ -41,7 +41,7 @@ def generate_and_execute_code(app: Any) -> None:
                 enhanced_query = app.state.query_text
                 logger.debug("Using custom prompt file")
             else:
-                # Let the client handle prompt selection based on RAG and UI mode
+                # Let the client handle prompt selection based on mcp_url and UI mode
                 enhanced_query = app.state.query_text
                 logger.debug("Using UI mode - client will select appropriate prompt")
 
@@ -58,7 +58,6 @@ def generate_and_execute_code(app: Any) -> None:
                 max_tokens=int(app.state.max_tokens),
                 temperature=float(app.state.temperature),
                 top_k=int(app.state.top_k),
-                rag=app.state.use_rag,
                 retry_attempts=int(app.state.retry_attempts),
                 provider=app.state.provider,
                 custom_prompt=app.custom_prompt_data,
@@ -107,9 +106,31 @@ def generate_and_execute_code(app: Any) -> None:
             build_conversation_navigation(app)
 
         app._conversation_loading = False
-        # Execute the generated code using the existing run_code method
-        # But we need to modify it to work with our renderer
-        execute_with_renderer(app, app.state.generated_code)
+        success, exec_error = execute_with_renderer(app, app.state.generated_code)
+
+        # If execution failed and vtk-mcp is configured, retry with the error fed back
+        if not success and exec_error and getattr(app.state, "mcp_url", "").strip():
+            logger.debug("Execution error, retrying with vtk-mcp: %s", exec_error)
+            app.state.error_message = ""
+            retry_result = app.prompt_client.query(
+                execution_error=exec_error,
+                api_key=app._get_api_key(),
+                model=app._get_model(),
+                base_url=app._get_base_url(),
+                max_tokens=int(app.state.max_tokens),
+                temperature=float(app.state.temperature),
+                top_k=int(app.state.top_k),
+                retry_attempts=1,
+                provider=app.state.provider,
+                custom_prompt=app.custom_prompt_data,
+                ui_mode=True,
+            )
+            app.state.conversation = app.prompt_client.conversation
+            if isinstance(retry_result, tuple) and len(retry_result) >= 2:
+                _, retry_code = retry_result[0], retry_result[1]
+                if retry_code:
+                    app.state.generated_code = EXPLAIN_RENDERER + "\n" + retry_code
+                    execute_with_renderer(app, app.state.generated_code)
     except ValueError as e:
         if "max_tokens" in str(e):
             app.state.error_message = (
@@ -123,8 +144,8 @@ def generate_and_execute_code(app: Any) -> None:
         app.state.is_loading = False
 
 
-def execute_with_renderer(app: Any, code_string: str) -> None:
-    """Execute VTK code with our renderer."""
+def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]:
+    """Execute VTK code with our renderer. Returns (success, error_message)."""
     success, error_message = execute_vtk_code(code_string, app.renderer, app.render_window)
 
     if not success and error_message:
@@ -135,6 +156,8 @@ def execute_with_renderer(app: Any, code_string: str) -> None:
         app.ctrl.view_update()
     except Exception as e:
         logger.warning("View update error: %s", e)
+
+    return success, error_message
 
 
 def clear_scene(app: Any) -> None:

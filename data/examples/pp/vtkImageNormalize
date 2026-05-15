@@ -1,6 +1,0 @@
-    normalizeFilter = vtkImageNormalize()
-
-    normalizeFilter.SetInputConnection(source.GetOutputPort())
-    normalizeFilter.Update()
-
-    inputCastFilter = vtkImageCast()

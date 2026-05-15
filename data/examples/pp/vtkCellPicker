@@ -1,6 +1,0 @@
-        picker = vtkCellPicker()
-        picker.SetTolerance(0.0005)
-
-        # Pick from this location.
-        picker.Pick(pos[0], pos[1], 0, self.GetDefaultRenderer())
-

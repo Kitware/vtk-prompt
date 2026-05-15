@@ -1,6 +1,0 @@
-    imageIn = vtkPNMReader()
-    imageIn.SetFileName(fileName)
-
-    gaussian = vtkImageGaussianSmooth()
-    gaussian.SetStandardDeviations(2, 2)
-    gaussian.SetDimensionality(2)

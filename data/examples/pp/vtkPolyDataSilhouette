@@ -1,6 +1,0 @@
-    silhouette = vtkPolyDataSilhouette()
-    silhouette.SetCamera(renderer.GetActiveCamera())
-
-    # Create mapper and actor for silhouette
-    silhouetteMapper = vtkPolyDataMapper()
-    silhouetteMapper.SetInputConnection(silhouette.GetOutputPort())

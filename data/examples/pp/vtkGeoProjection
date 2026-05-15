@@ -1,7 +1,0 @@
-    destinationProjection = vtk.vtkGeoProjection()
-    sourceProjection = vtk.vtkGeoProjection()
-    transformGraticle = vtk.vtkTransformFilter()
-
-    reader = vtk.vtkXMLPolyDataReader()
-    transformReader = vtk.vtkTransformFilter()
-    graticleMapper = vtk.vtkPolyDataMapper()

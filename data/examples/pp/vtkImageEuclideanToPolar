@@ -1,6 +1,0 @@
-    polar = vtkImageEuclideanToPolar()
-    polar.SetInputConnection(gradient.GetOutputPort())
-    polar.SetThetaMaximum(255.0)
-
-    # Add a third component to the data.
-    # This is needed since the gradient filter only generates two components,

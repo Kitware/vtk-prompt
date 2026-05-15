@@ -17,7 +17,7 @@ def _assert_basic_structure(result):
     assert isinstance(result["messages"], list)
     assert len(result["messages"]) >= 3
     assert all("role" in msg and "content" in msg for msg in result["messages"])
-    assert result.get("model") == "openai/gpt-5"
+    assert result.get("model") == "anthropic/claude-sonnet-4-6"
 
 
 def _get_content(result):
@@ -57,44 +57,41 @@ class TestPromptAssembly:
         assert ui_content_present == expected_ui_content
 
     @pytest.mark.parametrize(
-        "ui_mode,rag_enabled",
+        "ui_mode,with_context",
         [
-            (False, True),  # CLI with RAG
-            (True, False),  # UI without RAG
-            (True, True),  # UI with RAG
+            (False, True),  # CLI with context
+            (True, False),  # UI without context
+            (True, True),  # UI with context
         ],
     )
-    def test_feature_combinations(self, ui_mode, rag_enabled):
-        """Test different combinations of UI and RAG features."""
-        kwargs = {
+    def test_feature_combinations(self, ui_mode, with_context):
+        """Test different combinations of UI and context features."""
+        kwargs: dict = {
             "ui_mode": ui_mode,
-            "VTK_VERSION": "9.3.0",  # Override version
+            "VTK_VERSION": "9.3.0",
         }
 
-        if rag_enabled:
-            kwargs.update({"rag_enabled": True, "context_snippets": "example RAG content"})
+        if with_context:
+            kwargs["context_snippets"] = "example vtk-mcp content"
 
         result = assemble_vtk_prompt("create a cube", **kwargs)
 
         _assert_basic_structure(result)
         content = _get_content(result)
 
-        # Check overridden version
         assert "9.3.0" in content
         assert "create a cube" in content
 
-        # Check feature-specific content
         if ui_mode:
             assert "injected vtkrenderer object named renderer" in content
-        if rag_enabled:
-            assert "example RAG content" in content
+        if with_context:
+            assert "example vtk-mcp content" in content
 
     def test_parameter_overrides(self):
         """Test that parameter overrides work correctly."""
         result = assemble_vtk_prompt(
             "create a torus",
             ui_mode=True,
-            rag_enabled=True,
             context_snippets="torus example code",
             VTK_VERSION="9.1.0",
             PYTHON_VERSION=">=3.12",
@@ -112,10 +109,6 @@ class TestPromptAssembly:
 
     def test_error_conditions(self):
         """Test error handling and edge cases."""
-        # RAG without context should raise error
-        with pytest.raises(ValueError, match="context_snippets required when rag_enabled=True"):
-            assemble_vtk_prompt("test", rag_enabled=True)
-
         # Empty request should work
         result = assemble_vtk_prompt("")
         _assert_basic_structure(result)

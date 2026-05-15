@@ -1,6 +1,0 @@
-    interpolator = vtkPointInterpolator()
-    interpolator.SetInputData(box)
-    interpolator.SetSourceData(points)
-    interpolator.SetKernel(gaussian_kernel)
-
-    resample = vtkResampleWithDataSet()

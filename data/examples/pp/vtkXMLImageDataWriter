@@ -1,6 +1,0 @@
-    writer = vtkXMLImageDataWriter()
-    writer.SetFileName(filename)
-    writer.SetInputData(imageData)
-    writer.Write()
-
-    # Read the file (to test that it was written correctly)

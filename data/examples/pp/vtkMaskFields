@@ -1,6 +1,0 @@
-    scalars_off = vtkMaskFields()
-    geometry = vtkGeometryFilter()
-    writer = vtkXMLPolyDataWriter()
-
-    # Define all of the variables
-    file_prefix = 'Label'

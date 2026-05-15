@@ -1,6 +1,0 @@
-    extract = vtkExtractGeometry()
-    extract.SetInputConnection(sample.GetOutputPort())
-    extract.SetImplicitFunction(booleanUnion)
-
-    shrink = vtkShrinkFilter()
-    shrink.SetInputConnection(extract.GetOutputPort())

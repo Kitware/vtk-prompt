@@ -1,6 +1,0 @@
-    planesIntersection = vtkPlanesIntersection()
-    planesIntersection.SetBounds(bounds)
-
-    intersects = planesIntersection.IntersectsRegion(box)
-    if intersects == 1:
-        res = 'Yes'

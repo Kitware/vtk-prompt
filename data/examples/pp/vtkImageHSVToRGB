@@ -1,6 +1,0 @@
-    rgb = vtkImageHSVToRGB()
-    rgb.SetInputConnection(permute.GetOutputPort())
-    rgb.SetMaximum(255.0)
-
-    # Set up a viewer for the image.
-    # Note that vtkImageViewer and vtkImageViewer2 are convenience wrappers around

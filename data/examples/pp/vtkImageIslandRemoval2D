@@ -1,6 +1,0 @@
-            island_remover = vtkImageIslandRemoval2D()
-            island_remover.SetAreaThreshold(tissue['island_area'])
-            island_remover.SetIslandValue(tissue['island_replace'])
-            island_remover.SetReplaceValue(tissue['tissue'])
-            island_remover.SetInput(last_connection.GetOutput())
-            island_remover.Update()

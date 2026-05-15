@@ -1,6 +1,0 @@
-    parser.add_argument('filename', help='uGridEx.vtkp')
-    args = parser.parse_args()
-    return args.filename
-
-
-def main():

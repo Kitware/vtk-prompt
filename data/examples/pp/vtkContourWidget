@@ -1,6 +1,0 @@
-    contourWidget = vtkContourWidget()
-    contourWidget.SetInteractor(interactor)
-    contourWidget.SetRepresentation(contourRep)
-    contourWidget.On()
-
-    for arg in sys.argv:

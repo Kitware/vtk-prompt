@@ -81,10 +81,7 @@ def _process_model_configuration(app: Any) -> None:
 
 
 def _process_rag_and_generation_settings(app: Any) -> None:
-    """Process RAG and generation control settings from custom prompt data."""
-    # RAG and generation controls
-    if "rag" in app.custom_prompt_data:
-        app.state.use_rag = bool(app.custom_prompt_data.get("rag"))
+    """Process generation control settings from custom prompt data."""
     if "top_k" in app.custom_prompt_data:
         _top_k = app.custom_prompt_data.get("top_k")
         if isinstance(_top_k, int):

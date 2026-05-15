@@ -1,6 +1,0 @@
-    locator = vtkCellLocator()
-    locator.SetDataSet(smooth_loop.GetOutput())
-    locator.BuildLocator()
-
-    maxloop = 1000
-    dist = 20.0 / maxloop

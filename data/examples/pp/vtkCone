@@ -1,6 +1,0 @@
-    cone = vtkCone()
-    cone.SetAngle(20)
-
-    vertPlane = vtkPlane()
-    vertPlane.SetOrigin(.1, 0, 0)
-    vertPlane.SetNormal(-1, 0, 0)

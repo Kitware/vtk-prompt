@@ -1,6 +1,0 @@
-# volumeMapper = vtk.vtkUnstructuredGridVolumeZSweepMapper()
-# volumeMapper = vtk.vtkProjectedTetrahedraMapper()
-# volumeMapper.SetBlendModeToMaximumIntensity()
-volumeMapper.SetInputData(output)
-
-volume = vtk.vtkVolume()

@@ -1,6 +1,0 @@
-    perlinNoise = vtkPerlinNoise()
-    perlinNoise.SetFrequency(2, 1.25, 1.5)
-    perlinNoise.SetPhase(0, 0, 0)
-
-    sample = vtkSampleFunction()
-    sample.SetImplicitFunction(perlinNoise)
