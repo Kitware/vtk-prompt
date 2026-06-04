@@ -10,7 +10,10 @@ import re
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from .. import get_logger
+from ..utils.prompt_loader import apply_custom_prompt_data
 
 logger = get_logger(__name__)
 
@@ -282,48 +285,23 @@ def _process_loaded_prompt(app: Any, prompt_object: dict[str, Any] | None = None
         return
 
     try:
-        # Use the existing prompt loader functionality
-        import os
-        import tempfile
-
-        from ..utils import prompt_loader
-
-        # Use the parameter we already assigned above
-
         # Get content and ensure it's a string
         content = prompt_obj["content"]
         if isinstance(content, bytes):
             content = content.decode("utf-8")
 
-        # Write content to temp file for the loader
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as tmp:
-            tmp.write(content)  # Now guaranteed to be a string
-            temp_path = tmp.name
+        data = yaml.safe_load(content)
+        apply_custom_prompt_data(app, data)
 
-        try:
-            # Use existing custom prompt file logic
-            original_prompt_file = app.custom_prompt_file
-            app.custom_prompt_file = temp_path
-            app.custom_prompt_data = None  # Reset
+        app.state.prompt_file = prompt_obj["name"]
+        logger.info(f"Loaded custom prompt file: {prompt_obj['name']}")
 
-            # Load using existing prompt loader
-            prompt_loader.load_custom_prompt_file(app)
-
-            app.state.prompt_file = prompt_obj["name"]
-            logger.info(f"Loaded custom prompt file: {prompt_obj['name']}")
-
-            # Force UI to recognize state changes by triggering model selection update
-            # This is safe because we're not in a watcher context here
-            if hasattr(app.state, "provider"):
-                # Trigger available models update by re-setting provider
-                current_provider = getattr(app.state, "provider", None)
-                if current_provider:
-                    app.state.provider = current_provider
-
-        finally:
-            # Clean up temp file and restore original
-            os.unlink(temp_path)
-            app.custom_prompt_file = original_prompt_file
+        # Force UI to recognize state changes by triggering model selection update
+        # This is safe because we're not in a watcher context here
+        if hasattr(app.state, "provider"):
+            current_provider = getattr(app.state, "provider", None)
+            if current_provider:
+                app.state.provider = current_provider
 
     except Exception as e:
         logger.error(f"Failed to load prompt file: {e}")
