@@ -1,6 +1,0 @@
-        voxel_modeller = vtkVoxelModeller()
-        voxel_modeller.SetSampleDimensions(50, 50, 50)
-        voxel_modeller.SetModelBounds(bounds)
-        voxel_modeller.SetScalarTypeToFloat()
-        voxel_modeller.SetMaximumDistance(0.1)
-

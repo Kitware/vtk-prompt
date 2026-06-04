@@ -1,6 +1,0 @@
-    implicitFunction = vtkSuperquadric()
-    implicitFunction.SetPhiRoundness(2.5)
-    implicitFunction.SetThetaRoundness(.5)
-
-    # Sample the function.
-    sample = vtkSampleFunction()

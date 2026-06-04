@@ -1,6 +1,0 @@
-    balloonWidget = vtkBalloonWidget()
-    balloonWidget.SetInteractor(iren)
-    balloonWidget.SetRepresentation(balloonRep)
-    balloonWidget.AddBalloon(sphereActor, 'This is a sphere')
-    balloonWidget.AddBalloon(regularPolygonActor, 'This is a regular polygon')
-

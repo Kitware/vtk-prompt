@@ -1,6 +1,0 @@
-    cps = vtkConvexPointSet()
-    points = vtkPoints()
-    points.InsertNextPoint(0, 0, 0)
-    points.InsertNextPoint(1, 0, 0)
-    points.InsertNextPoint(1, 1, 0)
-    points.InsertNextPoint(0, 1, 0)

@@ -1,6 +1,0 @@
-    assign = vtk.vtkGeoAssignCoordinates()
-    assign.SetInputData(g)
-
-    assign.SetLatitudeArrayName('latitude')
-    assign.SetLongitudeArrayName('longitude')
-    assign.SetGlobeRadius(1.0)

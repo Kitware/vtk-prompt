@@ -1,6 +1,0 @@
-    histogram = vtkImageAccumulate()
-    if use_flying_edges:
-        try:
-            using_marching_cubes = False
-            discrete_cubes = vtkDiscreteFlyingEdges3D()
-        except AttributeError:

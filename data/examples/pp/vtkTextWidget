@@ -1,6 +1,0 @@
-    text_widget = vtkTextWidget()
-    text_widget.SetRepresentation(text_representation)
-
-    text_widget.SetInteractor(interactor)
-    text_widget.SetTextActor(text_actor)
-    text_widget.SelectableOff()

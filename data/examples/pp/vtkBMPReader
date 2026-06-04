@@ -1,6 +1,0 @@
-    reader = vtkBMPReader()
-    reader.SetFileName(fileName)
-    # Convert the image to a grey scale.
-    luminance = vtkImageLuminance()
-    luminance.SetInputConnection(reader.GetOutputPort())
-    # Pass the data to the pipeline as polygons.

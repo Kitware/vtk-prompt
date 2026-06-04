@@ -1,6 +1,0 @@
-    compassWidget = vtkCompassWidget()
-    compassWidget.SetInteractor(renderWindowInteractor)
-    compassWidget.SetRepresentation(compassRepresentation)
-    
-    # add a callback to update the camera position on vtkCommand::WidgetValueChangedEvent
-    compassWidget.AddObserver(vtkCommand.WidgetValueChangedEvent, CompassWidgetValueChangedCallback)

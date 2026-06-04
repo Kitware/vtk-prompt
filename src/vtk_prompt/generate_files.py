@@ -15,10 +15,8 @@ Example:
     >>> vtk-generate-xml --description "sphere" --output sphere.xml
 """
 
-import json
 import os
 import sys
-from pathlib import Path
 from typing import cast
 
 import click
@@ -56,12 +54,6 @@ class VTKXMLGenerator:
         self, message: str, model: str, max_tokens: int = 4000, temperature: float = 0.7
     ) -> str:
         """Generate VTK XML content from a description."""
-        examples_path = Path("data/examples/index.json")
-        if examples_path.exists():
-            _ = " ".join(json.loads(examples_path.read_text()).keys())
-        else:
-            _ = ""
-
         yaml_loader = YAMLPromptLoader()
         yaml_messages = yaml_loader.get_yaml_prompt("vtk_xml_generation", description=message)
         messages_param = cast(list[ChatCompletionMessageParam], yaml_messages)

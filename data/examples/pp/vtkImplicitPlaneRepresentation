@@ -1,6 +1,0 @@
-    rep = vtkImplicitPlaneRepresentation()
-    rep.SetPlaceFactor(1.25)  # This must be set prior to placing the widget
-    rep.PlaceWidget(actor.GetBounds())
-    rep.SetNormal(plane.GetNormal())
-
-    plane_widget = vtkImplicitPlaneWidget2()

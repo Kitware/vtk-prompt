@@ -1,6 +1,0 @@
-    collide = vtkCollisionDetectionFilter()
-    collide.SetInputConnection(0, sphere0.GetOutputPort())
-    collide.SetTransform(0, transform0)
-    collide.SetInputConnection(1, sphere1.GetOutputPort())
-    collide.SetMatrix(1, matrix1)
-    collide.SetBoxTolerance(0.0)

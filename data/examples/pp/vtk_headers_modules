@@ -1,6 +1,0 @@
-            m = vtk_headers_modules[incl]
-            for v in m:
-                modules.add(v)
-        else:
-            inc_no_mod.add(incl)
-            inc_no_mod_headers[incl] = headers[incl]

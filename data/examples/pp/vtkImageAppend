@@ -1,6 +1,0 @@
-    imageAppend = vtkImageAppend()
-    imageAppend.SetInputConnection(stencil.GetOutputPort())
-    imageAppend.AddInputConnection(stencil2.GetOutputPort())
-
-    viewer = vtkImageViewer()
-    interator = vtkRenderWindowInteractor()

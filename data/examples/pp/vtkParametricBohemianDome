@@ -1,6 +1,0 @@
-    pfn['BohemianDome'] = vtkParametricBohemianDome()
-    pfn['Bour'] = vtkParametricBour()
-    pfn['CatalanMinimal'] = vtkParametricCatalanMinimal()
-    pfn['Henneberg'] = vtkParametricHenneberg()
-    pfn['Kuen'] = vtkParametricKuen()
-    pfn['PluckerConoid'] = vtkParametricPluckerConoid()

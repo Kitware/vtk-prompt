@@ -1,6 +1,0 @@
-        vtk_modules = sorted(vtklib.__all__)
-
-    name_to_module = dict()
-    for module in vtk_modules:
-        try:
-            module_dict = importlib.import_module('vtkmodules.' + module).__dict__

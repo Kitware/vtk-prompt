@@ -1,6 +1,0 @@
-    lut = vtkLogLookupTable()
-    lut.SetHueRange(.6667, 0.0)
-
-    s1Mapper = vtkPolyDataMapper()
-    s1Mapper.SetInputConnection(s1.GetOutputPort())
-    s1Mapper.SetLookupTable(lut)

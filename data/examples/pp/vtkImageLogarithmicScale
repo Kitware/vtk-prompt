@@ -1,6 +1,0 @@
-    compress = vtkImageLogarithmicScale()
-    compress.SetInputConnection(center.GetOutputPort())
-    compress.SetConstant(15)
-    compress.Update()
-
-    # Create the actors.

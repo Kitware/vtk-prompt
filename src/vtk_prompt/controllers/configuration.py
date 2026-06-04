@@ -43,14 +43,14 @@ def save_config(app: Any) -> str:
     temperature = float(getattr(app.state, "temperature", 0.0))
     max_tokens = int(getattr(app.state, "max_tokens", 1000))
     retries = int(getattr(app.state, "retry_attempts", 1))
-    rag_enabled = bool(getattr(app.state, "use_rag", False))
+    mcp_url = getattr(app.state, "mcp_url", "").strip()
     top_k = int(getattr(app.state, "top_k", 5))
 
     content = {
         "name": "Custom VTK Prompt config file",
         "description": f"Exported from UI - {'Cloud' if use_cloud else 'Local'} configuration",
         "model": provider_model,
-        "rag": rag_enabled,
+        "mcp_url": mcp_url,
         "top_k": top_k,
         "retries": retries,
         "modelParameters": {

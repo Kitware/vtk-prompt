@@ -1,6 +1,0 @@
-    mapper = vtk.vtkGraphMapper()
-    mapper.SetInputConnection(assign.GetOutputPort())
-    actor = vtk.vtkActor()
-    actor.SetMapper(mapper)
-    ren = vtk.vtkRenderer()
-    ren.AddActor(actor)

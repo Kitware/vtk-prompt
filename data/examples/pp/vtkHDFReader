@@ -1,6 +1,0 @@
-    reader = vtkHDFReader()
-    reader.SetFileName(fn)
-    reader.Update()
-    print('Number of steps: ', reader.GetNumberOfSteps())
-    polydata = reader.GetOutput()
-

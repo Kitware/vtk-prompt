@@ -1,6 +1,0 @@
-                    m = Patterns.vtk_qt_include_pattern.match(header_parts[1])
-                    if m:
-                        headers[m.group(1)].add(path)
-    for incl in headers:
-        if incl in vtk_headers_modules:
-            m = vtk_headers_modules[incl]

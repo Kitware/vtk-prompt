@@ -10,29 +10,29 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Curated models for each provider - selected for VTK code generation quality
-OPENAI_MODELS = ["gpt-5", "gpt-4.1", "o4-mini", "o3"]
+OPENAI_MODELS = ["gpt-4.1", "gpt-4.1-mini", "o4-mini", "o3"]
 
 ANTHROPIC_MODELS = [
-    "claude-opus-4-1",
-    "claude-sonnet-4",
-    "claude-3-7-sonnet",
+    "claude-opus-4-7",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5-20251001",
 ]
 
 GEMINI_MODELS = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
 
 NIM_MODELS = [
-    "meta/llama3-70b-instruct",
-    "meta/llama3-8b-instruct",
-    "microsoft/phi-3-medium-4k-instruct",
+    "meta/llama-3.3-70b-instruct",
+    "meta/llama-3.1-405b-instruct",
     "nvidia/llama-3.1-nemotron-70b-instruct",
+    "mistralai/mistral-large-2-instruct",
 ]
 
 
 # Models that don't support temperature control (must use temperature=1.0)
-TEMPERATURE_UNSUPPORTED_MODELS = ["gpt-5", "o4-mini", "o3"]
+TEMPERATURE_UNSUPPORTED_MODELS = ["o4-mini", "o3"]
 
-DEFAULT_PROVIDER = "openai"
-DEFAULT_MODEL = "gpt-5"
+DEFAULT_PROVIDER = "anthropic"
+DEFAULT_MODEL = "claude-sonnet-4-6"
 
 
 def supports_temperature(model: str) -> bool:
@@ -81,9 +81,9 @@ def get_supported_providers() -> list[str]:
 def get_default_model(provider: str) -> str:
     """Get the default/recommended model for a provider."""
     defaults = {
-        "openai": "gpt-5",
-        "anthropic": "claude-opus-4-1",
+        "openai": "gpt-4.1",
+        "anthropic": "claude-sonnet-4-6",
         "gemini": "gemini-2.5-pro",
-        "nim": "meta/llama3-70b-instruct",
+        "nim": "meta/llama-3.3-70b-instruct",
     }
-    return defaults.get(provider, "gpt-5")
+    return defaults.get(provider, "claude-sonnet-4-6")

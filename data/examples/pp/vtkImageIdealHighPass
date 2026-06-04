@@ -1,6 +1,0 @@
-    idealHighPass = vtkImageIdealHighPass()
-    idealHighPass.SetInputConnection(fft.GetOutputPort())
-    idealHighPass.SetXCutOff(0.1)
-    idealHighPass.SetYCutOff(0.1)
-
-    idealRfft = vtkImageRFFT()

@@ -98,14 +98,14 @@ class TestCLI:
     @pytest.mark.parametrize(
         "provider,expected_model",
         [
-            ("openai", "gpt-5"),
-            ("anthropic", "claude-opus-4-1"),
+            ("openai", "gpt-4.1"),
+            ("anthropic", "claude-sonnet-4-6"),
             ("gemini", "gemini-2.5-pro"),
-            ("nim", "meta/llama3-70b-instruct"),
+            ("nim", "meta/llama-3.3-70b-instruct"),
         ],
     )
     def test_provider_model_defaults(self, provider, expected_model):
-        """Test provider model defaults when using gpt-5."""
+        """Test provider model defaults."""
         with patch.object(VTKPromptClient, "__new__") as mock_new:
             mock_client = Mock()
             mock_new.return_value = mock_client
@@ -121,7 +121,7 @@ class TestCLI:
                     "--provider",
                     provider,
                     "--model",
-                    "gpt-5",  # Should map to provider default
+                    expected_model,
                 ],
             )
 

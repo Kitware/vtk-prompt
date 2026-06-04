@@ -1,6 +1,0 @@
-    point_mapper = vtkPointGaussianMapper()
-    point_mapper.SetInputData(points)
-    point_mapper.SetScalarRange(range)
-    point_mapper.SetScaleFactor(0.6)
-    point_mapper.EmissiveOff();
-    point_mapper.SetSplatShaderCode(

@@ -1,6 +1,0 @@
-    deci = vtkDecimatePro()
-    deci.SetInputConnection(reader.GetOutputPort())
-    deci.SetTargetReduction(0.9)
-    deci.SetAbsoluteError(0.0005)
-    deci.MaximumIterations = 6
-    deci.SetFeatureAngle(30)

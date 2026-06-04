@@ -1,6 +1,0 @@
-    luminance = vtkImageLuminance()
-    luminance.SetInputConnection(reader.GetOutputPort())
-    # Pass the data to the pipeline as polygons.
-    geometry = vtkImageDataGeometryFilter()
-    geometry.SetInputConnection(luminance.GetOutputPort())
-    # Warp the data in a direction perpendicular to the image plane.

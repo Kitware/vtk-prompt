@@ -1,6 +1,0 @@
-    glowPass = vtkOutlineGlowPass()
-    glowPass.SetDelegatePass(basicPasses)
-
-    # Apply the render pass to the highlight renderer
-    rendererOutline.SetPass(glowPass)
-

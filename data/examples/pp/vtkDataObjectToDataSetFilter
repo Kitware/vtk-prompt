@@ -1,6 +1,0 @@
-    do2ds = vtkDataObjectToDataSetFilter()
-    do2ds.SetInputConnection(reader.GetOutputPort())
-    do2ds.SetDataSetTypeToPolyData()
-    # format: component#, arrayname, arraycomp, minArrayId, maxArrayId, normalize
-    do2ds.DefaultNormalizeOn()
-    do2ds.SetPointComponent(0, xAxis, 0)

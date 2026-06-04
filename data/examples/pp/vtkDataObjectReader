@@ -1,6 +1,0 @@
-    reader = vtkDataObjectReader()
-    reader.SetFileName(ifn)
-
-    size = 3187  # maximum number possible
-
-    xAxis = 'INTEREST_RATE'

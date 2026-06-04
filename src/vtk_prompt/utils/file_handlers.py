@@ -11,7 +11,7 @@ from typing import Any
 
 def load_js(server: Any) -> None:
     """Load JavaScript utilities for VTK Prompt UI."""
-    js_file = Path(__file__).parent.parent.with_name("utils.js")
+    js_file = Path(__file__).parent.parent / "utils.js"
     server.enable_module(
         {
             "serve": {"vtk_prompt": str(js_file.parent)},

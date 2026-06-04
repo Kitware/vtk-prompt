@@ -1,6 +1,0 @@
-    locator = vtkMergePoints()
-    locator.SetDivisions(64, 64, 92)
-    locator.SetNumberOfPointsPerBucket(2)
-    locator.AutomaticOff()
-
-    if use_flying_edges:

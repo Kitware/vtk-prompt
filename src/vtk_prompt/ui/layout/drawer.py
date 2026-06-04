@@ -2,7 +2,7 @@
 Drawer Layout Module.
 
 This module provides the settings drawer layout for the VTK Prompt UI.
-The drawer contains model configuration, RAG settings, and file controls.
+The drawer contains model configuration, vtk-mcp settings, and file controls.
 """
 
 from typing import Any
@@ -109,16 +109,25 @@ def build_drawer(layout: Any) -> None:
                                 persistent_hint=True,
                             )
 
-            # RAG Settings Card
+            # vtk-mcp Settings Card
             with vuetify.VCard(classes="mt-2"):
-                vuetify.VCardTitle("⚙️  RAG settings", classes="pb-0")
+                vuetify.VCardTitle("⚙️ vtk-mcp", classes="pb-0")
                 with vuetify.VCardText():
-                    vuetify.VCheckbox(
-                        v_model=("use_rag", False),
-                        label="RAG",
-                        prepend_icon="mdi-bookshelf",
+                    vuetify.VTextField(
+                        label="Server URL",
+                        v_model=("mcp_url", ""),
+                        placeholder="http://localhost:8000",
                         density="compact",
+                        variant="outlined",
+                        prepend_icon="mdi-server-network",
+                        hint="Leave empty to disable vtk-mcp",
+                        persistent_hint=True,
                     )
+
+            # vtk-mcp retrieval settings
+            with vuetify.VCard(classes="mt-2"):
+                vuetify.VCardTitle("⚙️ Retrieval Settings", classes="pb-0")
+                with vuetify.VCardText():
                     vuetify.VTextField(
                         label="Top K",
                         v_model=("top_k", 5),
@@ -126,7 +135,7 @@ def build_drawer(layout: Any) -> None:
                         min=1,
                         max=15,
                         density="compact",
-                        disabled=("!use_rag",),
+                        disabled=("!mcp_url.trim()",),
                         variant="outlined",
                         prepend_icon="mdi-chart-scatter-plot",
                     )

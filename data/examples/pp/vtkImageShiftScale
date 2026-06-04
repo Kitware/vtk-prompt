@@ -1,6 +1,0 @@
-    m3 = vtkImageShiftScale()
-    m3.SetInputConnection(m2.GetOutputPort())
-    m3.SetScale(0.000095)
-
-    div = vtkImageMathematics()
-    div.SetInputConnection(0, smooth.GetOutputPort())

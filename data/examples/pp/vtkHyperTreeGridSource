@@ -1,6 +1,0 @@
-    source = vtkHyperTreeGridSource()
-    source.SetMaximumLevel(6)
-    source.SetDimensions(4, 4, 3)  # GridCell 3, 3, 2
-    source.SetGridScale(1.5, 1.0, 0.7)
-    source.SetBranchFactor(4)
-    source.SetDescriptor(descriptor)

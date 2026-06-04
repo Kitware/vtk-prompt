@@ -1,6 +1,0 @@
-    plane_widget = vtkImplicitPlaneWidget2()
-    plane_widget.SetInteractor(iren)
-    plane_widget.SetRepresentation(rep)
-    plane_widget.AddObserver(vtkCommand.InteractionEvent, my_callback)
-
-    renderer.GetActiveCamera().Azimuth(-60)

@@ -1,6 +1,0 @@
-    hsel = vtkHardwareSelector()
-    hsel.SetFieldAssociation(vtkDataObject.FIELD_ASSOCIATION_CELLS)
-    hsel.SetRenderer(ren1)
-
-    x, y = caller.GetRenderWindow().GetSize()
-

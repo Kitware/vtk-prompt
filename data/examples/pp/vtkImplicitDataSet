@@ -1,6 +1,0 @@
-implicit = vtk.vtkImplicitDataSet()
-implicit.SetDataSet(elev.GetOutput())
-
-clipper = vtk.vtkClipPolyData()
-clipper.SetClipFunction(implicit)
-clipper.SetInputConnection(sphere.GetOutputPort())

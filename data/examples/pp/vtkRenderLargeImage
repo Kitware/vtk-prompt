@@ -1,6 +1,0 @@
-    renLgeIm = vtkRenderLargeImage()
-    renLgeIm.SetInput(ren)
-    renLgeIm.SetMagnification(magnification)
-    imgWriter = vtkPNGWriter()
-    imgWriter.SetInputConnection(renLgeIm.GetOutputPort())
-    imgWriter.SetFileName(fn)

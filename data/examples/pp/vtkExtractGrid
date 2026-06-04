@@ -1,6 +1,0 @@
-    extract = vtkExtractGrid()
-    extract.SetVOI(1, 55, -1000, 1000, -1000, 1000)
-    extract.SetInputData(pl3dOutput)
-
-    # The (implicit) plane is used to do the cutting
-    plane = vtkPlane()

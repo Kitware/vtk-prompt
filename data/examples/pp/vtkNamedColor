@@ -1,6 +1,0 @@
-    nc = vtkNamedColors()
-    # We can print out the variables.
-    # The color name and RGBA values are displayed.
-    print(nc)
-
-    # Here we just print out the colors and any

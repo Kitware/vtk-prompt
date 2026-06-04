@@ -1,6 +1,0 @@
-    gaussian_kernel = vtkGaussianKernel()
-    gaussian_kernel.SetSharpness(2)
-    gaussian_kernel.SetRadius(12)
-
-    interpolator = vtkPointInterpolator()
-    interpolator.SetInputData(box)

@@ -1,6 +1,0 @@
-    balloonRep = vtkBalloonRepresentation()
-    balloonRep.SetBalloonLayoutToImageRight()
-
-    balloonWidget = vtkBalloonWidget()
-    balloonWidget.SetInteractor(iren)
-    balloonWidget.SetRepresentation(balloonRep)

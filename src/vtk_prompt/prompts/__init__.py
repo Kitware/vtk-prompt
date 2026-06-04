@@ -12,7 +12,7 @@ The system supports two approaches:
 Component types include:
 - Base system messages and VTK coding instructions
 - UI-specific renderer instructions for web interface
-- RAG context injection for retrieval-augmented generation
+- Context injection from vtk-mcp for enhanced generation
 - Output formatting and model parameter defaults
 
 Components are stored as YAML files and assembled at runtime with support for

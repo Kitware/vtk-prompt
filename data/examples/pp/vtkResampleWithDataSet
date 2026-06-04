@@ -1,6 +1,0 @@
-    resample = vtkResampleWithDataSet()
-    resample.SetInputData(surface)
-    resample.SetSourceConnection(interpolator.GetOutputPort())
-
-    mapper = vtkPolyDataMapper()
-    mapper.SetInputConnection(resample.GetOutputPort())
