@@ -21,6 +21,13 @@ PROMPTS_DIR = Path(__file__).parent
 class YAMLPromptLoader:
     """Class for loading and processing YAML prompts."""
 
+    # Variable keys that carry large blocks of trusted content (e.g. code
+    # examples retrieved from vtk-mcp). These bypass the scalar-oriented safety
+    # checks in _validate_variable_value, which exist to guard small templating
+    # scalars and would otherwise reject legitimate example code (such as an
+    # ``if __name__ == "__main__":`` guard) or any snippet over the length cap.
+    _RAW_CONTENT_KEYS = frozenset({"context_snippets"})
+
     def __init__(self) -> None:
         """Initialize the loader."""
         self.prompts_dir = PROMPTS_DIR
@@ -44,6 +51,12 @@ class YAMLPromptLoader:
             raise ValueError(f"Variable '{key}' cannot be None")
 
         str_value = str(value)
+
+        # Trusted large-content variables (retrieved code context) skip the
+        # scalar guards below: example code legitimately contains dunders and
+        # can exceed the length cap meant for small templating scalars.
+        if key in self._RAW_CONTENT_KEYS:
+            return str_value
 
         # Check for potentially dangerous content
         dangerous_patterns = [
