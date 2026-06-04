@@ -5,7 +5,7 @@ This module provides the CLI interface for VTK code generation using LLMs.
 It handles argument parsing, validation, and orchestrates the VTKPromptClient.
 
 Example:
-    >>> vtk-prompt "create sphere" --mcp-url http://localhost:8000 --model claude-sonnet-4-6
+    >>> vtk-prompt "create sphere" --mcp-url http://localhost:8000 --model claude-sonnet-5
 """
 
 import sys
@@ -54,6 +54,16 @@ logger = get_logger(__name__)
     "--prompt-file",
     help="Path to custom YAML prompt file (overrides built-in prompts and defaults)",
 )
+@click.option(
+    "--dsl-translation/--no-dsl-translation",
+    default=True,
+    help="Auto-translate natural language prompts to the VTK pipeline DSL via vtk-mcp",
+)
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Dump the full LLM conversation (context and vtk-mcp tool calls included) to stdout",
+)
 def main(
     input_string: str,
     provider: str,
@@ -68,6 +78,8 @@ def main(
     retry_attempts: int,
     conversation: str | None,
     prompt_file: str | None,
+    dsl_translation: bool,
+    debug: bool,
 ) -> None:
     """
     Generate and execute VTK code using LLMs.
@@ -153,6 +165,8 @@ def main(
             retry_attempts=retry_attempts,
             provider=provider,
             custom_prompt=custom_prompt_data,
+            dsl_translation=dsl_translation,
+            debug=debug,
         )
         save_conversation(conversation, messages)
 

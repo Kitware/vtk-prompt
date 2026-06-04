@@ -1,0 +1,4 @@
+role: assistant
+content: |
+  DSL translation is disabled for this request. Do not call the
+  translate_prompt_to_dsl or is_dsl_prompt tools.

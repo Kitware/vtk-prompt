@@ -146,7 +146,7 @@ def main(
     # Set default models based on provider
     if model == DEFAULT_MODEL:
         default_models = {
-            "anthropic": "claude-opus-4-1",
+            "anthropic": "claude-opus-5",
             "gemini": "gemini-2.5-pro",
             "nim": "meta/llama3-70b-instruct",
         }

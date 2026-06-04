@@ -5,6 +5,8 @@ import io
 import traceback
 
 import vtk
+import vtkmodules.all as vtkmodules_all
+import vtkmodules.vtkRenderingCore as vtkmodules_rendering_core
 
 from .. import get_logger
 from ..utils.helpers import ensure_vtk_importable
@@ -49,6 +51,24 @@ class _NoOpRenderWindow:
         return _noop
 
 
+class _InjectedRendererFactory:
+    """Stand-in for vtkRenderer construction in generated code.
+
+    Scripts routinely build their own vtkRenderer under an arbitrary variable
+    name (often even "renderer", clobbering the injected global) instead of
+    reusing the one handed to them, even when told not to. Rather than
+    absorbing those calls like the window/interactor stand-ins, this returns
+    the app's real, shared renderer, so whatever a script names it, the
+    actors it adds land in the scene that actually renders.
+    """
+
+    def __init__(self, renderer: object) -> None:
+        self._renderer = renderer
+
+    def __call__(self, *args: object, **kwargs: object) -> object:
+        return self._renderer
+
+
 class _NoOpInteractor:
     """Stand-in for vtkRenderWindowInteractor used while running generated code.
 
@@ -69,7 +89,10 @@ class _NoOpInteractor:
 
 
 def execute_vtk_code(
-    code_string: str, renderer: vtk.vtkRenderer, render_window: vtk.vtkRenderWindow
+    code_string: str,
+    renderer: vtk.vtkRenderer,
+    render_window: vtk.vtkRenderWindow,
+    render_window_interactor: vtk.vtkRenderWindowInteractor,
 ) -> tuple[bool, str | None, str | None]:
     """Execute VTK code with renderer context.
 
@@ -89,25 +112,42 @@ def execute_vtk_code(
         #   `if __name__ == "__main__":` actually run. Without it, a bare
         #   __name__ resolves via builtins to "builtins", the guard is False,
         #   and the script body (e.g. a main()) never executes -> blank view.
-        # - render_window is injected alongside renderer for code that uses it.
+        # - render_window and render_window_interactor are injected alongside
+        #   renderer for code that uses them, mirroring the app's own shared
+        #   objects rather than the no-op stand-ins the classes are patched to.
         # - A single namespace (globals only) is used so top-level defs and the
         #   guard share one scope and functions can see the injected names.
         exec_globals = {
             "vtk": vtk,
             "renderer": renderer,
             "render_window": render_window,
+            "render_window_interactor": render_window_interactor,
             "__name__": "__main__",
         }
 
         # Keep generated code inside the app (a script that builds its own window
         # or interactor would otherwise pop up a native window and block on
-        # Start()), and capture stdout/stderr separately so the console can
-        # colour output by stream. Restore vtk afterwards.
+        # Start()), and make sure a self-constructed renderer is actually the
+        # app's renderer (see _InjectedRendererFactory). Capture stdout/stderr
+        # separately so the console can colour output by stream. Restore the
+        # real classes afterwards.
+        #
+        # vtk.vtkRenderWindow and vtkmodules.vtkRenderingCore.vtkRenderWindow are
+        # the same class object, but `from vtkmodules.all import *` (common in
+        # VTK example code the model is trained on) copies its own reference to
+        # that class at vtkmodules.all's own import time, so patching one module
+        # does not affect the others' bindings. All three must be patched.
         global _last_stdout, _last_stderr
-        real_window_cls = vtk.vtkRenderWindow
-        real_interactor_cls = vtk.vtkRenderWindowInteractor
-        vtk.vtkRenderWindow = _NoOpRenderWindow  # type: ignore[assignment,misc]
-        vtk.vtkRenderWindowInteractor = _NoOpInteractor  # type: ignore[assignment,misc]
+        patched_modules = (vtk, vtkmodules_rendering_core, vtkmodules_all)
+        originals = [
+            (mod, mod.vtkRenderWindow, mod.vtkRenderWindowInteractor, mod.vtkRenderer)
+            for mod in patched_modules
+        ]
+        renderer_factory = _InjectedRendererFactory(renderer)
+        for mod in patched_modules:
+            mod.vtkRenderWindow = _NoOpRenderWindow  # type: ignore[assignment,misc]
+            mod.vtkRenderWindowInteractor = _NoOpInteractor  # type: ignore[assignment,misc]
+            mod.vtkRenderer = renderer_factory  # type: ignore[assignment,misc]
         out_buf, err_buf = io.StringIO(), io.StringIO()
         try:
             with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(
@@ -122,8 +162,10 @@ def execute_vtk_code(
                 except Exception as render_error:
                     logger.warning("Render error: %s", render_error)
         finally:
-            vtk.vtkRenderWindow = real_window_cls  # type: ignore[assignment,misc]
-            vtk.vtkRenderWindowInteractor = real_interactor_cls  # noqa: E501  # type: ignore[assignment,misc]
+            for mod, real_window_cls, real_interactor_cls, real_renderer_cls in originals:
+                mod.vtkRenderWindow = real_window_cls  # type: ignore[assignment,misc]
+                mod.vtkRenderWindowInteractor = real_interactor_cls  # type: ignore[assignment,misc]
+                mod.vtkRenderer = real_renderer_cls  # type: ignore[assignment,misc]
         _last_stdout, _last_stderr = out_buf.getvalue(), err_buf.getvalue()
 
         return True, None, None

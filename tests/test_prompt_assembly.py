@@ -17,7 +17,7 @@ def _assert_basic_structure(result):
     assert isinstance(result["messages"], list)
     assert len(result["messages"]) >= 3
     assert all("role" in msg and "content" in msg for msg in result["messages"])
-    assert result.get("model") == "anthropic/claude-sonnet-4-6"
+    assert result.get("model") == "anthropic/claude-sonnet-5"
 
 
 def _get_content(result):

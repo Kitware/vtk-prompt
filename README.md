@@ -108,7 +108,7 @@ vtk-prompt "Create a red sphere" -t $API_KEY
 # Advanced options
 vtk-prompt "Create a textured cone with 32 resolution" \
   --provider anthropic \
-  --model claude-opus-4-7 \
+  --model claude-opus-5 \
   --max-tokens 4000 \
   --mcp-url http://localhost:8000 \
   --verbose \
@@ -156,7 +156,7 @@ print(code)
 
 ```yaml
 # Model and parameter configuration
-model: anthropic/claude-opus-4-1-20250805
+model: anthropic/claude-opus-5
 modelParameters:
   temperature: 0.2
   max_tokens: 6000
@@ -215,7 +215,7 @@ uv pip install -e ".[test]" && pytest
 
 | Provider      | Default Model                  | Base URL                            |
 | ------------- | ------------------------------ | ----------------------------------- |
-| **anthropic** | claude-sonnet-4-6              | https://api.anthropic.com/v1        |
+| **anthropic** | claude-sonnet-5                | https://api.anthropic.com/v1        |
 | **openai**    | gpt-4.1                        | https://api.openai.com/v1           |
 | **gemini**    | gemini-2.5-pro                 | https://generativelanguage.googleapis.com/v1beta |
 | **nim**       | meta/llama-3.3-70b-instruct    | https://integrate.api.nvidia.com/v1 |

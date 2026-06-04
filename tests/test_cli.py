@@ -99,7 +99,7 @@ class TestCLI:
         "provider,expected_model",
         [
             ("openai", "gpt-4.1"),
-            ("anthropic", "claude-sonnet-4-6"),
+            ("anthropic", "claude-sonnet-5"),
             ("gemini", "gemini-2.5-pro"),
             ("nim", "meta/llama-3.3-70b-instruct"),
         ],

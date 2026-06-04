@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 OPENAI_MODELS = ["gpt-4.1", "gpt-4.1-mini", "o4-mini", "o3"]
 
 ANTHROPIC_MODELS = [
-    "claude-opus-4-7",
-    "claude-sonnet-4-6",
+    "claude-opus-5",
+    "claude-sonnet-5",
     "claude-haiku-4-5-20251001",
 ]
 
@@ -29,10 +29,10 @@ NIM_MODELS = [
 
 
 # Models that don't support temperature control (must use temperature=1.0)
-TEMPERATURE_UNSUPPORTED_MODELS = ["o4-mini", "o3"]
+TEMPERATURE_UNSUPPORTED_MODELS = ["o4-mini", "o3", "claude-opus-5", "claude-sonnet-5"]
 
 DEFAULT_PROVIDER = "anthropic"
-DEFAULT_MODEL = "claude-sonnet-4-6"
+DEFAULT_MODEL = "claude-sonnet-5"
 
 
 def supports_temperature(model: str) -> bool:
@@ -82,8 +82,8 @@ def get_default_model(provider: str) -> str:
     """Get the default/recommended model for a provider."""
     defaults = {
         "openai": "gpt-4.1",
-        "anthropic": "claude-sonnet-4-6",
+        "anthropic": "claude-sonnet-5",
         "gemini": "gemini-2.5-pro",
         "nim": "meta/llama-3.3-70b-instruct",
     }
-    return defaults.get(provider, "claude-sonnet-4-6")
+    return defaults.get(provider, "claude-sonnet-5")

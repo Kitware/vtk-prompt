@@ -43,9 +43,13 @@ def test_guarded_main_script_adds_actor_to_renderer():
         render_window = vtk.vtkRenderWindow()
         render_window.SetOffScreenRendering(1)
         render_window.AddRenderer(renderer)
+        render_window_interactor = vtk.vtkRenderWindowInteractor()
+        render_window_interactor.SetRenderWindow(render_window)
     except Exception:  # pragma: no cover - no VTK rendering backend available
         pytest.skip("VTK render window unavailable in this environment")
 
-    ok, err, _ = execute_vtk_code(GUARDED_SPHERE, renderer, render_window)
+    ok, err, _ = execute_vtk_code(
+        GUARDED_SPHERE, renderer, render_window, render_window_interactor
+    )
     assert ok, err
     assert renderer.GetActors().GetNumberOfItems() == 1

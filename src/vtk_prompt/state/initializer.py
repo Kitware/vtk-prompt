@@ -53,6 +53,8 @@ def initialize_state(app: Any) -> None:
     app.state.mcp_url = ""
     app.state.log_tool_calls = False  # log vtk-mcp tool calls to the console
     app.state.agentic_retrieval = False  # skip pre-injected context; use tools
+    app.state.mcp_status = "idle"  # "idle" | "checking" | "ok" | "error"
+    app.state.dsl_translation = True
     app.state.error_message = ""
     app.state.console_log = []  # per-run captured output groups
     app.state.info_tab = "conversation"  # Conversation | Console tab in the info pane

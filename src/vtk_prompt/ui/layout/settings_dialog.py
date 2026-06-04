@@ -174,6 +174,15 @@ def _advanced_tab() -> None:
                 clearable=True,
                 density="compact",
                 variant="outlined",
+                append_inner_icon=(
+                    "mcp_status === 'ok' ? 'mdi-check-circle' : "
+                    "mcp_status === 'error' ? 'mdi-alert-circle' : "
+                    "mcp_status === 'checking' ? 'mdi-loading mdi-spin' : ''",
+                ),
+                color=(
+                    "mcp_status === 'ok' ? 'success' : "
+                    "mcp_status === 'error' ? 'error' : undefined",
+                ),
                 hint="Leave blank for baseline generation without tools",
                 persistent_hint=True,
                 classes="mb-3",
@@ -188,6 +197,18 @@ def _advanced_tab() -> None:
                 variant="outlined",
                 disabled=("!mcp_url",),
                 hint="Context snippets retrieved per request",
+                persistent_hint=True,
+                classes="mb-3",
+            )
+            vuetify.VCheckbox(
+                label="Auto-translate to DSL",
+                v_model=("dsl_translation", True),
+                density="compact",
+                color="primary",
+                disabled=("!mcp_url",),
+                hide_details="auto",
+                hint="Convert natural language prompts to the VTK "
+                "pipeline DSL before code generation",
                 persistent_hint=True,
             )
             vuetify.VCheckbox(

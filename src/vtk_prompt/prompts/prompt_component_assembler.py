@@ -199,6 +199,7 @@ def assemble_vtk_prompt(
     context_snippets: str | None = None,
     mcp_active: bool = False,
     uploaded_files: list[str] | None = None,
+    dsl_translation: bool = True,
     **variables: Any,
 ) -> PromptData:
     """Assemble VTK prompt from file-based components.
@@ -209,6 +210,8 @@ def assemble_vtk_prompt(
         context_snippets: Optional context snippets from vtk-mcp (enables rag_context component)
         mcp_active: Whether a vtk-mcp server is reachable (enables tool_use guidance)
         uploaded_files: Names of user-uploaded data files (enables user_data component)
+        dsl_translation: Whether DSL auto-translation is enabled (when False, instructs
+            the LLM not to call the DSL translation tools itself)
         **variables: Additional variables for substitution
 
     Returns:
@@ -223,6 +226,7 @@ def assemble_vtk_prompt(
 
     # Conditional components (order matters for message composition)
     assembler.add_if(mcp_active, "tool_use")
+    assembler.add_if(mcp_active and not dsl_translation, "no_dsl_translation_tools")
     assembler.add_if(bool(context_snippets), "rag_context")
     assembler.add_if(ui_mode, "ui_renderer")
     assembler.add_if(bool(uploaded_files), "user_data")

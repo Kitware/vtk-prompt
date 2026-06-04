@@ -1,4 +1,4 @@
-model: anthropic/claude-sonnet-4-6
+model: anthropic/claude-sonnet-5
 modelParameters:
   temperature: 0.5
   max_tokens: 10000

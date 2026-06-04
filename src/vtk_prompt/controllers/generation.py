@@ -228,6 +228,8 @@ async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> No
                 provider=app.state.provider,
                 custom_prompt=app.custom_prompt_data,
                 ui_mode=True,  # This tells the client to use UI-specific components
+                dsl_translation=bool(app.state.dsl_translation),
+                debug=getattr(app, "debug", False),
             )
             if conversation_token(app, origin_session_id) != token:
                 # The originating conversation was reset or re-generated; drop this.
@@ -311,6 +313,7 @@ async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> No
                 provider=app.state.provider,
                 custom_prompt=app.custom_prompt_data,
                 ui_mode=True,
+                debug=getattr(app, "debug", False),
             )
             app.state.conversation = retry_messages
             if isinstance(retry_result, tuple) and len(retry_result) >= 2:
@@ -492,7 +495,7 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
 
     exec_code = stage_code(code_string)
     success, error_message, error_line_text = execute_vtk_code(
-        exec_code, app.renderer, app.render_window
+        exec_code, app.renderer, app.render_window, app.render_window_interactor
     )
 
     # The formatted run error goes to the console (below), not a floating alert.
