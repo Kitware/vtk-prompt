@@ -356,7 +356,16 @@ class VTKPromptClient:
                 }
             )
         else:
-            # Normal path: build context and prompt
+            # Normal path: translate to DSL if needed, then build context and prompt
+            if mcp_client:
+                is_dsl = mcp_client._call_tool("is_dsl_prompt", {"text": message})
+                if is_dsl not in ("true", "True", True):
+                    translated = mcp_client.translate_prompt(message)
+                    if translated:
+                        if self.verbose:
+                            logger.debug("DSL translation:\n%s", translated)
+                        message = translated
+
             context_snippets = None
             if mcp_client:
                 mcp_context = mcp_client.get_enriched_context(message, top_k=top_k)
