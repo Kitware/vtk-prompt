@@ -3,6 +3,7 @@
 import vtk
 
 from .. import get_logger
+from ..utils.helpers import ensure_vtk_importable
 
 logger = get_logger(__name__)
 
@@ -19,15 +20,8 @@ def execute_vtk_code(
         # Clear previous actors
         renderer.RemoveAllViewProps()
 
-        # Clean the code
-        pos = code_string.find("import vtk")
-        if pos != -1:
-            code_string = code_string[pos:]
-
-        # Ensure vtk is imported
-        code_segment = code_string
-        if "import vtk" not in code_segment:
-            code_segment = "import vtk\n" + code_segment
+        # Ensure vtk is importable without clobbering module-specific imports
+        code_segment = ensure_vtk_importable(code_string)
 
         # Create execution globals with renderer available
         exec_globals = {

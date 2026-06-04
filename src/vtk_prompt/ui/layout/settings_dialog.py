@@ -234,7 +234,7 @@ def build_settings_dialog(layout: Any, app: Any) -> None:
                                 )
                                 vuetify.VTextField(
                                     label="Retry Attempts",
-                                    v_model=("retry_attempts", 1),
+                                    v_model=("retry_attempts", 3),
                                     type="number",
                                     min=1,
                                     max=5,
