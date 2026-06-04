@@ -2,7 +2,7 @@
 Settings Dialog Layout Module.
 
 This module provides the advanced settings dialog layout for the VTK Prompt UI.
-The dialog contains model configuration, RAG settings, and file controls.
+The dialog contains model configuration, vtk-mcp settings, and file controls.
 """
 
 from typing import Any
@@ -180,15 +180,21 @@ def build_settings_dialog(layout: Any, app: Any) -> None:
 
                     # Advanced Settings Tab
                     with vuetify.VTabsWindowItem(value="advanced"):
-                        # RAG Settings Card
+                        # vtk-mcp Settings Card
                         with vuetify.VCard(classes="mt-2"):
-                            vuetify.VCardTitle("⚙️  RAG settings", classes="pb-0")
+                            vuetify.VCardTitle("🔌 vtk-mcp", classes="pb-0")
                             with vuetify.VCardText():
-                                vuetify.VCheckbox(
-                                    v_model=("use_rag", False),
-                                    label="RAG",
-                                    prepend_icon="mdi-bookshelf",
+                                vuetify.VTextField(
+                                    label="vtk-mcp Server URL",
+                                    v_model=("mcp_url", ""),
+                                    placeholder="http://localhost:8000",
+                                    clearable=True,
                                     density="compact",
+                                    variant="outlined",
+                                    prepend_icon="mdi-bookshelf",
+                                    hint="Enables context retrieval and VTK API "
+                                    "validation; leave blank for baseline generation",
+                                    persistent_hint=True,
                                 )
                                 vuetify.VTextField(
                                     label="Top K",
@@ -197,7 +203,7 @@ def build_settings_dialog(layout: Any, app: Any) -> None:
                                     min=1,
                                     max=15,
                                     density="compact",
-                                    disabled=("!use_rag",),
+                                    disabled=("!mcp_url",),
                                     variant="outlined",
                                     prepend_icon="mdi-chart-scatter-plot",
                                 )
