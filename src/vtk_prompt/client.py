@@ -379,9 +379,18 @@ class VTKPromptClient:
                 yaml_messages = self._format_custom_prompt(
                     custom_prompt, message, context_snippets
                 )
-                if self.verbose:
+                if not yaml_messages:
+                    logger.warning(
+                        "custom_prompt provided but defines no 'messages'; "
+                        "falling back to built-in prompt assembly"
+                    )
+                elif self.verbose:
                     logger.debug("Using custom YAML prompt from file")
             else:
+                yaml_messages = []
+
+            # Fall back to component assembly when no usable custom messages exist.
+            if not yaml_messages:
                 from .prompts import PYTHON_VERSION, VTK_VERSION
 
                 prompt_data = assemble_vtk_prompt(

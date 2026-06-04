@@ -49,6 +49,18 @@ def apply_custom_prompt_data(app: Any, data: dict[str, Any]) -> None:
         _process_rag_and_generation_settings(app)
         _process_model_parameters(app)
 
+        # A file is only treated as a *prompt* if it defines messages.
+        # A config file (model/base_url/mcp_url/top_k/... but no messages)
+        # supplies settings only; keeping it as custom_prompt_data would make
+        # the client send an empty message list to the LLM. Settings above are
+        # already applied to app.state, so discard the non-prompt payload.
+        if "messages" not in data:
+            logger.info(
+                "Loaded file has no 'messages'; treating as config only, "
+                "built-in prompts will be used."
+            )
+            app.custom_prompt_data = None
+
 
 def _process_model_configuration(app: Any) -> None:
     """Process model configuration from custom prompt data."""
