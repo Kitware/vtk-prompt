@@ -80,6 +80,7 @@ def build_content(layout: Any, app: Any) -> None:
                                     rows=4,
                                     variant="outlined",
                                     placeholder=("e.g., Create a red sphere with lighting"),
+                                    persistent_placeholder=True,
                                     hide_details=True,
                                     no_resize=True,
                                 )
