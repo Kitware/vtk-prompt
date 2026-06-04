@@ -5,6 +5,7 @@ This module provides functions for initializing application state variables
 and setting up the VTK Prompt UI application state.
 """
 
+import os
 from typing import Any
 
 from .. import get_logger
@@ -71,7 +72,11 @@ def initialize_state(app: Any) -> None:
     # Load component defaults and sync UI state
     _load_component_defaults(app)
 
-    app.state.api_token = ""
+    # Seed the API token from the environment (e.g. OPENAI_API_KEY from a .env)
+    # so the token field is populated without manual entry. Without this the
+    # "Generate Code" button stays hidden (it is gated on api_token), which is a
+    # dead end when the key is supplied via environment rather than typed.
+    app.state.api_token = os.environ.get("OPENAI_API_KEY", "")
 
     # Build UI
     app._build_ui()
