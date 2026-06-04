@@ -104,6 +104,14 @@ def _process_rag_and_generation_settings(app: Any) -> None:
             app.state.retry_attempts = int(_retries)
         else:
             logger.warning("Invalid retries in prompt file: %r; keeping existing", _retries)
+    if "mcp_url" in app.custom_prompt_data:
+        _mcp = app.custom_prompt_data.get("mcp_url")
+        if isinstance(_mcp, str):
+            app.state.mcp_url = _mcp.strip()
+    if "base_url" in app.custom_prompt_data:
+        _base = app.custom_prompt_data.get("base_url")
+        if isinstance(_base, str) and _base.strip():
+            app.state.local_base_url = _base.strip()
 
 
 def _process_model_parameters(app: Any) -> None:

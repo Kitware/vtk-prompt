@@ -45,11 +45,13 @@ def save_config(app: Any) -> str:
     retries = int(getattr(app.state, "retry_attempts", 1))
     mcp_url = getattr(app.state, "mcp_url", "").strip()
     top_k = int(getattr(app.state, "top_k", 5))
+    base_url = getattr(app.state, "local_base_url", "").strip() if not use_cloud else ""
 
     content = {
         "name": "Custom VTK Prompt config file",
         "description": f"Exported from UI - {'Cloud' if use_cloud else 'Local'} configuration",
         "model": provider_model,
+        "base_url": base_url,
         "mcp_url": mcp_url,
         "top_k": top_k,
         "retries": retries,
