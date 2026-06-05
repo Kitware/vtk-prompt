@@ -30,6 +30,11 @@ def initialize_state(app: Any) -> None:
     app.state.error_message = ""
     app.state.input_tokens = 0
     app.state.output_tokens = 0
+    app.state.advanced_settings_open = False
+    app.state.active_settings_tab = "files"
+
+    # File upload state variables
+    app.state.uploaded_files = None
 
     # Conversation state variables
     app._conversation_loading = False
@@ -41,6 +46,10 @@ def initialize_state(app: Any) -> None:
     app.state.can_navigate_left = False
     app.state.can_navigate_right = False
     app.state.is_viewing_history = False
+
+    # Prompt file state variables
+    app.state.prompt_object = None
+    app.state.prompt_file = None
 
     # Toast notification state
     app.state.toast_message = ""

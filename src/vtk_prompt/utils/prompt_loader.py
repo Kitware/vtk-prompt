@@ -28,20 +28,26 @@ def load_custom_prompt_file(app: Any) -> None:
             return
 
         with open(custom_file_path, "r") as f:
-            app.custom_prompt_data = yaml.safe_load(f)
+            data = yaml.safe_load(f)
 
         logger.info("Loaded custom prompt file: %s", custom_file_path.name)
-
-        # Override UI defaults with custom prompt parameters
-        if app.custom_prompt_data and isinstance(app.custom_prompt_data, dict):
-            _process_model_configuration(app)
-            _process_rag_and_generation_settings(app)
-            _process_model_parameters(app)
+        apply_custom_prompt_data(app, data)
     except (yaml.YAMLError, ValueError) as e:
-        # Log error and surface to UI as well
         logger.error("Failed to load custom prompt file %s: %s", app.custom_prompt_file, e)
         app.state.error_message = str(e)
         app.custom_prompt_data = None
+
+
+def apply_custom_prompt_data(app: Any, data: dict[str, Any]) -> None:
+    """Apply pre-parsed prompt data to the app, overriding UI defaults.
+
+    This is the shared logic used by both file-based and in-memory prompt loading.
+    """
+    app.custom_prompt_data = data
+    if data and isinstance(data, dict):
+        _process_model_configuration(app)
+        _process_rag_and_generation_settings(app)
+        _process_model_parameters(app)
 
 
 def _process_model_configuration(app: Any) -> None:

@@ -22,7 +22,7 @@ from typing import Any
 import vtk
 from trame.app import TrameApp
 from trame.decorators import change, controller, trigger
-from trame.ui.vuetify3 import SinglePageWithDrawerLayout
+from trame.ui.vuetify3 import SinglePageLayout
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
@@ -32,7 +32,7 @@ from .rendering import (
     setup_vtk_renderer,
 )
 from .state import config_state, config_validator, initializer
-from .ui.layout import build_content, build_drawer, build_toolbar
+from .ui.layout import build_content, build_settings_dialog, build_toolbar
 from .utils import file_handlers, prompt_loader
 
 logger = get_logger(__name__)
@@ -154,6 +154,18 @@ class VTKPromptApp(TrameApp):
         """Execute VTK code with our renderer."""
         generation.execute_with_renderer(self, code_string)
 
+    @change("uploaded_files")
+    def _on_uploaded_files_change(self, uploaded_files, **kwargs):
+        """Handle multiple file uploads with intelligent routing."""
+        if uploaded_files:
+            from .controllers.conversation import process_uploaded_files
+
+            process_uploaded_files(self, uploaded_files)
+        else:
+            # Clear file state when no files uploaded
+            self.state.prompt_file = None
+            self.state.conversation_file = None
+
     @change("conversation_object")
     def on_conversation_file_data_change(
         self, conversation_object: dict[str, Any] | None, **_: Any
@@ -211,15 +223,15 @@ class VTKPromptApp(TrameApp):
         # Initialize drawer state as collapsed
         self.state.main_drawer = False
 
-        with SinglePageWithDrawerLayout(
+        with SinglePageLayout(
             self.server, theme=("theme_mode", "light"), style="max-height: 100vh;"
         ) as layout:
             layout.title.set_text("VTK Prompt UI")
 
             # Build UI sections using layout modules
-            build_toolbar(layout)
-            build_drawer(layout)
+            build_toolbar(layout, self)
             build_content(layout, self)
+            build_settings_dialog(layout, self)
 
     def start(self) -> None:
         """Start the trame server."""
