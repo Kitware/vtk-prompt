@@ -1,6 +1,0 @@
-    frustumSource = vtkFrustumSource()
-    frustumSource.ShowLinesOff()
-    frustumSource.SetPlanes(planes)
-
-    shrink = vtkShrinkPolyData()
-    shrink.SetInputConnection(frustumSource.GetOutputPort())

@@ -1,6 +1,0 @@
-    motion = vtkSimpleMotionBlurPass()
-    motion.SetDelegatePass(basicPasses)
-
-    # Tell the renderer to use our render pass pipeline.
-    renderer.SetPass(motion)
-

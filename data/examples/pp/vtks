@@ -1,6 +1,0 @@
-    parser.add_argument('filename', help='vtks.pgm.')
-    args = parser.parse_args()
-    return args.filename
-
-
-def CreateImageActor(actor, colorWindow, colorLevel):

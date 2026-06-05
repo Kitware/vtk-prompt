@@ -1,6 +1,0 @@
-        text_actor = vtkBillboardTextActor3D()
-        text_actor.SetInput('')
-        text_actor.SetPosition(actor.GetPosition())
-        text_actor.GetTextProperty().SetFontSize(12)
-        text_actor.GetTextProperty().SetColor(colors.GetColor3d('Gold'))
-        text_actor.GetTextProperty().SetJustificationToCentered()

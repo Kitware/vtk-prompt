@@ -1,6 +1,0 @@
-    magnify = vtkImageMagnify()
-    magnify.SetInputConnection(cast.GetOutputPort())
-    magnify.SetMagnificationFactors(2, 2, 1)
-    magnify.InterpolateOn()
-
-    # Smooth the data.

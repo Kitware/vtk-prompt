@@ -1,8 +1,0 @@
-    pos = vtkVector2i()
-
-    lastPos = vtkVector2i()
-    mouseEvent.SetButton(vtkContextMouseEvent.LEFT_BUTTON)
-    lastPos.Set(100, 50)
-    mouseEvent.SetLastScreenPos(lastPos)
-    pos.Set(150, 100)
-    mouseEvent.SetScreenPos(pos)

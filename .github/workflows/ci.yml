@@ -145,3 +145,31 @@ jobs:
       - name: Test vtk-prompt CLI
         run: |
           vtk-prompt --help
+
+  uv-vtk-mcp-smoke:
+    name: uv + vtk-mcp Install Smoke Test
+    runs-on: ubuntu-latest
+    needs: [format, lint, type]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install vtk-prompt via uv
+        run: uv pip install -e .
+
+      - name: Install vtk-mcp and GitHub-hosted dependencies via uv
+        run: |
+          uv pip install \
+            git+https://github.com/vicentebolea/vtk-knowledge \
+            git+https://github.com/vicentebolea/vtk-validate \
+            git+https://github.com/vicentebolea/vtk-index \
+            "git+https://github.com/Kitware/vtk-mcp[retrieval]"
+
+      - name: Verify CLI entry points
+        run: |
+          uv run vtk-prompt --help
+          uv run vtk-mcp --vtk-version 9.6.1 --help

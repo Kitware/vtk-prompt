@@ -1,6 +1,0 @@
-    deform = vtkDeformPointSet()
-    deform.SetInputData(ele.GetOutput())
-    deform.SetControlMeshData(pd)
-    deform.Update()
-
-    controlPoint = pts.GetPoint(5)

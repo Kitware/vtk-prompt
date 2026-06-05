@@ -1,6 +1,0 @@
-    butterworthHighPass = vtkImageButterworthHighPass()
-    butterworthHighPass.SetInputConnection(fft.GetOutputPort())
-    butterworthHighPass.SetXCutOff(0.1)
-    butterworthHighPass.SetYCutOff(0.1)
-
-    butterworthRfft = vtkImageRFFT()

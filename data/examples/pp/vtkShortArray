@@ -1,6 +1,0 @@
-    scalars = vtkShortArray()
-    for i in range(0, numPts):
-        scalars.InsertTuple1(i, 0)
-    for j in range(0, iterations):
-        # Integrate to the next time step.
-        xx = x + h * Pr * (y - x)

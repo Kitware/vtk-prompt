@@ -1,6 +1,0 @@
-    cdsa = vtkCompositeDataDisplayAttributes()
-    mapper.SetCompositeDataDisplayAttributes(cdsa)
-
-    # You can use the vtkCompositeDataDisplayAttributes to set the color,
-    # opacity and visibiliy of individual blocks of the multiblock dataset.
-    # Attributes are mapped by block pointers (vtkDataObject*), so these can

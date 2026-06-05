@@ -1,6 +1,0 @@
-    surface = vtkDataSetSurfaceFilter()
-    surface.SetInputData(uGrid)
-    surface.Update()
-
-    aBeamMapper = vtkDataSetMapper()
-    aBeamMapper.SetInputConnection(surface.GetOutputPort())

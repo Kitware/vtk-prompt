@@ -1,6 +1,0 @@
-    importer = vtk3DSImporter()
-    importer.SetFileName(fileName)
-    importer.ComputeNormalsOn()
-
-    colors = vtkNamedColors()
-

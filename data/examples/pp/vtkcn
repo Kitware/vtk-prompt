@@ -1,6 +1,0 @@
-            values = self.cs.vtkcn[key]
-            for name in values:
-                rgb = self.nc.GetColor3ub(name)
-                Y = self.htmlRGBA.RGBToLumaCCIR601(rgb)
-                textColor = '#000000'  # Black
-                if Y < 255 / 2.0:

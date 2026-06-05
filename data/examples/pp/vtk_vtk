@@ -1,6 +1,0 @@
-                        default='https://raw.githubusercontent.com/Kitware/vtk-examples/gh-pages/src/Coverage/vtk_vtk-examples_xref.json',
-                        help='The URL for the JSON cross-reference file.')
-    parser.add_argument('-o', '--overwrite', action="store_true",
-                        help='Force an initial download of the JSON cross-reference file.')
-
-    args = parser.parse_args()

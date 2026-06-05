@@ -1,6 +1,0 @@
-        additional_modules = ['vtkInteractionStyle', 'vtkRenderingFreeType',
-                              'vtkRenderingContextOpenGL2', 'vtkRenderingOpenGL2', 'vtkRenderingVolumeOpenGL2',
-                              'vtkRenderingUI']
-        comments = [
-            '',
-            '# You may need to uncomment one or more of the following imports.',

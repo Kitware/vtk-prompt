@@ -1,6 +1,0 @@
-    cubeAxesActor = vtkCubeAxesActor()
-    cubeAxesActor.SetUseTextActor3D(1)
-    cubeAxesActor.SetBounds(superquadricSource.GetOutput().GetBounds())
-    cubeAxesActor.SetCamera(renderer.GetActiveCamera())
-    cubeAxesActor.GetTitleTextProperty(0).SetColor(axis1Color)
-    cubeAxesActor.GetTitleTextProperty(0).SetFontSize(48)

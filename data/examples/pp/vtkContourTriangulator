@@ -1,6 +1,0 @@
-    poly = vtkContourTriangulator()
-    poly.SetInputConnection(iso.GetOutputPort())
-
-    poly_mapper = vtkDataSetMapper()
-    poly_mapper.SetInputConnection(poly.GetOutputPort())
-    poly_mapper.ScalarVisibilityOff()

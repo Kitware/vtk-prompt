@@ -1,6 +1,0 @@
-    mirrorPad = vtkImageMirrorPad()
-    mirrorPad.SetInputConnection(reader.GetOutputPort())
-    mirrorPad.SetOutputWholeExtent(constantPad.GetOutputWholeExtent())
-
-    # Create actors
-    constantPadColor = vtkImageMapToWindowLevelColors()

@@ -1,6 +1,0 @@
-    plot = vtkPlotSurface()
-
-    view = vtkContextView()
-    view.GetRenderer().SetBackground(colors.GetColor3d("Silver"))
-    view.GetRenderWindow().SetSize(640, 480)
-    view.GetScene().AddItem(chart)

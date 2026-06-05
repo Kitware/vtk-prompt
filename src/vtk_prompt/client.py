@@ -6,7 +6,7 @@ code generation, execution, and error handling with retry logic.
 
 Features:
 - Singleton pattern for conversation persistence
-- RAG (Retrieval-Augmented Generation) integration for context-aware code generation
+- vtk-mcp integration for context-aware code generation and validation
 - Automatic code execution and error handling
 - Conversation history management and file persistence
 - Multiple model provider support (OpenAI, Anthropic, Gemini, NIM)
@@ -38,11 +38,10 @@ class VTKPromptClient:
 
     _instance: "VTKPromptClient" | None = None
     _initialized: bool = False
-    collection_name: str = "vtk-examples"
-    database_path: str = "./db/codesage-codesage-large-v2"
     verbose: bool = False
     conversation_file: str | None = None
     conversation: list[dict[str, str]] | None = None
+    mcp_url: str | None = None
 
     def __new__(cls, **kwargs: Any) -> "VTKPromptClient":
         """Create singleton instance of VTKPromptClient."""
@@ -242,26 +241,15 @@ class VTKPromptClient:
 
         return model, temperature, max_tokens, warnings
 
-    def _extract_context_snippets(self, rag_snippets: dict) -> str:
-        """Extract and format RAG context snippets.
-
-        Args:
-            rag_snippets: RAG snippets dictionary
-
-        Returns:
-            Formatted context snippets string
-        """
-        return "\n\n".join(rag_snippets["code_snippets"])
-
     def _format_custom_prompt(
-        self, custom_prompt_data: dict, message: str, rag_snippets: dict | None = None
+        self, custom_prompt_data: dict, message: str, context_snippets: str | None = None
     ) -> list[dict[str, str]]:
         """Format custom prompt data into messages for LLM client.
 
         Args:
             custom_prompt_data: The loaded YAML prompt data
             message: The user request
-            rag_snippets: Optional RAG snippets for context enhancement
+            context_snippets: Optional context snippets from vtk-mcp
 
         Returns:
             Formatted messages ready for LLM client
@@ -279,9 +267,8 @@ class VTKPromptClient:
             "request": message,
         }
 
-        # Add RAG context if available
-        if rag_snippets:
-            variables["context_snippets"] = self._extract_context_snippets(rag_snippets)
+        if context_snippets:
+            variables["context_snippets"] = context_snippets
 
         # Process messages from custom prompt
         messages = custom_prompt_data.get("messages", [])
@@ -303,13 +290,13 @@ class VTKPromptClient:
         max_tokens: int = 1000,
         temperature: float = 0.1,
         top_k: int = 5,
-        rag: bool = False,
         retry_attempts: int = 1,
         provider: str | None = None,
         custom_prompt: dict | None = None,
         ui_mode: bool = False,
+        execution_error: str | None = None,
     ) -> tuple[str, str, Any] | tuple[str, str, Any, list[str]] | str:
-        """Generate VTK code with optional RAG enhancement and retry logic.
+        """Generate VTK code using vtk-mcp tools when available.
 
         Args:
             message: The user query
@@ -318,8 +305,7 @@ class VTKPromptClient:
             base_url: API base URL
             max_tokens: Maximum tokens to generate
             temperature: Temperature for generation
-            top_k: Number of RAG examples to retrieve
-            rag: Whether to use RAG enhancement
+            top_k: Number of context snippets to retrieve from vtk-mcp
             retry_attempts: Number of times to retry if AST validation fails
             provider: LLM provider to use (overrides instance provider if provided)
             custom_prompt: Custom YAML prompt data (overrides built-in prompts)
@@ -341,92 +327,82 @@ class VTKPromptClient:
         if not message and not self.conversation:
             raise ValueError("No prompt or conversation file provided")
 
-        if rag:
-            from .rag_chat_wrapper import (
-                check_rag_components_available,
-                get_rag_snippets,
-            )
+        # Set up vtk-mcp client (context retrieval, tool calling, and code validation)
+        mcp_client = None
+        if self.mcp_url:
+            from .vtk_mcp_client import VTKMCPClient, check_mcp_available
 
-            if not check_rag_components_available():
-                raise ValueError("RAG components not available")
-            rag_snippets = get_rag_snippets(
-                message,
-                collection_name=self.collection_name,
-                database_path=self.database_path,
-                top_k=top_k,
-            )
+            if check_mcp_available(self.mcp_url):
+                mcp_client = VTKMCPClient(self.mcp_url)
+            else:
+                logger.warning("vtk-mcp server not available at %s", self.mcp_url)
 
         # Store validation warnings to return to caller
         validation_warnings = []
 
-        # Use custom prompt if provided, otherwise use component-based assembly
-        if custom_prompt:
-            # Validate and extract model parameters from custom prompt
-            validated_model, validated_temp, validated_max_tokens, warnings = (
-                self._validate_and_extract_model_params(
-                    custom_prompt, model, temperature, max_tokens
-                )
+        if execution_error:
+            # Retry after execution failure: append error and let LLM fix it with tools
+            if not self.conversation:
+                raise ValueError("No conversation to retry")
+            self.conversation.append(
+                {
+                    "role": "user",
+                    "content": (
+                        f"The generated code failed at runtime with this error:\n"
+                        f"{execution_error}\n"
+                        f"Please use the available tools to look up the correct VTK API "
+                        f"and provide corrected code."
+                    ),
+                }
             )
-            validation_warnings.extend(warnings)
-
-            # Apply validated parameters
-            model = validated_model
-            temperature = validated_temp
-            max_tokens = validated_max_tokens
-
-            # Log warnings
-            for warning in warnings:
-                logger.warning(warning)
-
-            # Process custom prompt data
-            yaml_messages = self._format_custom_prompt(
-                custom_prompt, message, rag_snippets if rag else None
-            )
-            if self.verbose:
-                logger.debug("Using custom YAML prompt from file")
-                logger.debug(
-                    "Applied model: %s, temperature: %s, max_tokens: %s",
-                    model,
-                    temperature,
-                    max_tokens,
-                )
         else:
-            # Use component-based assembly system (now the default and only option)
-            from .prompts import PYTHON_VERSION, VTK_VERSION
-
+            # Normal path: build context and prompt
             context_snippets = None
-            if rag and rag_snippets:
-                context_snippets = self._extract_context_snippets(rag_snippets)
+            if mcp_client:
+                mcp_context = mcp_client.get_enriched_context(message, top_k=top_k)
+                if mcp_context:
+                    context_snippets = mcp_context
 
-            prompt_data = assemble_vtk_prompt(
-                request=message,
-                ui_mode=ui_mode,
-                rag_enabled=rag,
-                context_snippets=context_snippets,
-                VTK_VERSION=VTK_VERSION,
-                PYTHON_VERSION=PYTHON_VERSION,
-            )
-            yaml_messages = prompt_data["messages"]
+            if custom_prompt:
+                validated_model, validated_temp, validated_max_tokens, warnings = (
+                    self._validate_and_extract_model_params(
+                        custom_prompt, model, temperature, max_tokens
+                    )
+                )
+                validation_warnings.extend(warnings)
+                model = validated_model
+                temperature = validated_temp
+                max_tokens = validated_max_tokens
+                for warning in warnings:
+                    logger.warning(warning)
+                yaml_messages = self._format_custom_prompt(
+                    custom_prompt, message, context_snippets
+                )
+                if self.verbose:
+                    logger.debug("Using custom YAML prompt from file")
+            else:
+                from .prompts import PYTHON_VERSION, VTK_VERSION
 
-            if self.verbose:
-                mode_str = "UI" if ui_mode else "CLI"
-                rag_str = " + RAG" if rag else ""
-                logger.debug(f"Using component assembly ({mode_str}{rag_str})")
+                prompt_data = assemble_vtk_prompt(
+                    request=message,
+                    ui_mode=ui_mode,
+                    context_snippets=context_snippets,
+                    VTK_VERSION=VTK_VERSION,
+                    PYTHON_VERSION=PYTHON_VERSION,
+                )
+                yaml_messages = prompt_data["messages"]
+                if self.verbose:
+                    mode_str = "UI" if ui_mode else "CLI"
+                    mcp_str = " + MCP" if mcp_client else ""
+                    logger.debug(f"Using component assembly ({mode_str}{mcp_str})")
 
-                if rag and rag_snippets:
-                    references = rag_snippets.get("references")
-                    if references:
-                        logger.info("Using examples from: %s", ", ".join(references))
-
-        # Initialize conversation with YAML messages if empty
-        if not self.conversation:
-            self.conversation = []
-            # Add all messages from YAML prompt (system + user)
-            self.conversation.extend(yaml_messages)
-        else:
-            # If conversation exists, just add the user message (last message from YAML)
-            if message and yaml_messages:
+            if not self.conversation:
+                self.conversation = list(yaml_messages)
+            elif message and yaml_messages:
                 self.conversation.append(yaml_messages[-1])
+
+        # Fetch vtk-mcp tools for LLM tool calling
+        tools = mcp_client.list_tools() if mcp_client else []
 
         # Retry loop for AST validation
         for attempt in range(retry_attempts):
@@ -434,92 +410,171 @@ class VTKPromptClient:
                 if attempt > 0:
                     logger.debug("Retry attempt %d/%d", attempt + 1, retry_attempts)
                 logger.debug("Making request with model: %s, temperature: %s", model, temperature)
-                for i, msg in enumerate(self.conversation):
-                    logger.debug("Message %d (%s): %s...", i, msg["role"], msg["content"][:100])
 
-            response = client.chat.completions.create(
-                model=model,
-                messages=self.conversation,  # type: ignore[arg-type]
-                max_completion_tokens=max_tokens,
-                # max_tokens=max_tokens,
-                temperature=temperature,
-            )
+            # Agentic tool-calling loop: LLM calls vtk-mcp tools until it generates code
+            MAX_TOOL_ROUNDS = 10
+            content = None
+            response = None
+            for _ in range(MAX_TOOL_ROUNDS):
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=self.conversation,  # type: ignore[arg-type]
+                    max_completion_tokens=max_tokens,
+                    temperature=temperature,
+                    **(  # type: ignore[call-overload]
+                        {"tools": tools, "tool_choice": "auto"} if tools else {}
+                    ),
+                )
 
-            if hasattr(response, "choices") and len(response.choices) > 0:
-                content = response.choices[0].message.content or "No content in response"
-                finish_reason = response.choices[0].finish_reason
+                if not (hasattr(response, "choices") and response.choices):
+                    break
 
-                if finish_reason == "length":
-                    raise ValueError(
-                        f"Output was truncated due to max_tokens limit ({max_tokens}).\n"
-                        "Please increase max_tokens."
-                    )
+                choice = response.choices[0]
 
-                generated_explanation = re.findall(
-                    "<explanation>(.*?)</explanation>", content, re.DOTALL
-                )[0]
-                generated_code = re.findall("<code>(.*?)</code>", content, re.DOTALL)[0]
-                if "import vtk" not in generated_code:
-                    generated_code = "import vtk\n" + generated_code
-                else:
-                    pos = generated_code.find("import vtk")
-                    if pos != -1:
-                        generated_code = generated_code[pos:]
-                    else:
-                        generated_code = generated_code
+                if choice.finish_reason == "tool_calls" and choice.message.tool_calls:
+                    # Add assistant message with tool calls to conversation
+                    tc_msg: dict = {"role": "assistant", "content": choice.message.content or ""}
+                    tc_msg["tool_calls"] = [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments,
+                            },
+                        }
+                        for tc in choice.message.tool_calls
+                    ]
+                    self.conversation.append(tc_msg)
 
-                is_valid, error_msg = self.validate_code_syntax(generated_code)
-                if is_valid:
-                    if message:
-                        self.conversation.append({"role": "assistant", "content": content})
-                        self.save_conversation()
-                    # Return warnings if custom prompt was used
-                    if validation_warnings:
-                        return (
-                            generated_explanation,
-                            generated_code,
-                            response.usage,
-                            validation_warnings,
+                    # Execute each tool and append results
+                    for tc in choice.message.tool_calls:
+                        try:
+                            args = json.loads(tc.function.arguments)
+                        except Exception:
+                            args = {}
+                        result = mcp_client.call_tool(tc.function.name, args)  # type: ignore
+                        logger.debug("Tool %s -> %s...", tc.function.name, result[:80])
+                        self.conversation.append(
+                            {"role": "tool", "tool_call_id": tc.id, "content": result}
                         )
-                    return generated_explanation, generated_code, response.usage
+                    continue  # let LLM decide what to do next
 
-                elif attempt < retry_attempts - 1:  # Don't log on last attempt
-                    if self.verbose:
-                        logger.warning("AST validation failed: %s. Retrying...", error_msg)
-                    # Add error feedback to context for retry
+                # LLM generated a response (not a tool call)
+                content = choice.message.content or "No content in response"
+                break
+
+            if content is None:
+                # Tool loop exhausted without a text response
+                if attempt == retry_attempts - 1:
+                    return ("No response generated", "", getattr(response, "usage", None) or {})
+                continue
+
+            finish_reason = (
+                response.choices[0].finish_reason
+                if response and hasattr(response, "choices") and response.choices
+                else None
+            )
+            if finish_reason == "length":
+                raise ValueError(
+                    f"Output was truncated due to max_tokens limit ({max_tokens}).\n"
+                    "Please increase max_tokens."
+                )
+
+            expl_matches = re.findall("<explanation>(.*?)</explanation>", content, re.DOTALL)
+            code_matches = re.findall("<code>(.*?)</code>", content, re.DOTALL)
+
+            if not expl_matches or not code_matches:
+                if attempt < retry_attempts - 1:
                     self.conversation.append({"role": "assistant", "content": content})
                     self.conversation.append(
                         {
                             "role": "user",
                             "content": (
-                                f"The generated code has a syntax error: {error_msg}. "
-                                "Please fix the syntax and generate valid Python code."
+                                "Please format your response with "
+                                "<explanation>...</explanation> and <code>...</code> tags."
                             ),
                         }
                     )
-                else:
-                    # Last attempt failed
-                    if self.verbose:
-                        logger.error("Final attempt failed AST validation: %s", error_msg)
+                    continue
+                return (content, "", getattr(response, "usage", None) or {})
 
-                    if message:
-                        self.conversation.append({"role": "assistant", "content": content})
-                        self.save_conversation()
-                    # Return warnings if custom prompt was used
-                    if validation_warnings:
-                        return (
-                            generated_explanation,
-                            generated_code,
-                            response.usage or {},
-                            validation_warnings,
-                        )
+            generated_explanation = expl_matches[0]
+            generated_code = code_matches[0]
+
+            if "import vtk" not in generated_code:
+                generated_code = "import vtk\n" + generated_code
+            else:
+                pos = generated_code.find("import vtk")
+                if pos != -1:
+                    generated_code = generated_code[pos:]
+
+            is_valid, error_msg = self.validate_code_syntax(generated_code)
+            if is_valid:
+                # Run full VTK API validation via vtk-mcp if available
+                if mcp_client:
+                    vtk_diagnostics = mcp_client.validate_code(generated_code)
+                    if vtk_diagnostics:
+                        if attempt < retry_attempts - 1:
+                            logger.debug("vtk-mcp validation issues found, retrying")
+                            self.conversation.append({"role": "assistant", "content": content})
+                            self.conversation.append(
+                                {
+                                    "role": "user",
+                                    "content": (
+                                        "The generated code has VTK API issues:\n"
+                                        f"{vtk_diagnostics}\n"
+                                        "Please use the available tools to fix them and regenerate."
+                                    ),
+                                }
+                            )
+                            continue
+                        else:
+                            validation_warnings.append(
+                                f"VTK API issues found:\n{vtk_diagnostics}"
+                            )
+                if message:
+                    self.conversation.append({"role": "assistant", "content": content})
+                    self.save_conversation()
+                if validation_warnings:
                     return (
                         generated_explanation,
                         generated_code,
-                        response.usage or {},
-                    )  # Return anyway, let caller handle
+                        getattr(response, "usage", None),
+                        validation_warnings,
+                    )
+                return generated_explanation, generated_code, getattr(response, "usage", None)
+
+            elif attempt < retry_attempts - 1:
+                if self.verbose:
+                    logger.warning("AST validation failed: %s. Retrying...", error_msg)
+                self.conversation.append({"role": "assistant", "content": content})
+                self.conversation.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            f"The generated code has a syntax error: {error_msg}. "
+                            "Please fix the syntax and generate valid Python code."
+                        ),
+                    }
+                )
             else:
-                if attempt == retry_attempts - 1:
-                    return ("No response generated", "", response.usage or {})
+                if self.verbose:
+                    logger.error("Final attempt failed AST validation: %s", error_msg)
+                if message:
+                    self.conversation.append({"role": "assistant", "content": content})
+                    self.save_conversation()
+                if validation_warnings:
+                    return (
+                        generated_explanation,
+                        generated_code,
+                        getattr(response, "usage", None) or {},
+                        validation_warnings,
+                    )
+                return (
+                    generated_explanation,
+                    generated_code,
+                    getattr(response, "usage", None) or {},
+                )
 
         return "No response generated"

@@ -1,6 +1,0 @@
-    center = vtkImageFourierCenter()
-    center.SetInputConnection(mag.GetOutputPort())
-
-    compress = vtkImageLogarithmicScale()
-    compress.SetInputConnection(center.GetOutputPort())
-    compress.SetConstant(15)

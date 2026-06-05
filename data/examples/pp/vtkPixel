@@ -1,6 +1,0 @@
-    pixel = vtkPixel()
-    pixel.GetPoints().SetPoint(0, 0, 0, 0)
-    pixel.GetPoints().SetPoint(1, 1, 0, 0)
-    pixel.GetPoints().SetPoint(2, 0, 1, 0)
-    pixel.GetPoints().SetPoint(3, 1, 1, 0)
-

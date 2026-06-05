@@ -10,7 +10,7 @@ The interface includes:
 - Conversation management with history navigation
 - File upload/download for conversation persistence
 - Live code editing and execution with error handling
-- RAG integration for context-aware code generation
+- vtk-mcp integration for context-aware code generation and validation
 
 Example:
     >>> vtk-prompt-ui --port 9090

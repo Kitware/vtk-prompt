@@ -1,6 +1,0 @@
-    mouseEvent = vtkContextMouseEvent()
-    mouseEvent.SetInteractor(view.GetInteractor())
-
-    pos = vtkVector2i()
-
-    lastPos = vtkVector2i()

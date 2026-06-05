@@ -1,6 +1,0 @@
-    source = vtkCellTypeSource()
-    source.SetCellType(cellMap[cellName])
-    source.Update()
-    print('Cell: ', cellName)
-
-    originalPoints = source.GetOutput().GetPoints()

@@ -1,6 +1,0 @@
-    reader = vtkSLCReader()
-    reader.SetFileName(InputFilename)
-    reader.Update()
-
-    # Create a mapper.
-    mapper = vtkPolyDataMapper()

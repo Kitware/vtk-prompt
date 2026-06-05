@@ -7,22 +7,13 @@ authors = [
 ]
 dependencies = [
     "PyYAML>=6.0",
-    "chromadb>=0.6.3",
     "click>=8.0.0",
-    "importlib_resources>=5.0.0",
-    "llama_index-core>=0.12.17",
-    "llama-index-llms-anthropic>=0.6.7",
-    "llama-index-llms-openai>=0.3.20",
     "openai>=1.0.0",
-    "sentence-transformers>=3.4.1",
-    "tqdm>=4.67.1",
+    "requests>=2.28.0",
     "trame>=3.9.0",
     "trame-vtk>=2.8.0",
     "trame-vuetify>=3",
-    "tree_sitter>=0.23",
-    "tree_sitter_language_pack>=0.7.0",
-    "tree_sitter_languages>=1.9.1",
-    "vtk>=9.3.1",
+    "vtk>=9.6.1",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
@@ -97,10 +88,7 @@ Issues = "https://github.com/vicentebolea/vtk-prompt/issues"
 [project.scripts]
 vtk-prompt = "vtk_prompt.cli:main"
 gen-vtk-file = "vtk_prompt.generate_files:main"
-vtk-build-rag = "vtk_prompt.build_rag_db:main"
-vtk-test-rag = "vtk_prompt.test_rag:main"
 vtk-prompt-ui = "vtk_prompt.vtk_prompt_ui:main"
-rag-chat = "vtk_prompt.rag_chat_wrapper:main"
 
 [build-system]
 requires = ["setuptools>=61.0", "setuptools-scm>=8.0"]
@@ -146,11 +134,6 @@ module = [
     "trame_vtk.*",
     "openai.*",
     "click.*",
-    "chromadb.*",
-    "sentence_transformers.*",
-    "tree_sitter_languages.*",
-    "llama_index.*",
-    "query_db.*"
 ]
 ignore_missing_imports = true
 
@@ -300,4 +283,17 @@ extend-ignore = [
     "E203",
     # line break before binary operator
     "W503"
+]
+
+[tool.uv.workspace]
+members = [
+    ".",
+]
+
+[tool.uv.sources]
+vtk-prompt = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "vtk-prompt",
 ]

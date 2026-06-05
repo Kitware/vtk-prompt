@@ -1,6 +1,0 @@
-    spline_widget = vtkSplineWidget()
-    spline_widget.SetInteractor(iren)
-    spline_widget.SetProp3D(actor)
-    spline_widget.PlaceWidget(-2.5, 2.5, 3.5, 3.5, 0, 0, )
-    spline_widget.On()
-

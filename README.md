@@ -17,7 +17,7 @@ models).
 - Multiple LLM providers: Anthropic Claude, OpenAI GPT, NVIDIA NIM, and local
   models
 - Interactive web UI with live VTK rendering
-- Retrieval-Augmented Generation (RAG) with VTK examples database
+- Context-enhanced generation via [vtk-mcp](https://github.com/Kitware/vtk-mcp): semantic search over VTK examples and docs, class API lookup, and full code validation
 - Real-time visualization of generated code
 - Token usage tracking and cost monitoring
 - CLI and Python API for integration
@@ -27,7 +27,11 @@ models).
 ### From PyPI (Stable)
 
 ```bash
+# pip
 pip install vtk-prompt
+
+# uv (recommended)
+uv pip install vtk-prompt
 ```
 
 ### From TestPyPI (Latest Development)
@@ -41,7 +45,12 @@ pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/
 ```bash
 git clone https://github.com/vicentebolea/vtk-prompt.git
 cd vtk-prompt
+
+# pip
 pip install -e .
+
+# uv
+uv pip install -e .
 ```
 
 ## Quick Start
@@ -65,13 +74,13 @@ Access the UI at `http://localhost:8080`
 
 ```bash
 # Generate VTK code
-vtk-prompt "Create a red sphere"
+vtk-prompt "Create a red sphere" -t $ANTHROPIC_API_KEY
 
-# With RAG enhancement
-vtk-prompt "Create a sphere with custom resolution" --rag
+# With vtk-mcp for context-enhanced generation
+vtk-prompt "Create a sphere with custom resolution" --mcp-url http://localhost:8000 -t $API_KEY
 
 # Different providers
-vtk-prompt "Create a blue cube" --provider openai
+vtk-prompt "Create a blue cube" --provider openai -t $OPENAI_API_KEY
 vtk-prompt "Create a cone" --provider nim --token YOUR_NIM_TOKEN
 ```
 
@@ -85,7 +94,7 @@ The web interface provides:
   providers
 - Token control: Adjust maximum tokens for responses
 - Usage tracking: Real-time display of input/output tokens and costs
-- RAG integration: Toggle retrieval-augmented generation for better results
+- vtk-mcp integration: Enter a vtk-mcp server URL to enable context retrieval and code validation
 - Live preview: See VTK visualizations rendered in real-time
 - Code export: View, edit, and copy generated VTK code
 - Local & cloud support: Both cloud APIs and local model endpoints
@@ -94,42 +103,42 @@ The web interface provides:
 
 ```bash
 # Basic usage
-vtk-prompt "Create a red sphere"
+vtk-prompt "Create a red sphere" -t $API_KEY
 
 # Advanced options
 vtk-prompt "Create a textured cone with 32 resolution" \
   --provider anthropic \
-  --model claude-opus-4-1 \
+  --model claude-opus-4-7 \
   --max-tokens 4000 \
-  --rag \
-  --verbose
+  --mcp-url http://localhost:8000 \
+  --verbose \
+  -t $API_KEY
 
 # Using different providers
-vtk-prompt "Create a blue cube" --provider openai --model gpt-5
-vtk-prompt "Create a cylinder" --provider nim --model meta/llama3-70b-instruct
+vtk-prompt "Create a blue cube" --provider openai --model gpt-4.1 -t $OPENAI_API_KEY
+vtk-prompt "Create a cylinder" --provider nim --model meta/llama-3.3-70b-instruct -t $NIM_KEY
 ```
 
-### RAG (Retrieval Augmented Generation)
+### vtk-mcp Integration
 
-Enhance code generation with relevant VTK examples:
+Context-enhanced generation is powered by [vtk-mcp](https://github.com/Kitware/vtk-mcp), a local
+MCP server that exposes VTK knowledge tools to the LLM.
 
-1. **Build RAG database** (one-time setup):
+1. **Start vtk-mcp** (see its README for setup):
 
 ```bash
-vtk-build-rag
+docker compose up   # or: uvicorn vtk_mcp.transport.http:app --port 8000
 ```
 
-2. **Test RAG system** (optional):
+2. **Use with vtk-prompt**:
 
 ```bash
-vtk-test-rag "How to create a cube in VTK"
+vtk-prompt "Create a vtkSphereSource with texture mapping" --mcp-url http://localhost:8000 -t $API_KEY
 ```
 
-3. **Use RAG in queries**:
-
-```bash
-vtk-prompt "Create a vtkSphereSource with texture mapping" --rag
-```
+When `--mcp-url` is set the LLM has access to all vtk-mcp tools during generation
+(class lookup, method signatures, import validation, semantic search) and the generated code
+is validated against the VTK API with `validate_vtk_code` before being returned.
 
 ### Python API
 
@@ -186,14 +195,13 @@ provider's documentation for specific model capabilities._
 
 ## Testing
 
-Run the test suite using the project's standard tools:
-
 ```bash
 # Run all tests with tox
 tox -e test
 
-# Run pre-commit hooks (includes testing)
-pre-commit run --all-files
+# Or directly with pytest (pip or uv)
+pip install -e ".[test]" && pytest
+uv pip install -e ".[test]" && pytest
 ```
 
 ## Configuration
@@ -205,12 +213,13 @@ pre-commit run --all-files
 
 ### Supported Providers & Models
 
-| Provider      | Default Model            | Base URL                            |
-| ------------- | ------------------------ | ----------------------------------- |
-| **anthropic** | claude-opus-4-1          | https://api.anthropic.com/v1        |
-| **openai**    | gpt-5                    | https://api.openai.com/v1           |
-| **nim**       | meta/llama3-70b-instruct | https://integrate.api.nvidia.com/v1 |
-| **custom**    | User-defined             | User-defined (for local models)     |
+| Provider      | Default Model                  | Base URL                            |
+| ------------- | ------------------------------ | ----------------------------------- |
+| **anthropic** | claude-sonnet-4-6              | https://api.anthropic.com/v1        |
+| **openai**    | gpt-4.1                        | https://api.openai.com/v1           |
+| **gemini**    | gemini-2.5-pro                 | https://generativelanguage.googleapis.com/v1beta |
+| **nim**       | meta/llama-3.3-70b-instruct    | https://integrate.api.nvidia.com/v1 |
+| **custom**    | User-defined                   | User-defined (for local models)     |
 
 ### Custom/Local Models
 
@@ -233,45 +242,32 @@ vtk-prompt "Create a cube" \
 ## CLI Reference
 
 ```
-usage: vtk-prompt [-h] [--provider {anthropic,openai,nim,custom}]
-                  [-m MODEL] [-k MAX_TOKENS] [-t TOKEN] [--base-url BASE_URL]
-                  [-r] [-v] [--collection COLLECTION] [--database DATABASE]
-                  [--top-k TOP_K] input_string
+Usage: vtk-prompt [OPTIONS] INPUT_STRING
 
-Generate VTK visualization code using Large Language Models
+  Generate and execute VTK code using LLMs.
 
-positional arguments:
-  input_string          Description of the VTK visualization to generate
-
-options:
-  -h, --help            Show this help message and exit
-  -m MODEL, --model MODEL
-                        Model name to use
-  -k MAX_TOKENS, --max-tokens MAX_TOKENS
-                        Maximum number of tokens to generate
-  -t TOKEN, --token TOKEN
-                        API token (defaults to environment variable)
-  --base-url BASE_URL   Base URL for API (for custom/local models)
-  -r, --rag             Use Retrieval Augmented Generation
-  -v, --verbose         Show generated source code
-  --provider {anthropic,openai,nim,custom}
-                        LLM provider to use
-
-RAG Options:
-  --collection COLLECTION
-                        Collection name for RAG (default: vtk-examples)
-  --database DATABASE   Database path for RAG (default: ./db/codesage-codesage-large-v2)
-  --top-k TOP_K         Number of examples to retrieve (default: 5)
+Options:
+  --provider [openai|anthropic|gemini|nim]
+                                  LLM provider to use
+  -m, --model TEXT                Model name to use
+  -k, --max-tokens INTEGER        Max # of tokens to generate
+  --temperature FLOAT             Temperature for generation (0.0-2.0)
+  -t, --token TEXT                API token for the selected provider [required]
+  --base-url TEXT                 Base URL for API (auto-detected or custom)
+  -v, --verbose                   Show generated source code
+  --mcp-url TEXT                  vtk-mcp server URL (enables context retrieval and code validation)
+  --top-k INTEGER                 Number of examples to retrieve from vtk-mcp
+  --retry-attempts INTEGER        Number of times to retry if validation fails
+  --conversation TEXT             Path to conversation file for chat history
+  --prompt-file TEXT              Path to custom YAML prompt file
+  --help                          Show this message and exit.
 ```
 
 ## Available Commands
 
 - `vtk-prompt` - Main CLI for code generation
 - `vtk-prompt-ui` - Launch web interface
-- `vtk-build-rag` - Build RAG database from VTK examples
-- `vtk-test-rag` - Test RAG functionality
 - `gen-vtk-file` - Generate VTK XML files
-- `rag-chat` - Interactive RAG chat interface
 
 ## Contributing
 
@@ -330,7 +326,7 @@ for details.
 
 - **Core**: Python package with CLI and API
 - **UI**: Trame-based web interface with VTK rendering
-- **RAG**: ChromaDB + Llama Index for code example retrieval
+- **vtk-mcp**: External MCP server providing VTK knowledge, semantic search, and code validation
 - **Providers**: Unified interface for multiple LLM APIs
 
 ## Links

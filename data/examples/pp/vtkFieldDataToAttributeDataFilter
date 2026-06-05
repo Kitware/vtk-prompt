@@ -1,6 +1,0 @@
-    fd2ad = vtkFieldDataToAttributeDataFilter()
-    fd2ad.SetInputConnection(do2ds.GetOutputPort())
-    fd2ad.SetInputFieldToDataObjectField()
-    fd2ad.SetOutputAttributeDataToPointData()
-    fd2ad.DefaultNormalizeOn()
-    fd2ad.SetScalarComponent(0, scalar, 0)

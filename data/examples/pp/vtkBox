@@ -1,6 +1,0 @@
-    box = vtkBox()
-    box.SetBounds(-1, 1, -1, 1, -1, 1)
-
-    # combine the two implicit functions
-    boolean = vtkImplicitBoolean()
-    boolean.SetOperationTypeToDifference()

@@ -1,6 +1,0 @@
-    select = vtkSelectEnclosedPoints()
-    select.SetInputData(polyData1)
-    select.SetSurfaceData(polyData2)
-
-    # Extract three meshes, one completely inside, one completely
-    # outside and on the border between the inside and outside.

@@ -1,6 +1,0 @@
-    htg2ug = vtkHyperTreeGridToUnstructuredGrid()
-    htg2ug.SetInputConnection(source.GetOutputPort())
-    htg2ug.Update()
-
-    shrink = vtkShrinkFilter()
-    shrink.SetInputConnection(htg2ug.GetOutputPort())

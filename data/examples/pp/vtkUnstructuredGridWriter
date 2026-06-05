@@ -1,6 +1,0 @@
-        writer = vtkUnstructuredGridWriter()
-        writer.SetFileName(filenames[i])
-        writer.SetInputData(uGrids[i])
-        writer.Write()
-
-

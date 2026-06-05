@@ -196,7 +196,6 @@ class VTKPromptAssembler:
 def assemble_vtk_prompt(
     request: str,
     ui_mode: bool = False,
-    rag_enabled: bool = False,
     context_snippets: str | None = None,
     **variables: Any,
 ) -> PromptData:
@@ -205,19 +204,12 @@ def assemble_vtk_prompt(
     Args:
         request: User's request text
         ui_mode: Whether to include UI-specific instructions
-        rag_enabled: Whether to include RAG context
-        context_snippets: RAG context snippets (required if rag_enabled=True)
+        context_snippets: Optional context snippets from vtk-mcp (enables rag_context component)
         **variables: Additional variables for substitution
 
     Returns:
         Complete prompt data ready for LLM client
-
-    Raises:
-        ValueError: If rag_enabled=True but context_snippets is empty
     """
-    if rag_enabled and not context_snippets:
-        raise ValueError("context_snippets required when rag_enabled=True")
-
     assembler = VTKPromptAssembler()
 
     # Always add base components in order
@@ -226,7 +218,7 @@ def assemble_vtk_prompt(
     assembler.add_component("vtk_instructions")
 
     # Conditional components (order matters for message composition)
-    assembler.add_if(rag_enabled, "rag_context")
+    assembler.add_if(bool(context_snippets), "rag_context")
     assembler.add_if(ui_mode, "ui_renderer")
 
     # Always add output format and request last
@@ -235,7 +227,7 @@ def assemble_vtk_prompt(
 
     # Variable substitution with defaults
     default_variables = {
-        "VTK_VERSION": variables.get("VTK_VERSION", "9.5.0"),
+        "VTK_VERSION": variables.get("VTK_VERSION", "9.6.1"),
         "PYTHON_VERSION": variables.get("PYTHON_VERSION", ">=3.10"),
         "context_snippets": context_snippets or "",
     }

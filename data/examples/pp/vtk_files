@@ -1,6 +1,0 @@
-                        if kk == 'vtk_files':
-                            if len(v[kk]) != 17:
-                                print(f'Expected seventeen file names.')
-                                paths_ok = False
-                            # The stem of the file path becomes the key.
-                            path_map = dict()

@@ -1,6 +1,0 @@
-    laplacian = vtkImageLaplacian()
-    laplacian.SetInputConnection(cast.GetOutputPort())
-    laplacian.SetDimensionality(3)
-
-    enhance = vtkImageMathematics()
-    enhance.SetInputConnection(0, cast.GetOutputPort())

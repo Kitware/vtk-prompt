@@ -1,8 +1,0 @@
-    hybridMedian1 = vtkImageHybridMedian2D()
-    hybridMedian1.SetInputData(noisyData)
-    hybridMedian = vtkImageHybridMedian2D()
-    hybridMedian.SetInputConnection(hybridMedian1.GetOutputPort())
-
-    colorWindow = (scalarRange[1] - scalarRange[0]) * 0.8
-    colorLevel = colorWindow / 2
-    originalActor = vtkImageActor()

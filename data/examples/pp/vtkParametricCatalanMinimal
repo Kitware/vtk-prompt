@@ -1,6 +1,0 @@
-    pfn['CatalanMinimal'] = vtkParametricCatalanMinimal()
-    pfn['Henneberg'] = vtkParametricHenneberg()
-    pfn['Kuen'] = vtkParametricKuen()
-    pfn['PluckerConoid'] = vtkParametricPluckerConoid()
-    pfn['Pseudosphere'] = vtkParametricPseudosphere()
-    # Now set some parameters.

@@ -1,6 +1,0 @@
-        color = vtkColor3ub(colorSeries.GetColor(i))
-        c = list()
-        for j in range(0, 3):
-            c.append(color[j] / 255.0)
-        t = scalarRange[0] + (scalarRange[1] - scalarRange[0]) / (numColors - 1) * i
-        lut.AddRGBPoint(t, *c)

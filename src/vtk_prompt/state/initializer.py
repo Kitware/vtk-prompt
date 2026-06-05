@@ -26,7 +26,7 @@ def initialize_state(app: Any) -> None:
     app.state.generated_code = ""
     app.state.generated_explanation = ""
     app.state.is_loading = False
-    app.state.use_rag = False
+    app.state.mcp_url = ""
     app.state.error_message = ""
     app.state.input_tokens = 0
     app.state.output_tokens = 0
@@ -124,11 +124,11 @@ def init_prompt_client(app: Any) -> None:
             app.state.error_message = validation_error
             return
 
+        mcp_url = getattr(app.state, "mcp_url", "").strip() or None
         app.prompt_client = VTKPromptClient(
-            collection_name="vtk-examples",
-            database_path="./db/codesage-codesage-large-v2",
             verbose=False,
             conversation=app.state.conversation,
+            mcp_url=mcp_url,
         )
     except ValueError as e:
         app.state.error_message = str(e)

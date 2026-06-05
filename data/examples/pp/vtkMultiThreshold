@@ -1,6 +1,0 @@
-    threshold = vtkMultiThreshold()
-    # Outside points have a 0 value in ALL points of a cell
-    outsideId = threshold.AddBandpassIntervalSet(
-        0, 0,
-        vtkDataObject.FIELD_ASSOCIATION_POINTS, 'SelectedPoints',
-        0, 1)

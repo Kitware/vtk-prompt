@@ -1,6 +1,0 @@
-    chart = vtkChartXYZ()
-    chart.SetGeometry(vtkRectf(10.0, 10.0, 630, 470))
-
-    plot = vtkPlotSurface()
-
-    view = vtkContextView()

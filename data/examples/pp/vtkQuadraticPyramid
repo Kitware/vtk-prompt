@@ -1,6 +1,0 @@
-    cell = vtkQuadraticPyramid()
-    pcoords = cell.GetParametricCoords()
-    for i in range(0, cell.number_of_points):
-        cell.point_ids.SetId(i, i)
-        cell.points.SetPoint(i, (pcoords[3 * i]), (pcoords[3 * i + 1]), (pcoords[3 * i + 2]))
-

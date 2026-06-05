@@ -1,6 +1,0 @@
-    pfn['PluckerConoid'] = vtkParametricPluckerConoid()
-    pfn['Pseudosphere'] = vtkParametricPseudosphere()
-    # Now set some parameters.
-    pfn["Ellipsoid"].SetXRadius(0.5)
-    pfn["Ellipsoid"].SetYRadius(2.0)
-    pfn["Mobius"].SetRadius(2.0)

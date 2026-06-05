@@ -1,6 +1,0 @@
-tri = vtk.vtkDataSetTriangleFilter()
-tri.SetInputData(grid)
-tri.SetTetrahedraOnly(1)
-tri.Update()
-output = tri.GetOutput()
-
