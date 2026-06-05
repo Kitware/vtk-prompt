@@ -123,6 +123,58 @@ def save_conversation(app: Any) -> str:
     return ""
 
 
+def copy_generated_code(app: Any) -> None:
+    """Copy generated code to clipboard via client-side trigger."""
+    code = app.state.generated_code
+    if code:
+        app.server.js_call("trame.utils.vtk_prompt.copy_to_clipboard", code)
+
+
+def download_generated_code(app: Any) -> str:
+    """Download generated code as a .py file with VTK renderer initialization."""
+    code = app.state.generated_code
+    if not code:
+        return ""
+
+    # Remove the injected renderer comment if present
+    code_lines = code.split("\n")
+    filtered_lines = [
+        line
+        for line in code_lines
+        if not line.strip().startswith("# renderer is a vtkRenderer")
+        and not line.strip().startswith("# Use your own vtkRenderer")
+    ]
+    clean_code = "\n".join(filtered_lines)
+
+    # Add standalone VTK renderer initialization
+    standalone_code = """import vtk
+
+# Create renderer, render window, and interactor
+renderer = vtk.vtkRenderer()
+render_window = vtk.vtkRenderWindow()
+render_window.AddRenderer(renderer)
+render_window_interactor = vtk.vtkRenderWindowInteractor()
+render_window_interactor.SetRenderWindow(render_window)
+
+# Set background color
+renderer.SetBackground(0.1, 0.1, 0.1)
+
+"""
+
+    # Add the generated code
+    standalone_code += clean_code
+
+    # Add render window display code
+    standalone_code += """
+
+# Display the render window
+render_window.Render()
+render_window_interactor.Start()
+"""
+
+    return standalone_code
+
+
 def _parse_assistant_content(content: str) -> tuple[str | None, str | None]:
     """Parse assistant message content for explanation and code."""
     try:

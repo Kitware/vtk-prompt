@@ -11,6 +11,7 @@ dependencies = [
     "openai>=1.0.0",
     "requests>=2.28.0",
     "trame>=3.9.0",
+    "trame-code>=1.0.2",
     "trame-vtk>=2.8.0",
     "trame-vuetify>=3",
     "vtk>=9.6.1",
@@ -132,6 +133,7 @@ module = [
     "vtkmodules.*",
     "trame.*",
     "trame_vtk.*",
+    "trame_code.*",
     "openai.*",
     "click.*",
 ]
