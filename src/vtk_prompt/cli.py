@@ -152,7 +152,7 @@ def main(
             temperature=temperature,
             top_k=top_k,
             retry_attempts=retry_attempts,
-            provider=provider,
+            _provider=provider,
             custom_prompt=custom_prompt_data,
         )
 

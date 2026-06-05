@@ -86,6 +86,36 @@ def navigate_conversation_right(app: Any) -> None:
         _update_navigation_state(app)
 
 
+def navigate_to_conversation(app: Any, target_index: int) -> None:
+    """Navigate directly to a specific conversation pair by index."""
+    if not app.state.conversation_navigation:
+        return
+
+    nav_length = len(app.state.conversation_navigation)
+    if target_index < 0 or target_index >= nav_length:
+        return
+
+    app.state.conversation_index = target_index
+    _process_conversation_pair(app, target_index)
+    _update_navigation_state(app)
+
+
+def toggle_favorite_conversation(app: Any, conversation_index: int) -> None:
+    """Toggle favorite status for a conversation by index."""
+    if not hasattr(app.state, "favorited_conversations"):
+        app.state.favorited_conversations = []
+
+    current_favorites = app.state.favorited_conversations[:]
+
+    if conversation_index in current_favorites:
+        current_favorites.remove(conversation_index)
+    else:
+        current_favorites.append(conversation_index)
+
+    # Force reactivity by replacing the entire array
+    app.state.favorited_conversations = current_favorites
+
+
 def save_conversation(app: Any) -> str:
     """Save current conversation history as JSON string."""
     if hasattr(app, "prompt_client") and app.prompt_client is not None:
@@ -186,7 +216,7 @@ def _process_conversation_pair(app: Any, pair_index: int | None = None) -> None:
     else:
         query_text = user_content
 
-    app.state.query_text = query_text
+    return query_text
 
 
 def _process_loaded_conversation(

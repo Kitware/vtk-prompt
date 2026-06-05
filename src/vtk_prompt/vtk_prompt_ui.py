@@ -203,6 +203,16 @@ class VTKPromptApp(TrameApp):
         """Navigate to next conversation pair."""
         conversation.navigate_conversation_right(self)
 
+    @controller.set("navigate_to_conversation")
+    def navigate_to_conversation(self, target_index: int) -> None:
+        """Navigate directly to a specific conversation pair."""
+        conversation.navigate_to_conversation(self, target_index)
+
+    @controller.set("toggle_favorite_conversation")
+    def toggle_favorite_conversation(self, conversation_index: int) -> None:
+        """Toggle favorite status for a conversation."""
+        conversation.toggle_favorite_conversation(self, conversation_index)
+
     @trigger("save_conversation")
     def save_conversation(self) -> str:
         """Save current conversation history as JSON string."""
@@ -224,7 +234,7 @@ class VTKPromptApp(TrameApp):
         self.state.main_drawer = False
 
         with SinglePageLayout(
-            self.server, theme=("theme_mode", "light"), style="max-height: 100vh;"
+            self.server, theme=("theme_mode", "light"), style="max-height: 100vh; overflow: hidden;"
         ) as layout:
             layout.title.set_text("VTK Prompt UI")
 
@@ -232,6 +242,9 @@ class VTKPromptApp(TrameApp):
             build_toolbar(layout, self)
             build_content(layout, self)
             build_settings_dialog(layout, self)
+
+            with layout.footer as footer:
+                footer.hide()
 
     def start(self) -> None:
         """Start the trame server."""

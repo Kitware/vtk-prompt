@@ -11,6 +11,8 @@ from trame.widgets import html
 from trame.widgets import vuetify3 as vuetify
 from trame_vtk.widgets import vtk as vtk_widgets
 
+from .conversation_history import build_conversation_history
+
 
 def build_content(layout: Any, app: Any) -> None:
     """Build the main content area with code panels and VTK viewer."""
@@ -19,8 +21,8 @@ def build_content(layout: Any, app: Any) -> None:
             classes="fluid fill-height", style="min-width: 100%; padding: 0!important;"
         ):
             with vuetify.VRow(rows=12, classes="fill-height px-4 pt-1 pb-1"):
-                # Left column - Generated code view
-                with vuetify.VCol(cols=6):
+                # Left column - Prompt and conversation history
+                with vuetify.VCol(cols=3, classes="fill-height"):
                     # Prompt input
                     with vuetify.VCard(classes="h-25"):
                         with vuetify.VCardText(classes="h-100"):
@@ -64,15 +66,6 @@ def build_content(layout: Any, app: Any) -> None:
                                 )
 
                             with html.Div(classes="d-flex", style="height: calc(100% - 75px);"):
-                                with vuetify.VBtn(
-                                    variant="tonal",
-                                    icon=True,
-                                    rounded="0",
-                                    disabled=("!can_navigate_left",),
-                                    classes="h-auto mr-1",
-                                    click=app.ctrl.navigate_conversation_left,
-                                ):
-                                    vuetify.VIcon("mdi-arrow-left-circle")
                                 # Query input
                                 vuetify.VTextarea(
                                     label="Describe VTK visualization",
@@ -83,30 +76,6 @@ def build_content(layout: Any, app: Any) -> None:
                                     hide_details=True,
                                     no_resize=True,
                                 )
-                                with vuetify.VBtn(
-                                    color=(
-                                        "conversation_index ==="
-                                        + " conversation_navigation.length - 1"
-                                        + " ? 'success' : 'default'",
-                                        "default",
-                                    ),
-                                    variant="tonal",
-                                    icon=True,
-                                    rounded="0",
-                                    disabled=("!can_navigate_right",),
-                                    click=app.ctrl.navigate_conversation_right,
-                                ):
-                                    vuetify.VIcon(
-                                        "mdi-arrow-right-circle",
-                                        v_show="conversation_index <"
-                                        + " conversation_navigation.length - 1",
-                                    )
-                                    vuetify.VIcon(
-                                        "mdi-message-plus",
-                                        v_show="conversation_index ==="
-                                        + " conversation_navigation.length - 1",
-                                    )
-
                             # Generate button
                             vuetify.VBtn(
                                 "Generate Code",
@@ -129,8 +98,13 @@ def build_content(layout: Any, app: Any) -> None:
                                 v_show="use_cloud_models && !api_token.trim()",
                             )
 
+                    # Bottom: Conversation History
+                    build_conversation_history(app)
+
+                # Middle column - Generated code view
+                with vuetify.VCol(cols=4):
                     # Generated code panel
-                    with vuetify.VCard(readonly=True, classes="h-75 mt-2"):
+                    with vuetify.VCard(readonly=True, classes="h-100 mt-2"):
                         vuetify.VCardTitle("Generated Code")
                         with vuetify.VCardText(style="height: calc(100% - 50px);"):
                             vuetify.VTextarea(
@@ -145,7 +119,7 @@ def build_content(layout: Any, app: Any) -> None:
                             )
 
                 # Right column - VTK viewer and prompt
-                with vuetify.VCol(cols=6):
+                with vuetify.VCol(cols=5):
                     with vuetify.VRow(no_gutters=True, classes="fill-height"):
                         # Top: VTK render view
                         with vuetify.VCard(classes="h-75 w-100"):
