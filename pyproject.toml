@@ -13,6 +13,7 @@ dependencies = [
     "trame>=3.9.0",
     "trame-vtk>=2.8.0",
     "trame-vuetify>=3",
+    "trame-code>=1.0.0",
     "vtk>=9.6.1",
 ]
 requires-python = ">=3.10"

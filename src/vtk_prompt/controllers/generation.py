@@ -99,6 +99,7 @@ def generate_and_execute_code(app: Any) -> None:
 
             app.state.generated_explanation = generated_explanation
             app.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code
+            push_code_snapshot(app, app.state.generated_code)
 
             # Update navigation after new conversation entry
             from .conversation import build_conversation_navigation
@@ -130,6 +131,7 @@ def generate_and_execute_code(app: Any) -> None:
                 _, retry_code = retry_result[0], retry_result[1]
                 if retry_code:
                     app.state.generated_code = EXPLAIN_RENDERER + "\n" + retry_code
+                    push_code_snapshot(app, app.state.generated_code)
                     execute_with_renderer(app, app.state.generated_code)
     except ValueError as e:
         if "max_tokens" in str(e):
@@ -158,6 +160,65 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
         logger.warning("View update error: %s", e)
 
     return success, error_message
+
+
+def run_current_code(app: Any) -> None:
+    """Execute the current (possibly hand-edited) code without calling the LLM.
+
+    This is the "Run" action on the editable code panel: it takes whatever is in
+    app.state.generated_code and renders it. A snapshot is recorded so a run after
+    manual edits is reachable via undo/redo.
+    """
+    app.state.error_message = ""
+    app.state.is_loading = True
+    try:
+        push_code_snapshot(app, app.state.generated_code)
+        execute_with_renderer(app, app.state.generated_code)
+    finally:
+        app.state.is_loading = False
+
+
+def push_code_snapshot(app: Any, code_string: str) -> None:
+    """Record a code version on the history stack (drops any redo tail).
+
+    No-op when the snapshot is identical to the current position, so repeated
+    runs of unchanged code do not bloat the history.
+    """
+    history = list(app.state.code_history or [])
+    pos = app.state.code_history_pos
+
+    # If we branched off after an undo, discard the now-stale redo tail.
+    if 0 <= pos < len(history) - 1:
+        history = history[: pos + 1]
+
+    if history and history[-1] == code_string:
+        return  # nothing changed
+
+    history.append(code_string)
+    app.state.code_history = history
+    app.state.code_history_pos = len(history) - 1
+
+
+def undo_code(app: Any) -> None:
+    """Step back to the previous code version and re-render it."""
+    history = app.state.code_history or []
+    pos = app.state.code_history_pos
+    if pos > 0:
+        pos -= 1
+        app.state.code_history_pos = pos
+        app.state.generated_code = history[pos]
+        execute_with_renderer(app, app.state.generated_code)
+
+
+def redo_code(app: Any) -> None:
+    """Step forward to the next code version and re-render it."""
+    history = app.state.code_history or []
+    pos = app.state.code_history_pos
+    if pos < len(history) - 1:
+        pos += 1
+        app.state.code_history_pos = pos
+        app.state.generated_code = history[pos]
+        execute_with_renderer(app, app.state.generated_code)
 
 
 def clear_scene(app: Any) -> None:

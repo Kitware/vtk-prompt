@@ -137,6 +137,21 @@ class VTKPromptApp(TrameApp):
         """Reset camera view."""
         generation.reset_camera(self)
 
+    @controller.set("run_current_code")
+    def run_current_code(self) -> None:
+        """Execute the current (possibly edited) code without calling the LLM."""
+        generation.run_current_code(self)
+
+    @controller.set("undo_code")
+    def undo_code(self) -> None:
+        """Revert the code panel to the previous version and re-render."""
+        generation.undo_code(self)
+
+    @controller.set("redo_code")
+    def redo_code(self) -> None:
+        """Advance the code panel to the next version and re-render."""
+        generation.redo_code(self)
+
     @controller.set("trigger_warning_toast")
     def trigger_warning_toast(self, message: str) -> None:
         """Display a warning toast notification.
