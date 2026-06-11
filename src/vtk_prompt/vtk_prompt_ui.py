@@ -32,6 +32,7 @@ from .rendering import (
     setup_vtk_renderer,
 )
 from .state import config_state, config_validator, initializer
+from .ui import monaco_completion
 from .ui.layout import build_content, build_settings_dialog, build_toolbar
 from .utils import file_handlers, prompt_loader
 
@@ -64,6 +65,9 @@ class VTKPromptApp(TrameApp):
 
         # Make sure JS is loaded
         file_handlers.load_js(self.server)
+
+        # Load the Monaco Python/VTK completion provider (client JS).
+        self.server.enable_module(monaco_completion)
 
         # Suppress VTK warnings to reduce console noise
         vtk.vtkObject.GlobalWarningDisplayOff()
@@ -151,6 +155,23 @@ class VTKPromptApp(TrameApp):
     def redo_code(self) -> None:
         """Advance the code panel to the next version and re-render."""
         generation.redo_code(self)
+
+    @trigger("jedi_complete")
+    def jedi_complete(self, code: str, line: int, column: int) -> list:
+        """Return Python/VTK completions for the editor (called from the client).
+
+        Runs in-process via jedi over the existing websocket; no extra server.
+        """
+        from .completion import complete_python
+
+        return complete_python(code, line, column)
+
+    @trigger("jedi_hover")
+    def jedi_hover(self, code: str, line: int, column: int):
+        """Return signature + docstring for the symbol under the cursor (hover)."""
+        from .completion import hover_python
+
+        return hover_python(code, line, column)
 
     @controller.set("trigger_warning_toast")
     def trigger_warning_toast(self, message: str) -> None:
