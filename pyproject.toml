@@ -99,7 +99,7 @@ build-backend = "setuptools.build_meta"
 fallback_version = "0.1.0"
 
 [tool.setuptools.package-data]
-vtk_prompt = ["prompts/*.txt"]
+vtk_prompt = ["prompts/*.txt", "ui/langs/python/*.json"]
 
 [tool.black]
 include = 'src/.*.py$'

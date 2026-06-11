@@ -12,6 +12,8 @@ from trame.widgets import html
 from trame.widgets import vuetify3 as vuetify
 from trame_vtk.widgets import vtk as vtk_widgets
 
+from ..langs import PYTHON_TEXTMATE
+
 
 def build_content(layout: Any, app: Any) -> None:
     """Build the main content area with code panels and VTK viewer."""
@@ -181,6 +183,7 @@ def build_content(layout: Any, app: Any) -> None:
                                 v_model=("generated_code", ""),
                                 language="python",
                                 theme="vs",
+                                textmate=("code_textmate", PYTHON_TEXTMATE),
                                 options=(
                                     "code_editor_options",
                                     {
