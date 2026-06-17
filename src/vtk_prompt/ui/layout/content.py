@@ -116,7 +116,7 @@ def build_content(layout: Any, app: Any) -> None:
                                 "Generate Code",
                                 color="primary",
                                 block=True,
-                                loading=("trame__busy", False),
+                                loading=("is_loading", False),
                                 click=app.ctrl.generate_code,
                                 classes="my-2",
                                 v_show="!use_cloud_models || api_token.trim()",
