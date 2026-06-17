@@ -201,10 +201,6 @@ class VTKPromptApp(TrameApp):
         """
         generation.trigger_warning_toast(self, message)
 
-    def _generate_and_execute_code(self) -> None:
-        """Generate VTK code using AI API and execute it."""
-        generation.generate_and_execute_code(self)
-
     def _execute_with_renderer(self, code_string: str) -> None:
         """Execute VTK code with our renderer."""
         generation.execute_with_renderer(self, code_string)

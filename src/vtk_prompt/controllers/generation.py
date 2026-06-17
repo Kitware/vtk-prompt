@@ -5,7 +5,10 @@ This module provides controller functions for VTK code generation, execution,
 and scene manipulation in the VTK Prompt UI.
 """
 
+import asyncio
 from typing import Any
+
+from trame.app import asynchronous
 
 from .. import get_logger
 from ..rendering import clear_scene as clear_vtk_scene
@@ -24,14 +27,30 @@ EXPLAIN_RENDERER = (
 
 
 def generate_code(app: Any) -> None:
-    """Generate VTK code from user query."""
-    generate_and_execute_code(app)
+    """Generate VTK code from user query.
+
+    Schedules the work as a background task so the (slow) LLM request runs off
+    the event loop and the 3D view stays interactive while it is in flight. A
+    synchronous re-entry guard prevents overlapping generations from a second
+    click (the button no longer freezes the UI, so double-clicks are possible).
+    """
+    if getattr(app, "_generating", False):
+        return
+    app._generating = True
+    asynchronous.create_task(generate_and_execute_code(app))
 
 
-def generate_and_execute_code(app: Any) -> None:
-    """Generate VTK code using AI API and execute it."""
+async def generate_and_execute_code(app: Any) -> None:
+    """Generate VTK code using AI API and execute it.
+
+    Only the blocking network call (prompt_client.query) is offloaded to a
+    worker thread via asyncio.to_thread; the code after each await resumes on
+    the event loop (main) thread, so all VTK execution and rendering stays
+    main-thread-bound as VTK/OpenGL requires.
+    """
     app.state.is_loading = True
     app.state.error_message = ""
+    app.state.flush()  # show the spinner immediately, before the slow request
 
     try:
         if not app._conversation_loading:
@@ -50,7 +69,8 @@ def generate_and_execute_code(app: Any) -> None:
             if hasattr(app.state, "error_message") and app.state.error_message:
                 return
 
-            result = app.prompt_client.query(
+            result = await asyncio.to_thread(
+                app.prompt_client.query,
                 enhanced_query,
                 api_key=app._get_api_key(),
                 model=app._get_model(),
@@ -113,7 +133,8 @@ def generate_and_execute_code(app: Any) -> None:
         if not success and exec_error and getattr(app.state, "mcp_url", "").strip():
             logger.debug("Execution error, retrying with vtk-mcp: %s", exec_error)
             app.state.error_message = ""
-            retry_result = app.prompt_client.query(
+            retry_result = await asyncio.to_thread(
+                app.prompt_client.query,
                 execution_error=exec_error,
                 api_key=app._get_api_key(),
                 model=app._get_model(),
@@ -144,6 +165,8 @@ def generate_and_execute_code(app: Any) -> None:
         app.state.error_message = f"Error generating code: {str(e)}"
     finally:
         app.state.is_loading = False
+        app._generating = False
+        app.state.flush()  # push final state (result/error, spinner off) to client
 
 
 def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]:
