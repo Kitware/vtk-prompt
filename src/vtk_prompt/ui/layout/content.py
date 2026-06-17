@@ -184,6 +184,8 @@ def build_content(layout: Any, app: Any) -> None:
                                 language="python",
                                 theme="vs",
                                 textmate=("code_textmate", PYTHON_TEXTMATE),
+                                completion=app.jedi_complete,
+                                hover=app.jedi_hover,
                                 options=(
                                     "code_editor_options",
                                     {
@@ -193,6 +195,12 @@ def build_content(layout: Any, app: Any) -> None:
                                         "scrollBeyondLastLine": False,
                                         "lineNumbers": "on",
                                         "tabSize": 4,
+                                        # Render hover/suggest widgets at the
+                                        # document body so the surrounding
+                                        # VCard overflow does not clip them;
+                                        # sticky lets long docstrings scroll.
+                                        "fixedOverflowWidgets": True,
+                                        "hover": {"enabled": True, "sticky": True},
                                     },
                                 ),
                                 style="height: 100%; width: 100%;",

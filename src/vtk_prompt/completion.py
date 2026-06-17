@@ -1,12 +1,14 @@
-"""In-process Python/VTK completion backed by jedi.
+"""In-process Python/VTK completion and hover backed by jedi.
 
 This runs inside the same trame process as the UI (no separate server). The UI
-exposes ``complete_python`` through a trame trigger ("jedi_complete") that the
-Monaco editor's completion provider calls over the existing websocket.
+exposes ``complete_python`` / ``hover_python`` through trame triggers that the
+Monaco editor's providers call over the existing websocket.
 
-VTK resolves because a small preamble (``import vtk``) is prepended before
-analysis; jedi infers types through it, so e.g. ``vtkSphereSource().Set`` yields
-the real ``Set*`` methods. The preamble line offset is added to the request line.
+Both use ``jedi.Interpreter`` against a live namespace, so completion and hover
+resolve not only ``vtk`` (with real docstrings) but also the objects injected
+into the generated code's exec scope, such as ``renderer`` and
+``render_window``. Call :func:`register_runtime_objects` once those exist so the
+editor can complete e.g. ``renderer.AddActor`` and hover their docstrings.
 """
 
 from __future__ import annotations
@@ -15,11 +17,8 @@ from . import get_logger
 
 logger = get_logger(__name__)
 
-_PREAMBLE = "import vtk\nimport vtkmodules.all\n"
-_PREAMBLE_LINES = _PREAMBLE.count("\n")
-
 # jedi is imported lazily so importing this module never hard-fails if jedi is
-# missing; completion just returns nothing in that case.
+# missing; completion/hover just return nothing in that case.
 try:
     import jedi  # type: ignore
 
@@ -27,6 +26,25 @@ try:
 except Exception:  # pragma: no cover - jedi is a declared dependency
     _JEDI_OK = False
     logger.warning("jedi not available; Python code completion disabled")
+
+# A live namespace jedi.Interpreter resolves names against (without executing
+# the user's code). Seeded with vtk; runtime objects are registered as they are
+# created so the editor can complete/hover them too.
+_NS: dict = {}
+try:
+    exec("import vtk\nimport vtkmodules.all", _NS)  # noqa: S102 - trusted, our own code
+except Exception:  # pragma: no cover
+    pass
+
+
+def register_runtime_objects(**objects) -> None:
+    """Expose live objects (e.g. ``renderer=...``) to completion and hover.
+
+    The names become resolvable in the editor exactly as they are in the
+    generated code's exec scope, so ``renderer.`` lists the live vtkRenderer's
+    methods and hover shows their docstrings. Safe to call repeatedly.
+    """
+    _NS.update(objects)
 
 
 def complete_python(code: str, line: int, column: int, limit: int = 500) -> list[dict]:
@@ -44,8 +62,7 @@ def complete_python(code: str, line: int, column: int, limit: int = 500) -> list
     if not _JEDI_OK or not isinstance(code, str):
         return []
     try:
-        script = jedi.Script(code=_PREAMBLE + code)
-        completions = script.complete(line + _PREAMBLE_LINES, column)
+        completions = jedi.Interpreter(code, [_NS]).complete(line, column)
     except Exception as exc:  # jedi can raise on malformed/partial input
         logger.debug("jedi completion error: %s", exc)
         return []
@@ -58,18 +75,6 @@ def complete_python(code: str, line: int, column: int, limit: int = 500) -> list
             detail = ""
         out.append({"label": c.name, "kind": c.type, "detail": detail})
     return out
-
-
-# A live namespace for hover introspection. jedi.Interpreter resolves names
-# against these live modules (without executing the user's code), which yields
-# VTK's real docstrings (e.g. "Set the radius of sphere. Default is 0.5.")
-# rather than the signature-only text static analysis returns for compiled
-# extension modules.
-_HOVER_NS: dict = {}
-try:
-    exec("import vtk\nimport vtkmodules.all", _HOVER_NS)  # noqa: S102 - trusted, our own code
-except Exception:  # pragma: no cover
-    pass
 
 
 def _doc_prose(doc: str, name: str) -> str:
@@ -86,13 +91,14 @@ def _doc_prose(doc: str, name: str) -> str:
 def hover_python(code: str, line: int, column: int) -> dict | None:
     """Return hover info (signature + docstring) for the symbol at the cursor.
 
-    Uses jedi.Interpreter against a live VTK namespace so VTK docstrings include
-    their real prose. 1-based ``line``, 0-based ``column``. Never raises.
+    Uses jedi.Interpreter against the live namespace so VTK (and registered
+    runtime objects) resolve with their real docstrings. 1-based ``line``,
+    0-based ``column``. Never raises.
     """
     if not _JEDI_OK or not isinstance(code, str):
         return None
     try:
-        defs = jedi.Interpreter(code, [_HOVER_NS]).help(line, column)
+        defs = jedi.Interpreter(code, [_NS]).help(line, column)
     except Exception as exc:
         logger.debug("jedi hover error: %s", exc)
         return None

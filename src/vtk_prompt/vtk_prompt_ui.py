@@ -32,7 +32,6 @@ from .rendering import (
     setup_vtk_renderer,
 )
 from .state import config_state, config_validator, initializer
-from .ui import monaco_completion
 from .ui.layout import build_content, build_settings_dialog, build_toolbar
 from .utils import file_handlers, prompt_loader
 
@@ -66,9 +65,6 @@ class VTKPromptApp(TrameApp):
         # Make sure JS is loaded
         file_handlers.load_js(self.server)
 
-        # Load the Monaco Python/VTK completion provider (client JS).
-        self.server.enable_module(monaco_completion)
-
         # Suppress VTK warnings to reduce console noise
         vtk.vtkObject.GlobalWarningDisplayOff()
 
@@ -76,6 +72,15 @@ class VTKPromptApp(TrameApp):
         self.renderer, self.render_window, self.render_window_interactor = setup_vtk_renderer()
         self._conversation_loading = False
         add_default_scene(self.renderer)
+
+        # Expose the live renderer/render_window to editor completion + hover, so
+        # the editor can complete e.g. renderer.AddActor and show their docstrings
+        # (same names the generated code's exec scope sees).
+        from .completion import register_runtime_objects
+
+        register_runtime_objects(
+            renderer=self.renderer, render_window=self.render_window
+        )
 
         # Initialize application state
         self._initialize_state()
@@ -156,7 +161,6 @@ class VTKPromptApp(TrameApp):
         """Advance the code panel to the next version and re-render."""
         generation.redo_code(self)
 
-    @trigger("jedi_complete")
     def jedi_complete(self, code: str, line: int, column: int) -> list:
         """Return Python/VTK completions for the editor (called from the client).
 
@@ -166,12 +170,27 @@ class VTKPromptApp(TrameApp):
 
         return complete_python(code, line, column)
 
-    @trigger("jedi_hover")
     def jedi_hover(self, code: str, line: int, column: int):
-        """Return signature + docstring for the symbol under the cursor (hover)."""
+        """Return hover markdown for the symbol under the cursor.
+
+        trame-code's hover provider accepts a markdown string, a list of
+        strings, or {"contents": [...]}. We assemble the signature as a Python
+        code block followed by the docstring prose.
+        """
         from .completion import hover_python
 
-        return hover_python(code, line, column)
+        info = hover_python(code, line, column)
+        if not info:
+            return None
+        contents = []
+        sigs = info.get("signatures") or []
+        if sigs:
+            contents.append("```python\n" + "\n".join(sigs) + "\n```")
+        elif info.get("name"):
+            contents.append("```python\n" + info["name"] + "\n```")
+        if info.get("prose"):
+            contents.append(info["prose"])
+        return {"contents": contents} if contents else None
 
     @controller.set("trigger_warning_toast")
     def trigger_warning_toast(self, message: str) -> None:
