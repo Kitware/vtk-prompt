@@ -80,6 +80,7 @@ def build_content(layout: Any, app: Any) -> None:
                                     rows=4,
                                     variant="outlined",
                                     placeholder=("e.g., Create a red sphere with lighting"),
+                                    persistent_placeholder=True,
                                     hide_details=True,
                                     no_resize=True,
                                 )
@@ -115,7 +116,7 @@ def build_content(layout: Any, app: Any) -> None:
                                 loading=("trame__busy", False),
                                 click=app.ctrl.generate_code,
                                 classes="my-2",
-                                v_show="api_token.trim()",
+                                v_show="!use_cloud_models || api_token.trim()",
                             )
                             vuetify.VBtn(
                                 "Set API Key",

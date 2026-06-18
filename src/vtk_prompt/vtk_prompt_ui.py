@@ -240,6 +240,12 @@ class VTKPromptApp(TrameApp):
 
 def main() -> None:
     """Start the trame app."""
+    from .utils.env_config import discover_config_file, load_dotenv_files
+
+    # Load .env files (e.g. API tokens) before anything reads the environment
+    for env_file in load_dotenv_files():
+        print(f"Loaded environment from {env_file}")
+
     print("VTK Prompt UI - Enter your API token in the application settings.")
     print("Supported providers: OpenAI, Anthropic, Google Gemini, NVIDIA NIM")
     print("For local Ollama, use custom base URL and model configuration.")
@@ -252,6 +258,12 @@ def main() -> None:
         if arg == "--prompt-file" and i + 1 < len(sys.argv):
             custom_prompt_file = sys.argv[i + 1]
             break
+
+    # Fall back to an auto-discovered default config when not given explicitly
+    if custom_prompt_file is None:
+        custom_prompt_file = discover_config_file()
+        if custom_prompt_file:
+            print(f"Using config: {custom_prompt_file}")
 
     # Create and start the app
     app = VTKPromptApp(custom_prompt_file=custom_prompt_file)

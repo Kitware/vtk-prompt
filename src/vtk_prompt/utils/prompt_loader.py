@@ -49,6 +49,18 @@ def apply_custom_prompt_data(app: Any, data: dict[str, Any]) -> None:
         _process_rag_and_generation_settings(app)
         _process_model_parameters(app)
 
+        # A file is only treated as a *prompt* if it defines messages.
+        # A config file (model/base_url/mcp_url/top_k/... but no messages)
+        # supplies settings only; keeping it as custom_prompt_data would make
+        # the client send an empty message list to the LLM. Settings above are
+        # already applied to app.state, so discard the non-prompt payload.
+        if "messages" not in data:
+            logger.info(
+                "Loaded file has no 'messages'; treating as config only, "
+                "built-in prompts will be used."
+            )
+            app.custom_prompt_data = None
+
 
 def _process_model_configuration(app: Any) -> None:
     """Process model configuration from custom prompt data."""
@@ -104,6 +116,14 @@ def _process_rag_and_generation_settings(app: Any) -> None:
             app.state.retry_attempts = int(_retries)
         else:
             logger.warning("Invalid retries in prompt file: %r; keeping existing", _retries)
+    if "mcp_url" in app.custom_prompt_data:
+        _mcp = app.custom_prompt_data.get("mcp_url")
+        if isinstance(_mcp, str):
+            app.state.mcp_url = _mcp.strip()
+    if "base_url" in app.custom_prompt_data:
+        _base = app.custom_prompt_data.get("base_url")
+        if isinstance(_base, str) and _base.strip():
+            app.state.local_base_url = _base.strip()
 
 
 def _process_model_parameters(app: Any) -> None:

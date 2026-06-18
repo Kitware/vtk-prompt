@@ -28,6 +28,7 @@ import openai
 from . import get_logger
 from .prompts import assemble_vtk_prompt
 from .provider_utils import DEFAULT_MODEL
+from .utils.helpers import ensure_vtk_importable
 
 logger = get_logger(__name__)
 
@@ -378,9 +379,18 @@ class VTKPromptClient:
                 yaml_messages = self._format_custom_prompt(
                     custom_prompt, message, context_snippets
                 )
-                if self.verbose:
+                if not yaml_messages:
+                    logger.warning(
+                        "custom_prompt provided but defines no 'messages'; "
+                        "falling back to built-in prompt assembly"
+                    )
+                elif self.verbose:
                     logger.debug("Using custom YAML prompt from file")
             else:
+                yaml_messages = []
+
+            # Fall back to component assembly when no usable custom messages exist.
+            if not yaml_messages:
                 from .prompts import PYTHON_VERSION, VTK_VERSION
 
                 prompt_data = assemble_vtk_prompt(
@@ -502,12 +512,7 @@ class VTKPromptClient:
             generated_explanation = expl_matches[0]
             generated_code = code_matches[0]
 
-            if "import vtk" not in generated_code:
-                generated_code = "import vtk\n" + generated_code
-            else:
-                pos = generated_code.find("import vtk")
-                if pos != -1:
-                    generated_code = generated_code[pos:]
+            generated_code = ensure_vtk_importable(generated_code)
 
             is_valid, error_msg = self.validate_code_syntax(generated_code)
             if is_valid:

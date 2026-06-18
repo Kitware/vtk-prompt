@@ -11,9 +11,19 @@ from ..provider_utils import DEFAULT_MODEL
 
 
 def get_api_key(app: Any) -> str | None:
-    """Get API key from state (requires manual input in UI)."""
+    """Get API key from state.
+
+    Cloud providers need a real key. Local models hit an OpenAI-compatible
+    endpoint (Ollama, LM Studio, ...) that ignores auth, but the OpenAI client
+    still refuses to construct with an empty key, so in local mode we fall back
+    to a placeholder. A real key typed into the field overrides it.
+    """
     api_token = getattr(app.state, "api_token", "")
-    return api_token.strip() if api_token and api_token.strip() else None
+    if api_token and api_token.strip():
+        return api_token.strip()
+    if not app.state.use_cloud_models:
+        return "sk-no-key-required"
+    return None
 
 
 def get_base_url(app: Any) -> str | None:

@@ -3,6 +3,7 @@
 import vtk
 
 from .. import get_logger
+from ..utils.helpers import ensure_vtk_importable
 
 logger = get_logger(__name__)
 
@@ -19,24 +20,27 @@ def execute_vtk_code(
         # Clear previous actors
         renderer.RemoveAllViewProps()
 
-        # Clean the code
-        pos = code_string.find("import vtk")
-        if pos != -1:
-            code_string = code_string[pos:]
+        # Ensure vtk is importable without clobbering module-specific imports
+        code_segment = ensure_vtk_importable(code_string)
 
-        # Ensure vtk is imported
-        code_segment = code_string
-        if "import vtk" not in code_segment:
-            code_segment = "import vtk\n" + code_segment
-
-        # Create execution globals with renderer available
+        # Create execution globals with renderer available.
+        # Notes:
+        # - __name__ is set to "__main__" so generated scripts guarded by
+        #   `if __name__ == "__main__":` actually run. Without it, a bare
+        #   __name__ resolves via builtins to "builtins", the guard is False,
+        #   and the script body (e.g. a main()) never executes -> blank view.
+        # - render_window is injected alongside renderer for code that uses it.
+        # - A single namespace (globals only) is used so top-level defs and the
+        #   guard share one scope and functions can see the injected names.
         exec_globals = {
             "vtk": vtk,
             "renderer": renderer,
+            "render_window": render_window,
+            "__name__": "__main__",
         }
 
         # Execute the code
-        exec(code_segment, exec_globals, {})
+        exec(code_segment, exec_globals)
 
         # Reset camera and render
         try:
