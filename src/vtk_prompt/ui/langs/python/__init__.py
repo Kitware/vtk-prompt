@@ -15,13 +15,13 @@ GRAMMAR_TYPE = "json"
 def register_lang(config: dict) -> None:
     """Append the Python language, grammar, and config into a textmate bundle."""
     config["languages"].append(
-        dict(
-            id="python",
-            extensions=[".py", ".pyw", ".pyi"],
-            aliases=["Python", "py"],
-            filenames=[],
-            firstLine=r"^#!\s*/?.*\bpython[0-9.-]*\b",
-        )
+        {
+            "id": "python",
+            "extensions": [".py", ".pyw", ".pyi"],
+            "aliases": ["Python", "py"],
+            "filenames": [],
+            "firstLine": r"^#!\s*/?.*\bpython[0-9.-]*\b",
+        }
     )
     config["configs"]["python"] = CONFIGURATION
     config["grammars"]["source.python"] = {
