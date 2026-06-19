@@ -7,9 +7,12 @@ The content area contains code panels, VTK viewer, and prompt input.
 
 from typing import Any
 
+from trame.widgets import code
 from trame.widgets import html
 from trame.widgets import vuetify3 as vuetify
 from trame_vtk.widgets import vtk as vtk_widgets
+
+from ..langs import PYTHON_TEXTMATE
 
 
 def build_content(layout: Any, app: Any) -> None:
@@ -113,7 +116,7 @@ def build_content(layout: Any, app: Any) -> None:
                                 "Generate Code",
                                 color="primary",
                                 block=True,
-                                loading=("trame__busy", False),
+                                loading=("is_loading", False),
                                 click=app.ctrl.generate_code,
                                 classes="my-2",
                                 v_show="!use_cloud_models || api_token.trim()",
@@ -130,19 +133,77 @@ def build_content(layout: Any, app: Any) -> None:
                                 v_show="use_cloud_models && !api_token.trim()",
                             )
 
-                    # Generated code panel
-                    with vuetify.VCard(readonly=True, classes="h-75 mt-2"):
-                        vuetify.VCardTitle("Generated Code")
+                    # Generated code panel (editable + re-runnable)
+                    with vuetify.VCard(classes="h-75 mt-2"):
+                        with vuetify.VCardTitle(
+                            "Generated Code", classes="d-flex align-center"
+                        ):
+                            vuetify.VSpacer()
+                            # Undo across code versions (generations, runs, edits)
+                            with vuetify.VTooltip(text="Undo code change", location="bottom"):
+                                with vuetify.Template(v_slot_activator="{ props }"):
+                                    with vuetify.VBtn(
+                                        click=app.ctrl.undo_code,
+                                        icon=True,
+                                        variant="text",
+                                        density="compact",
+                                        color="secondary",
+                                        classes="mr-1",
+                                        v_bind="props",
+                                        disabled=("code_history_pos < 1",),
+                                    ):
+                                        vuetify.VIcon("mdi-undo")
+                            with vuetify.VTooltip(text="Redo code change", location="bottom"):
+                                with vuetify.Template(v_slot_activator="{ props }"):
+                                    with vuetify.VBtn(
+                                        click=app.ctrl.redo_code,
+                                        icon=True,
+                                        variant="text",
+                                        density="compact",
+                                        color="secondary",
+                                        classes="mr-2",
+                                        v_bind="props",
+                                        disabled=(
+                                            "code_history_pos >= code_history.length - 1",
+                                        ),
+                                    ):
+                                        vuetify.VIcon("mdi-redo")
+                            # Run the (possibly edited) code without the LLM
+                            vuetify.VBtn(
+                                "Run",
+                                click=app.ctrl.run_current_code,
+                                prepend_icon="mdi-play",
+                                size="small",
+                                color="primary",
+                                variant="flat",
+                                disabled=("is_loading || !generated_code",),
+                            )
                         with vuetify.VCardText(style="height: calc(100% - 50px);"):
-                            vuetify.VTextarea(
+                            code.Editor(
                                 v_model=("generated_code", ""),
-                                readonly=True,
-                                solo=True,
-                                hide_details=True,
-                                no_resize=True,
-                                classes="overflow-y-auto fill-height",
-                                style="font-family: monospace;",
-                                placeholder="Generated VTK code will appear here...",
+                                language="python",
+                                theme="vs",
+                                textmate=("code_textmate", PYTHON_TEXTMATE),
+                                completion=app.jedi_complete,
+                                hover=app.jedi_hover,
+                                options=(
+                                    "code_editor_options",
+                                    {
+                                        "automaticLayout": True,
+                                        "minimap": {"enabled": False},
+                                        "fontSize": 13,
+                                        "scrollBeyondLastLine": False,
+                                        "lineNumbers": "on",
+                                        "tabSize": 4,
+                                        # Render hover/suggest widgets at the
+                                        # document body so the surrounding
+                                        # VCard overflow does not clip them;
+                                        # sticky lets long docstrings scroll.
+                                        "fixedOverflowWidgets": True,
+                                        "hover": {"enabled": True, "sticky": True},
+                                    },
+                                ),
+                                style="height: 100%; width: 100%;",
                             )
 
                 # Right column - VTK viewer and prompt

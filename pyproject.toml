@@ -13,6 +13,8 @@ dependencies = [
     "trame>=3.9.0",
     "trame-vtk>=2.8.0",
     "trame-vuetify>=3",
+    "trame-code>=1.1.1",
+    "jedi>=0.19",
     "vtk>=9.6.1",
 ]
 requires-python = ">=3.10"
@@ -98,7 +100,7 @@ build-backend = "setuptools.build_meta"
 fallback_version = "0.1.0"
 
 [tool.setuptools.package-data]
-vtk_prompt = ["prompts/*.txt"]
+vtk_prompt = ["prompts/*.txt", "ui/langs/python/*.json", "ui/monaco_completion/serve/*.js"]
 
 [tool.black]
 include = 'src/.*.py$'

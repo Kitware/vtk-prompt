@@ -73,6 +73,15 @@ class VTKPromptApp(TrameApp):
         self._conversation_loading = False
         add_default_scene(self.renderer)
 
+        # Expose the live renderer/render_window to editor completion + hover, so
+        # the editor can complete e.g. renderer.AddActor and show their docstrings
+        # (same names the generated code's exec scope sees).
+        from .completion import register_runtime_objects
+
+        register_runtime_objects(
+            renderer=self.renderer, render_window=self.render_window
+        )
+
         # Initialize application state
         self._initialize_state()
 
@@ -137,6 +146,52 @@ class VTKPromptApp(TrameApp):
         """Reset camera view."""
         generation.reset_camera(self)
 
+    @controller.set("run_current_code")
+    def run_current_code(self) -> None:
+        """Execute the current (possibly edited) code without calling the LLM."""
+        generation.run_current_code(self)
+
+    @controller.set("undo_code")
+    def undo_code(self) -> None:
+        """Revert the code panel to the previous version and re-render."""
+        generation.undo_code(self)
+
+    @controller.set("redo_code")
+    def redo_code(self) -> None:
+        """Advance the code panel to the next version and re-render."""
+        generation.redo_code(self)
+
+    def jedi_complete(self, code: str, line: int, column: int) -> list:
+        """Return Python/VTK completions for the editor (called from the client).
+
+        Runs in-process via jedi over the existing websocket; no extra server.
+        """
+        from .completion import complete_python
+
+        return complete_python(code, line, column)
+
+    def jedi_hover(self, code: str, line: int, column: int):
+        """Return hover markdown for the symbol under the cursor.
+
+        trame-code's hover provider accepts a markdown string, a list of
+        strings, or {"contents": [...]}. We assemble the signature as a Python
+        code block followed by the docstring prose.
+        """
+        from .completion import hover_python
+
+        info = hover_python(code, line, column)
+        if not info:
+            return None
+        contents = []
+        sigs = info.get("signatures") or []
+        if sigs:
+            contents.append("```python\n" + "\n".join(sigs) + "\n```")
+        elif info.get("name"):
+            contents.append("```python\n" + info["name"] + "\n```")
+        if info.get("prose"):
+            contents.append(info["prose"])
+        return {"contents": contents} if contents else None
+
     @controller.set("trigger_warning_toast")
     def trigger_warning_toast(self, message: str) -> None:
         """Display a warning toast notification.
@@ -145,10 +200,6 @@ class VTKPromptApp(TrameApp):
             message: Warning message to display
         """
         generation.trigger_warning_toast(self, message)
-
-    def _generate_and_execute_code(self) -> None:
-        """Generate VTK code using AI API and execute it."""
-        generation.generate_and_execute_code(self)
 
     def _execute_with_renderer(self, code_string: str) -> None:
         """Execute VTK code with our renderer."""
