@@ -85,6 +85,45 @@ def save_current_code_state(app: Any) -> None:
     }
 
 
+def sync_editor_code_into_conversation(app: Any) -> None:
+    """Make the latest assistant turn reflect the current editor code.
+
+    A refinement prompt should mutate the code that is actually on screen,
+    including manual edits, rather than the model's previous output. Rewrite the
+    <code> block of the most recent assistant message to the current editor
+    contents (minus the display-only renderer banner) so the model refines from
+    there. Only applies when viewing the most recent turn.
+    """
+    convo = getattr(app.prompt_client, "conversation", None)
+    if not convo:
+        return
+    nav = app.state.conversation_navigation or []
+    # Only sync when refining the most recent turn (not history, not new entry).
+    if not nav or app.state.conversation_index != len(nav) - 1:
+        return
+    code = app.state.generated_code or ""
+    prefix = EXPLAIN_RENDERER + "\n"
+    if code.startswith(prefix):
+        code = code[len(prefix):]
+    code = code.strip()
+    if not code:
+        return
+    for msg in reversed(convo):
+        if msg.get("role") == "assistant":
+            content = msg.get("content", "")
+            if "<code>" in content and "</code>" in content:
+                msg["content"] = re.sub(
+                    r"<code>.*?</code>",
+                    lambda _m: "<code>" + code + "</code>",
+                    content,
+                    count=1,
+                    flags=re.DOTALL,
+                )
+            else:
+                msg["content"] = content + "\n<code>" + code + "</code>"
+            return
+
+
 def navigate_conversation_left(app: Any) -> None:
     """Navigate to previous conversation pair."""
     if not app.state.conversation_navigation:
