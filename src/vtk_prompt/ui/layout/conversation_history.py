@@ -9,20 +9,20 @@ from trame.widgets import vuetify3 as vuetify
 def build_conversation_history(app: Any) -> None:
     """Build the conversation history component with clickable conversation cards."""
     with vuetify.VCard(classes="w-100", flat=True):
-        # New conversation: start a fresh prompt (Claude-style, at the top).
-        vuetify.VBtn(
-            "New conversation",
-            prepend_icon="mdi-plus",
-            block=True,
-            size="small",
-            density="compact",
-            variant="text",
-            color="primary",
-            classes="justify-start text-none my-1",
-            click=app.ctrl.start_new_conversation,
-        )
-        with vuetify.VCardTitle("Conversation History", classes="d-flex align-center"):
+        with vuetify.VCardTitle("Recents", classes="d-flex align-center"):
             vuetify.VSpacer()
+
+            # New conversation button
+            with vuetify.VTooltip(text="New conversation", location="bottom"):
+                with vuetify.Template(v_slot_activator="{ props }"):
+                    vuetify.VBtn(
+                        icon="mdi-plus",
+                        click=app.ctrl.start_new_conversation,
+                        variant="text",
+                        density="compact",
+                        color="primary",
+                        v_bind="props",
+                    )
 
             # Sort toggle button
             with vuetify.VTooltip(text="Toggle sort order", location="bottom"):
