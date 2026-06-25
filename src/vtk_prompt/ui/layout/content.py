@@ -176,7 +176,10 @@ def build_content(layout: Any, app: Any) -> None:
                                 size="small",
                                 color="primary",
                                 variant="flat",
-                                disabled=("is_loading || !generated_code",),
+                                disabled=(
+                                    "is_loading || !generated_code"
+                                    " || generated_code === rendered_code",
+                                ),
                             )
                         with vuetify.VCardText(style="height: calc(100% - 50px);"):
                             code.Editor(
