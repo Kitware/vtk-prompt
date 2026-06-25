@@ -332,6 +332,9 @@ class VTKPromptApp(TrameApp):
             # to main_drawer and collapsed by default.
             with layout.drawer:
                 layout.drawer.width = 320
+                # Overlay the scene instead of pushing it: temporary needs
+                # permanent cleared, else permanent wins and resizes the view.
+                layout.drawer.permanent = False
                 layout.drawer.temporary = True
                 build_conversation_history(self)
 
