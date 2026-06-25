@@ -12,10 +12,8 @@ from trame.widgets import vuetify3 as vuetify
 
 def build_toolbar(layout: Any, app: Any) -> None:
     """Build the toolbar layout with file controls and settings."""
-    with layout.toolbar as toolbar:
-        drawer_icon = toolbar.children[0]
-        drawer_icon.hide()
-
+    with layout.toolbar:
+        # The drawer toggle (nav icon) opens the conversation history panel.
         vuetify.VSpacer()
 
         # Settings buttons

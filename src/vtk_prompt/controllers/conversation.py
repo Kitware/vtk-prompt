@@ -5,6 +5,7 @@ This module provides controller functions for conversation navigation, file hand
 and conversation state management in the VTK Prompt UI.
 """
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -57,11 +58,39 @@ def on_conversation_file_data_change(
         app.generate_code()
 
 
+def _code_states(app: Any) -> dict:
+    """Per-conversation code-state store (server-side backing data, not UI state)."""
+    if not hasattr(app, "_conversation_code_states"):
+        app._conversation_code_states = {}
+    return app._conversation_code_states
+
+
+def _pair_key(pair: dict) -> str:
+    """Stable content-hash key for a pair (robust to index shifts and reloads)."""
+    user = pair.get("user", {}).get("content", "")
+    assistant = pair.get("assistant", {}).get("content", "")
+    return hashlib.sha256((user + "\x00" + assistant).encode("utf-8")).hexdigest()
+
+
+def save_current_code_state(app: Any) -> None:
+    """Persist the active editor code + undo/redo history for the current pair."""
+    nav = app.state.conversation_navigation
+    idx = app.state.conversation_index
+    if not nav or idx < 0 or idx >= len(nav):
+        return  # new-entry mode or empty: nothing to persist
+    _code_states(app)[_pair_key(nav[idx])] = {
+        "code": app.state.generated_code,
+        "history": list(app.state.code_history or []),
+        "pos": app.state.code_history_pos,
+    }
+
+
 def navigate_conversation_left(app: Any) -> None:
     """Navigate to previous conversation pair."""
     if not app.state.conversation_navigation:
         return
 
+    save_current_code_state(app)
     if app.state.conversation_index >= 0:
         app.state.conversation_index -= 1
         if app.state.conversation_index >= 0:
@@ -74,6 +103,7 @@ def navigate_conversation_right(app: Any) -> None:
     if not app.state.conversation_navigation:
         return
 
+    save_current_code_state(app)
     nav_length = len(app.state.conversation_navigation)
     if app.state.conversation_index < nav_length:
         app.state.conversation_index += 1
@@ -84,6 +114,29 @@ def navigate_conversation_right(app: Any) -> None:
             # Moved to "new entry" mode - clear only query text for new input
             app.state.query_text = ""
         _update_navigation_state(app)
+
+
+def navigate_to_conversation(app: Any, target_index: int) -> None:
+    """Navigate directly to a specific conversation pair by index."""
+    if not app.state.conversation_navigation:
+        return
+    if target_index < 0 or target_index >= len(app.state.conversation_navigation):
+        return
+    save_current_code_state(app)
+    app.state.conversation_index = target_index
+    _process_conversation_pair(app, target_index)
+    _update_navigation_state(app)
+
+
+def toggle_favorite_conversation(app: Any, conversation_index: int) -> None:
+    """Toggle whether a conversation pair (by index) is favorited."""
+    favorites = list(getattr(app.state, "favorited_conversations", None) or [])
+    if conversation_index in favorites:
+        favorites.remove(conversation_index)
+    else:
+        favorites.append(conversation_index)
+    # Replace the whole list so trame detects the state change.
+    app.state.favorited_conversations = favorites
 
 
 def save_conversation(app: Any) -> str:
@@ -170,13 +223,31 @@ def _process_conversation_pair(app: Any, pair_index: int | None = None) -> None:
     assistant_content = pair["assistant"].get("content", "")
     explanation, code = _parse_assistant_content(assistant_content)
 
-    if explanation and code:
-        # Set explanation and code in UI state
+    if explanation:
         app.state.generated_explanation = explanation
-        app.state.generated_code = EXPLAIN_RENDERER + "\n" + code
 
-        # Execute the code to display visualization
-        app._execute_with_renderer(code)
+    # Code is tracked per conversation: restore this pair's saved (possibly
+    # hand-edited) code and its undo/redo history if present, otherwise seed
+    # from the original generated code on first visit.
+    states = _code_states(app)
+    key = _pair_key(pair)
+    if key in states:
+        slot = states[key]
+        app.state.generated_code = slot["code"]
+        app.state.code_history = list(slot["history"])
+        app.state.code_history_pos = slot["pos"]
+        if app.state.generated_code:
+            app._execute_with_renderer(app.state.generated_code)
+    elif explanation and code:
+        app.state.generated_code = EXPLAIN_RENDERER + "\n" + code
+        app.state.code_history = [app.state.generated_code]
+        app.state.code_history_pos = 0
+        states[key] = {
+            "code": app.state.generated_code,
+            "history": list(app.state.code_history),
+            "pos": 0,
+        }
+        app._execute_with_renderer(app.state.generated_code)
 
     # Process user message for query text
     user_content = pair["user"].get("content", "").strip()

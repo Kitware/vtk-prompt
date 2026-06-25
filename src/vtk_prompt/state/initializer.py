@@ -51,6 +51,9 @@ def initialize_state(app: Any) -> None:
     app.state.can_navigate_left = False
     app.state.can_navigate_right = False
     app.state.is_viewing_history = False
+    app.state.history_sort_order = "newest"  # "newest" or "oldest"
+    app.state.favorited_conversations = []  # indices into conversation_navigation
+    app.state.history_filter_mode = "all"  # "all" or "favorites"
 
     # Prompt file state variables
     app.state.prompt_object = None
