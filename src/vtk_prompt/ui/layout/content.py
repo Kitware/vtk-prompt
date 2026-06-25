@@ -24,8 +24,84 @@ def build_content(layout: Any, app: Any) -> None:
             with vuetify.VRow(rows=12, classes="fill-height px-4 pt-1 pb-1"):
                 # Left column - Generated code view
                 with vuetify.VCol(cols=6):
+                    # Generated code panel (editable + re-runnable)
+                    with vuetify.VCard(classes="h-75"):
+                        with vuetify.VCardTitle(
+                            "Generated Code", classes="d-flex align-center"
+                        ):
+                            vuetify.VSpacer()
+                            # Undo across code versions (generations, runs, edits)
+                            with vuetify.VTooltip(text="Undo code change", location="bottom"):
+                                with vuetify.Template(v_slot_activator="{ props }"):
+                                    with vuetify.VBtn(
+                                        click=app.ctrl.undo_code,
+                                        icon=True,
+                                        variant="text",
+                                        density="compact",
+                                        color="secondary",
+                                        classes="mr-1",
+                                        v_bind="props",
+                                        disabled=("code_history_pos < 1",),
+                                    ):
+                                        vuetify.VIcon("mdi-undo")
+                            with vuetify.VTooltip(text="Redo code change", location="bottom"):
+                                with vuetify.Template(v_slot_activator="{ props }"):
+                                    with vuetify.VBtn(
+                                        click=app.ctrl.redo_code,
+                                        icon=True,
+                                        variant="text",
+                                        density="compact",
+                                        color="secondary",
+                                        classes="mr-2",
+                                        v_bind="props",
+                                        disabled=(
+                                            "code_history_pos >= code_history.length - 1",
+                                        ),
+                                    ):
+                                        vuetify.VIcon("mdi-redo")
+                            # Run the (possibly edited) code without the LLM
+                            vuetify.VBtn(
+                                "Run",
+                                click=app.ctrl.run_current_code,
+                                prepend_icon="mdi-play",
+                                size="small",
+                                color="primary",
+                                variant="flat",
+                                disabled=(
+                                    "is_loading || !generated_code"
+                                    " || generated_code === rendered_code",
+                                ),
+                            )
+                        with vuetify.VCardText(style="height: calc(100% - 50px);"):
+                            code.Editor(
+                                v_model=("generated_code", ""),
+                                language="python",
+                                theme="vs",
+                                textmate=("code_textmate", PYTHON_TEXTMATE),
+                                completion=app.jedi_complete,
+                                hover=app.jedi_hover,
+                                options=(
+                                    "code_editor_options",
+                                    {
+                                        "automaticLayout": True,
+                                        "minimap": {"enabled": False},
+                                        "fontSize": 13,
+                                        "scrollBeyondLastLine": False,
+                                        "lineNumbers": "on",
+                                        "tabSize": 4,
+                                        # Render hover/suggest widgets at the
+                                        # document body so the surrounding
+                                        # VCard overflow does not clip them;
+                                        # sticky lets long docstrings scroll.
+                                        "fixedOverflowWidgets": True,
+                                        "hover": {"enabled": True, "sticky": True},
+                                    },
+                                ),
+                                style="height: 100%; width: 100%;",
+                            )
+
                     # Prompt input
-                    with vuetify.VCard(classes="h-25"):
+                    with vuetify.VCard(classes="h-25 mt-2"):
                         with vuetify.VCardText(classes="h-100"):
                             with html.Div(classes="d-flex"):
                                 # Cloud models chip
@@ -131,82 +207,6 @@ def build_content(layout: Any, app: Any) -> None:
                                 ),
                                 classes="mb-2",
                                 v_show="use_cloud_models && !api_token.trim()",
-                            )
-
-                    # Generated code panel (editable + re-runnable)
-                    with vuetify.VCard(classes="h-75 mt-2"):
-                        with vuetify.VCardTitle(
-                            "Generated Code", classes="d-flex align-center"
-                        ):
-                            vuetify.VSpacer()
-                            # Undo across code versions (generations, runs, edits)
-                            with vuetify.VTooltip(text="Undo code change", location="bottom"):
-                                with vuetify.Template(v_slot_activator="{ props }"):
-                                    with vuetify.VBtn(
-                                        click=app.ctrl.undo_code,
-                                        icon=True,
-                                        variant="text",
-                                        density="compact",
-                                        color="secondary",
-                                        classes="mr-1",
-                                        v_bind="props",
-                                        disabled=("code_history_pos < 1",),
-                                    ):
-                                        vuetify.VIcon("mdi-undo")
-                            with vuetify.VTooltip(text="Redo code change", location="bottom"):
-                                with vuetify.Template(v_slot_activator="{ props }"):
-                                    with vuetify.VBtn(
-                                        click=app.ctrl.redo_code,
-                                        icon=True,
-                                        variant="text",
-                                        density="compact",
-                                        color="secondary",
-                                        classes="mr-2",
-                                        v_bind="props",
-                                        disabled=(
-                                            "code_history_pos >= code_history.length - 1",
-                                        ),
-                                    ):
-                                        vuetify.VIcon("mdi-redo")
-                            # Run the (possibly edited) code without the LLM
-                            vuetify.VBtn(
-                                "Run",
-                                click=app.ctrl.run_current_code,
-                                prepend_icon="mdi-play",
-                                size="small",
-                                color="primary",
-                                variant="flat",
-                                disabled=(
-                                    "is_loading || !generated_code"
-                                    " || generated_code === rendered_code",
-                                ),
-                            )
-                        with vuetify.VCardText(style="height: calc(100% - 50px);"):
-                            code.Editor(
-                                v_model=("generated_code", ""),
-                                language="python",
-                                theme="vs",
-                                textmate=("code_textmate", PYTHON_TEXTMATE),
-                                completion=app.jedi_complete,
-                                hover=app.jedi_hover,
-                                options=(
-                                    "code_editor_options",
-                                    {
-                                        "automaticLayout": True,
-                                        "minimap": {"enabled": False},
-                                        "fontSize": 13,
-                                        "scrollBeyondLastLine": False,
-                                        "lineNumbers": "on",
-                                        "tabSize": 4,
-                                        # Render hover/suggest widgets at the
-                                        # document body so the surrounding
-                                        # VCard overflow does not clip them;
-                                        # sticky lets long docstrings scroll.
-                                        "fixedOverflowWidgets": True,
-                                        "hover": {"enabled": True, "sticky": True},
-                                    },
-                                ),
-                                style="height: 100%; width: 100%;",
                             )
 
                 # Right column - VTK viewer and prompt
