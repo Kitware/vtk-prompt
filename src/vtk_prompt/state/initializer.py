@@ -26,6 +26,9 @@ def initialize_state(app: Any) -> None:
     app.state.query_text = ""
     app.state.generated_code = ""
     app.state.generated_explanation = ""
+    # Code currently shown in the 3D view (last successful render); used to
+    # disable Run when the editor already matches what is rendered.
+    app.state.rendered_code = ""
     # Version history for the editable code panel (undo/redo across generations,
     # runs, and manual edits). code_history_pos indexes the active snapshot.
     app.state.code_history = []

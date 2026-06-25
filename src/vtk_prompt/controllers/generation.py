@@ -176,6 +176,9 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
     if not success and error_message:
         app.state.error_message = error_message
 
+    if success:
+        app.state.rendered_code = code_string
+
     # Always update view
     try:
         app.ctrl.view_update()
