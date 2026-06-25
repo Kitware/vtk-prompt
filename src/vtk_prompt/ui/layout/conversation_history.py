@@ -8,8 +8,17 @@ from trame.widgets import vuetify3 as vuetify
 
 def build_conversation_history(app: Any) -> None:
     """Build the conversation history component with clickable conversation cards."""
-    # Bottom: Conversation History
-    with vuetify.VCard(classes="h-100 w-100", flat=True):
+    with vuetify.VCard(classes="h-100 w-100 d-flex flex-column", flat=True):
+        # New conversation: start a fresh prompt (Claude-style, at the top).
+        vuetify.VBtn(
+            "New conversation",
+            prepend_icon="mdi-plus",
+            block=True,
+            color="primary",
+            variant="flat",
+            classes="ma-2",
+            click=app.ctrl.start_new_conversation,
+        )
         with vuetify.VCardTitle("Conversation History", classes="d-flex align-center"):
             vuetify.VSpacer()
 
@@ -61,7 +70,7 @@ def build_conversation_history(app: Any) -> None:
                         v_bind="props",
                     )
 
-        with vuetify.VCardText(style="height: calc(100% - 50px); overflow-y: auto;"):
+        with vuetify.VCardText(style="flex: 1 1 auto; min-height: 0; overflow-y: auto;"):
             # Show message when no history
             vuetify.VAlert(
                 text="No conversation history yet." + " Start by generating some VTK code!",

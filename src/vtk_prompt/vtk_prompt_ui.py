@@ -271,6 +271,11 @@ class VTKPromptApp(TrameApp):
         """Toggle a conversation's favorite status from the history panel."""
         conversation.toggle_favorite_conversation(self, conversation_index)
 
+    @controller.set("start_new_conversation")
+    def start_new_conversation(self) -> None:
+        """Start a fresh prompt entry from the history drawer."""
+        conversation.start_new_conversation(self)
+
     @trigger("save_conversation")
     def save_conversation(self) -> str:
         """Save current conversation history as JSON string."""
