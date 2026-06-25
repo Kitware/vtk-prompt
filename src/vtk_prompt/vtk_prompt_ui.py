@@ -24,6 +24,7 @@ import vtk
 from trame.app import TrameApp
 from trame.decorators import change, controller, trigger
 from trame.ui.vuetify3 import SinglePageWithDrawerLayout
+from trame.widgets import client
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
@@ -42,6 +43,35 @@ from .ui.layout import (
 from .utils import file_handlers, prompt_loader
 
 logger = get_logger(__name__)
+
+# Chrome surfaces a benign "ResizeObserver loop completed with undelivered
+# notifications" message whenever a ResizeObserver callback (the render view or
+# Vuetify components sizing themselves on connect/layout) defers work to the
+# next frame. Nothing is lost; this silences only that specific notice.
+_RESIZE_OBSERVER_SILENCER = """
+(function () {
+  var RO_MSGS = [
+    'ResizeObserver loop completed with undelivered notifications',
+    'ResizeObserver loop limit exceeded'
+  ];
+  function isRO(msg) {
+    return typeof msg === 'string' && RO_MSGS.some(function (m) {
+      return msg.indexOf(m) !== -1;
+    });
+  }
+  window.addEventListener('error', function (e) {
+    if (isRO(e && e.message)) {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+    }
+  });
+  var origError = window.console.error;
+  window.console.error = function () {
+    if (arguments.length && isRO(arguments[0])) { return; }
+    return origError.apply(this, arguments);
+  };
+})();
+"""
 
 
 class VTKPromptApp(TrameApp):
@@ -331,16 +361,17 @@ class VTKPromptApp(TrameApp):
             self.server, theme=("theme_mode", "light"), style="max-height: 100vh;"
         ) as layout:
             layout.title.set_text("VTK Prompt UI")
+            client.Script(_RESIZE_OBSERVER_SILENCER)
 
             # Left drawer: browsable conversation history. Overlays the scene
             # (temporary) so toggling it does not resize the render view; bound
             # to main_drawer and collapsed by default.
             with layout.drawer:
                 layout.drawer.width = 320
-                # Overlay the scene instead of pushing it: temporary needs
-                # permanent cleared, else permanent wins and resizes the view.
+                # User-controlled drawer: toggled by the toolbar nav icon and
+                # stays open until toggled (not temporary). permanent is cleared
+                # so the toggle works; collapsed by default via main_drawer.
                 layout.drawer.permanent = False
-                layout.drawer.temporary = True
                 build_conversation_history(self)
 
             # Build UI sections using layout modules

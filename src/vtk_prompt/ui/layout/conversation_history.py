@@ -14,8 +14,9 @@ def build_conversation_history(app: Any) -> None:
             "New conversation",
             prepend_icon="mdi-plus",
             block=True,
+            size="small",
             color="primary",
-            variant="flat",
+            variant="tonal",
             classes="ma-2",
             click=app.ctrl.start_new_conversation,
         )
