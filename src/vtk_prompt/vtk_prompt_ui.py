@@ -16,6 +16,7 @@ Example:
     >>> vtk-prompt-ui --port 9090
 """
 
+import asyncio
 import sys
 from typing import Any
 
@@ -76,6 +77,7 @@ class VTKPromptApp(TrameApp):
         # Initialize VTK components for trame
         self.renderer, self.render_window, self.render_window_interactor = setup_vtk_renderer()
         self._conversation_loading = False
+        self._snapshot_task: asyncio.Task | None = None
         add_default_scene(self.renderer)
 
         # Expose the live renderer/render_window to editor completion + hover, so
@@ -283,6 +285,37 @@ class VTKPromptApp(TrameApp):
     def _on_provider_change(self, provider, **kwargs) -> None:
         """Handle provider selection change."""
         configuration.on_provider_change(self, provider, **kwargs)
+
+    @change("generated_code")
+    def _on_generated_code_change(self, **_: Any) -> None:
+        """Debounce-snapshot manual edits so undo/redo can step through them."""
+        if self._snapshot_task is not None and not self._snapshot_task.done():
+            self._snapshot_task.cancel()
+        try:
+            self._snapshot_task = asyncio.ensure_future(self._debounced_code_snapshot())
+        except RuntimeError:
+            # No running event loop yet (e.g. during construction); nothing to do.
+            self._snapshot_task = None
+
+    async def _debounced_code_snapshot(self) -> None:
+        """Record the current code as a history snapshot after a typing pause.
+
+        Only fires for genuine hand edits: programmatic updates (generate, run,
+        undo/redo, conversation restore) leave generated_code equal to the active
+        snapshot, so the content comparison below skips them.
+        """
+        try:
+            await asyncio.sleep(0.7)
+        except asyncio.CancelledError:
+            return
+        if self._conversation_loading:
+            return
+        history = self.state.code_history or []
+        pos = self.state.code_history_pos
+        active = history[pos] if 0 <= pos < len(history) else None
+        if self.state.generated_code and self.state.generated_code != active:
+            with self.state:
+                generation.push_code_snapshot(self, self.state.generated_code)
 
     def _build_ui(self) -> None:
         """Build a simplified Vuetify UI."""
