@@ -21,6 +21,12 @@ def build_conversation_history(app: Any) -> None:
                         variant="text",
                         density="compact",
                         color="primary",
+                        # Already on a fresh, ungenerated new entry -> nothing to do.
+                        disabled=(
+                            "conversation_index"
+                            + " >= conversation_navigation.length",
+                            True,
+                        ),
                         v_bind="props",
                     )
 
