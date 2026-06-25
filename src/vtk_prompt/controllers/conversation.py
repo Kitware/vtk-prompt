@@ -126,6 +126,8 @@ def navigate_to_conversation(app: Any, target_index: int) -> None:
     app.state.conversation_index = target_index
     _process_conversation_pair(app, target_index)
     _update_navigation_state(app)
+    # The history drawer overlays the scene; dismiss it after a selection.
+    app.state.main_drawer = False
 
 
 def toggle_favorite_conversation(app: Any, conversation_index: int) -> None:

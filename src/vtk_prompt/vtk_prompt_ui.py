@@ -327,10 +327,12 @@ class VTKPromptApp(TrameApp):
         ) as layout:
             layout.title.set_text("VTK Prompt UI")
 
-            # Left drawer: browsable conversation history (toggled by the
-            # toolbar nav icon; bound to main_drawer, collapsed by default).
+            # Left drawer: browsable conversation history. Overlays the scene
+            # (temporary) so toggling it does not resize the render view; bound
+            # to main_drawer and collapsed by default.
             with layout.drawer:
                 layout.drawer.width = 320
+                layout.drawer.temporary = True
                 build_conversation_history(self)
 
             # Build UI sections using layout modules
