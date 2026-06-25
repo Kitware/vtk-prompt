@@ -143,15 +143,6 @@ def build_content(layout: Any, app: Any) -> None:
                                 )
 
                             with html.Div(classes="d-flex", style="height: calc(100% - 75px);"):
-                                with vuetify.VBtn(
-                                    variant="tonal",
-                                    icon=True,
-                                    rounded="0",
-                                    disabled=("!can_navigate_left",),
-                                    classes="h-auto mr-1",
-                                    click=app.ctrl.navigate_conversation_left,
-                                ):
-                                    vuetify.VIcon("mdi-arrow-left-circle")
                                 # Query input
                                 vuetify.VTextarea(
                                     label="Describe VTK visualization",
@@ -163,30 +154,6 @@ def build_content(layout: Any, app: Any) -> None:
                                     hide_details=True,
                                     no_resize=True,
                                 )
-                                with vuetify.VBtn(
-                                    color=(
-                                        "conversation_index ==="
-                                        + " conversation_navigation.length - 1"
-                                        + " ? 'success' : 'default'",
-                                        "default",
-                                    ),
-                                    variant="tonal",
-                                    icon=True,
-                                    rounded="0",
-                                    disabled=("!can_navigate_right",),
-                                    click=app.ctrl.navigate_conversation_right,
-                                ):
-                                    vuetify.VIcon(
-                                        "mdi-arrow-right-circle",
-                                        v_show="conversation_index <"
-                                        + " conversation_navigation.length - 1",
-                                    )
-                                    vuetify.VIcon(
-                                        "mdi-message-plus",
-                                        v_show="conversation_index ==="
-                                        + " conversation_navigation.length - 1",
-                                    )
-
                             # Generate button
                             vuetify.VBtn(
                                 "Generate Code",

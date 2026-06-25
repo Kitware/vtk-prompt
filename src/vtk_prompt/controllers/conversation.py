@@ -130,6 +130,21 @@ def navigate_to_conversation(app: Any, target_index: int) -> None:
     app.state.main_drawer = False
 
 
+def start_new_conversation(app: Any) -> None:
+    """Start a fresh prompt entry (Claude-style New): clear inputs, keep history."""
+    save_current_code_state(app)
+    nav_length = len(app.state.conversation_navigation or [])
+    app.state.conversation_index = nav_length  # "new entry" mode, past the last pair
+    app.state.query_text = ""
+    app.state.generated_code = ""
+    app.state.generated_explanation = ""
+    app.state.code_history = []
+    app.state.code_history_pos = -1
+    _update_navigation_state(app)
+    # Dismiss the temporary history drawer after starting a new conversation.
+    app.state.main_drawer = False
+
+
 def toggle_favorite_conversation(app: Any, conversation_index: int) -> None:
     """Toggle whether a conversation pair (by index) is favorited."""
     favorites = list(getattr(app.state, "favorited_conversations", None) or [])
