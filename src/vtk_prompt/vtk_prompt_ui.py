@@ -354,8 +354,8 @@ class VTKPromptApp(TrameApp):
 
     def _build_ui(self) -> None:
         """Build a simplified Vuetify UI."""
-        # Initialize drawer state as collapsed
-        self.state.main_drawer = False
+        # Show the Recents drawer by default; user can toggle it closed.
+        self.state.main_drawer = True
 
         with SinglePageWithDrawerLayout(
             self.server, theme=("theme_mode", "light"), style="max-height: 100vh;"
@@ -363,14 +363,13 @@ class VTKPromptApp(TrameApp):
             layout.title.set_text("VTK Prompt UI")
             client.Script(_RESIZE_OBSERVER_SILENCER)
 
-            # Left drawer: browsable conversation history. Overlays the scene
-            # (temporary) so toggling it does not resize the render view; bound
-            # to main_drawer and collapsed by default.
+            # Left drawer: browsable Recents (conversation history). A
+            # user-controlled persistent drawer bound to main_drawer, shown by
+            # default and toggled by the toolbar nav icon.
             with layout.drawer:
                 layout.drawer.width = 320
-                # User-controlled drawer: toggled by the toolbar nav icon and
-                # stays open until toggled (not temporary). permanent is cleared
-                # so the toggle works; collapsed by default via main_drawer.
+                # permanent is cleared so the v-model toggle works; open state
+                # is driven by main_drawer (shown by default).
                 layout.drawer.permanent = False
                 build_conversation_history(self)
 
