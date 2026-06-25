@@ -223,25 +223,23 @@ def push_code_snapshot(app: Any, code_string: str) -> None:
 
 
 def undo_code(app: Any) -> None:
-    """Step back to the previous code version and re-render it."""
+    """Step the editor back to the previous code version (does not re-run)."""
     history = app.state.code_history or []
     pos = app.state.code_history_pos
     if pos > 0:
         pos -= 1
         app.state.code_history_pos = pos
         app.state.generated_code = history[pos]
-        execute_with_renderer(app, app.state.generated_code)
 
 
 def redo_code(app: Any) -> None:
-    """Step forward to the next code version and re-render it."""
+    """Step the editor forward to the next code version (does not re-run)."""
     history = app.state.code_history or []
     pos = app.state.code_history_pos
     if pos < len(history) - 1:
         pos += 1
         app.state.code_history_pos = pos
         app.state.generated_code = history[pos]
-        execute_with_renderer(app, app.state.generated_code)
 
 
 def clear_scene(app: Any) -> None:
