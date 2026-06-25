@@ -69,6 +69,12 @@ async def generate_and_execute_code(app: Any) -> None:
             if hasattr(app.state, "error_message") and app.state.error_message:
                 return
 
+            # Refine the CURRENT editor code (including manual edits), not the
+            # model's previous output, so generation mutates what is on screen.
+            from .conversation import sync_editor_code_into_conversation
+
+            sync_editor_code_into_conversation(app)
+
             result = await asyncio.to_thread(
                 app.prompt_client.query,
                 enhanced_query,
