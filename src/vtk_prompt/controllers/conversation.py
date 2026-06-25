@@ -168,10 +168,22 @@ def navigate_to_conversation(app: Any, target_index: int) -> None:
 
 
 def start_new_conversation(app: Any) -> None:
-    """Start a fresh prompt entry (Claude-style New): clear inputs, keep history."""
-    save_current_code_state(app)
-    nav_length = len(app.state.conversation_navigation or [])
-    app.state.conversation_index = nav_length  # "new entry" mode, past the last pair
+    """Start a brand-new conversation: reset the model context and the thread.
+
+    "New" means unrelated to what came before, so we clear the client's
+    conversation (the LLM context) and the file pointer (else the next query
+    would reload it), along with the displayed thread, per-conversation code
+    state, and the editor. The prior conversation is discarded from the UI;
+    preserving multiple conversations is what the sessions model would add.
+    """
+    if app.prompt_client:
+        app.prompt_client.conversation = []
+        app.prompt_client.conversation_file = None
+    app._conversation_code_states = {}
+    app.state.conversation = []
+    app.state.conversation_navigation = []
+    app.state.conversation_index = 0
+    app.state.conversation_file = None
     app.state.query_text = ""
     app.state.generated_code = ""
     app.state.generated_explanation = ""
