@@ -22,7 +22,7 @@ from typing import Any
 import vtk
 from trame.app import TrameApp
 from trame.decorators import change, controller, trigger
-from trame.ui.vuetify3 import SinglePageLayout
+from trame.ui.vuetify3 import SinglePageWithDrawerLayout
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
@@ -32,7 +32,12 @@ from .rendering import (
     setup_vtk_renderer,
 )
 from .state import config_state, config_validator, initializer
-from .ui.layout import build_content, build_settings_dialog, build_toolbar
+from .ui.layout import (
+    build_content,
+    build_conversation_history,
+    build_settings_dialog,
+    build_toolbar,
+)
 from .utils import file_handlers, prompt_loader
 
 logger = get_logger(__name__)
@@ -254,6 +259,16 @@ class VTKPromptApp(TrameApp):
         """Navigate to next conversation pair."""
         conversation.navigate_conversation_right(self)
 
+    @controller.set("navigate_to_conversation")
+    def navigate_to_conversation(self, target_index: int) -> None:
+        """Jump directly to a conversation pair from the history panel."""
+        conversation.navigate_to_conversation(self, target_index)
+
+    @controller.set("toggle_favorite_conversation")
+    def toggle_favorite_conversation(self, conversation_index: int) -> None:
+        """Toggle a conversation's favorite status from the history panel."""
+        conversation.toggle_favorite_conversation(self, conversation_index)
+
     @trigger("save_conversation")
     def save_conversation(self) -> str:
         """Save current conversation history as JSON string."""
@@ -274,10 +289,16 @@ class VTKPromptApp(TrameApp):
         # Initialize drawer state as collapsed
         self.state.main_drawer = False
 
-        with SinglePageLayout(
+        with SinglePageWithDrawerLayout(
             self.server, theme=("theme_mode", "light"), style="max-height: 100vh;"
         ) as layout:
             layout.title.set_text("VTK Prompt UI")
+
+            # Left drawer: browsable conversation history (toggled by the
+            # toolbar nav icon; bound to main_drawer, collapsed by default).
+            with layout.drawer:
+                layout.drawer.width = 320
+                build_conversation_history(self)
 
             # Build UI sections using layout modules
             build_toolbar(layout, self)
