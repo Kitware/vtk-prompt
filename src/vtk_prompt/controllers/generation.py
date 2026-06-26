@@ -135,6 +135,10 @@ async def generate_and_execute_code(app: Any) -> None:
             build_conversation_navigation(app)
             record_turn_checkpoint(app)
 
+            from .sessions import touch_current_session
+
+            touch_current_session(app)
+
         app._conversation_loading = False
         success, exec_error = execute_with_renderer(app, app.state.generated_code)
 
@@ -167,6 +171,10 @@ async def generate_and_execute_code(app: Any) -> None:
                         app, app.state.generated_code, label=app.state.query_text or "Generated"
                     )
                     record_turn_checkpoint(app)
+
+                    from .sessions import touch_current_session
+
+                    touch_current_session(app)
                     execute_with_renderer(app, app.state.generated_code)
     except ValueError as e:
         if "max_tokens" in str(e):

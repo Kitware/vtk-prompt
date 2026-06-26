@@ -28,7 +28,7 @@ from trame.widgets import client
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
-from .controllers import configuration, conversation, generation
+from .controllers import configuration, conversation, generation, sessions
 from .rendering import (
     add_default_scene,
     setup_vtk_renderer,
@@ -121,6 +121,10 @@ class VTKPromptApp(TrameApp):
 
         # Initialize application state
         self._initialize_state()
+
+        # Create the initial (empty) session so the Recents drawer has an entry.
+        sessions.ensure_session(self)
+        sessions.refresh_sessions_list(self)
 
         # Load custom prompt file after VTK initialization
         if custom_prompt_file:
@@ -303,8 +307,18 @@ class VTKPromptApp(TrameApp):
 
     @controller.set("start_new_conversation")
     def start_new_conversation(self) -> None:
-        """Start a fresh prompt entry from the history drawer."""
-        conversation.start_new_conversation(self)
+        """Archive the current conversation and start a fresh one."""
+        sessions.new_session(self)
+
+    @controller.set("switch_session")
+    def switch_session(self, session_id: str) -> None:
+        """Load a different conversation from the Recents drawer."""
+        sessions.switch_session(self, session_id)
+
+    @controller.set("toggle_pin_session")
+    def toggle_pin_session(self, session_id: str) -> None:
+        """Pin or unpin a conversation in the Recents drawer."""
+        sessions.toggle_pin_session(self, session_id)
 
     @trigger("save_conversation")
     def save_conversation(self) -> str:

@@ -1,0 +1,211 @@
+"""Session management: multiple conversations the user can switch between.
+
+A session bundles one conversation's full state: the LLM message context, the
+single code-version timeline (history + labels + position), the per-turn
+checkpoints, plus metadata (title, timestamps, pinned). Exactly one session is
+active at a time. Switching captures the live app state into the current session
+and loads the target; "New" archives the current session and starts a fresh one,
+so the rest of the list is preserved.
+"""
+
+import time
+import uuid
+from typing import Any
+
+
+def _sessions(app: Any) -> dict:
+    """Backing store: id -> session dict (a plain attribute, not trame state)."""
+    if not hasattr(app, "_session_store"):
+        app._session_store = {}
+    return app._session_store
+
+
+def _new_session() -> dict:
+    now = time.time()
+    return {
+        "id": uuid.uuid4().hex,
+        "title": "New conversation",
+        "created": now,
+        "updated": now,
+        "pinned": False,
+        "messages": [],
+        "code_history": [],
+        "code_history_labels": [],
+        "code_history_pos": -1,
+        "checkpoints": [],
+    }
+
+
+def ensure_session(app: Any) -> dict:
+    """Guarantee a current session exists; create the first one if needed."""
+    sessions = _sessions(app)
+    cur = getattr(app.state, "current_session_id", "") or ""
+    if cur and cur in sessions:
+        return sessions[cur]
+    sess = _new_session()
+    sessions[sess["id"]] = sess
+    app.state.current_session_id = sess["id"]
+    return sess
+
+
+def current_session(app: Any) -> dict:
+    """Return the active session object (creating one if needed)."""
+    return ensure_session(app)
+
+
+def _truncate(text: str, limit: int = 60) -> str:
+    text = (text or "").strip()
+    return text[:limit] + ("..." if len(text) > limit else "")
+
+
+def _maybe_title(app: Any, sess: dict) -> None:
+    """Set a session's title from its first user prompt (once it has one)."""
+    if sess["title"] not in ("", "New conversation"):
+        return
+    nav = app.state.conversation_navigation or []
+    if not nav:
+        return
+    from .conversation import EXTRA_INSTRUCTIONS_TAG
+
+    content = (nav[0].get("user", {}).get("content", "") or "").strip()
+    if EXTRA_INSTRUCTIONS_TAG in content:
+        content = content.split(EXTRA_INSTRUCTIONS_TAG, 1)[-1].strip()
+    content = content.replace("Request:", "").strip()
+    if content:
+        sess["title"] = _truncate(content)
+
+
+def capture_current_session(app: Any) -> None:
+    """Snapshot the live app state into the current session object."""
+    sess = current_session(app)
+    client = getattr(app, "prompt_client", None)
+    messages = list(getattr(client, "conversation", None) or app.state.conversation or [])
+    sess["messages"] = messages
+    sess["code_history"] = list(app.state.code_history or [])
+    sess["code_history_labels"] = list(app.state.code_history_labels or [])
+    sess["code_history_pos"] = app.state.code_history_pos
+    sess["checkpoints"] = list(getattr(app, "_conversation_checkpoints", None) or [])
+    sess["updated"] = time.time()
+    _maybe_title(app, sess)
+
+
+def refresh_sessions_list(app: Any) -> None:
+    """Rebuild the drawer-visible list (pinned first, then most recently updated)."""
+    ordered = sorted(
+        _sessions(app).values(),
+        key=lambda s: (not s["pinned"], -s["updated"]),
+    )
+    cur = getattr(app.state, "current_session_id", "") or ""
+    app.state.sessions_list = [
+        {
+            "id": s["id"],
+            "title": s["title"] or "New conversation",
+            "pinned": s["pinned"],
+            "active": s["id"] == cur,
+        }
+        for s in ordered
+    ]
+
+
+def _reset_live(app: Any) -> None:
+    """Clear all live conversation/code state (the fresh-conversation hinge)."""
+    client = getattr(app, "prompt_client", None)
+    if client:
+        client.conversation = []
+        client.conversation_file = None
+    app._conversation_checkpoints = []
+    app.state.conversation = []
+    app.state.conversation_navigation = []
+    app.state.conversation_index = 0
+    app.state.conversation_file = None
+    app.state.query_text = ""
+    app.state.generated_code = ""
+    app.state.generated_explanation = ""
+    app.state.code_history = []
+    app.state.code_history_labels = []
+    app.state.code_history_pos = -1
+
+
+def load_session(app: Any, session_id: str) -> None:
+    """Restore a session's saved state into the live app and render it."""
+    sessions = _sessions(app)
+    if session_id not in sessions:
+        return
+    sess = sessions[session_id]
+    app.state.current_session_id = session_id
+
+    client = getattr(app, "prompt_client", None)
+    if client:
+        client.conversation = list(sess["messages"])
+        client.conversation_file = None
+    app.state.conversation = list(sess["messages"])
+    app.state.conversation_file = None
+    app.state.code_history = list(sess["code_history"])
+    app.state.code_history_labels = list(sess["code_history_labels"])
+    app.state.code_history_pos = sess["code_history_pos"]
+    app._conversation_checkpoints = list(sess["checkpoints"])
+
+    from .conversation import (
+        _parse_assistant_content,
+        _update_navigation_state,
+        build_conversation_navigation,
+    )
+
+    build_conversation_navigation(app)
+    _update_navigation_state(app)
+
+    history = app.state.code_history or []
+    pos = app.state.code_history_pos
+    if history and 0 <= pos < len(history):
+        app.state.generated_code = history[pos]
+    else:
+        app.state.generated_code = ""
+
+    nav = app.state.conversation_navigation or []
+    if nav:
+        explanation, _ = _parse_assistant_content(
+            nav[-1].get("assistant", {}).get("content", "")
+        )
+        app.state.generated_explanation = explanation or ""
+    else:
+        app.state.generated_explanation = ""
+    app.state.query_text = ""
+
+    if app.state.generated_code:
+        app._execute_with_renderer(app.state.generated_code)
+
+
+def switch_session(app: Any, session_id: str) -> None:
+    """Capture the current session, then load the requested one."""
+    if session_id == (getattr(app.state, "current_session_id", "") or ""):
+        return
+    capture_current_session(app)
+    load_session(app, session_id)
+    refresh_sessions_list(app)
+
+
+def new_session(app: Any) -> None:
+    """Archive the current session and start a fresh empty one (keep the rest)."""
+    capture_current_session(app)
+    sess = _new_session()
+    _sessions(app)[sess["id"]] = sess
+    app.state.current_session_id = sess["id"]
+    _reset_live(app)
+    from .conversation import _update_navigation_state
+
+    _update_navigation_state(app)
+    refresh_sessions_list(app)
+
+
+def touch_current_session(app: Any) -> None:
+    """After a generation: capture state, set the title, and refresh the list."""
+    capture_current_session(app)
+    refresh_sessions_list(app)
+
+
+def toggle_pin_session(app: Any, session_id: str) -> None:
+    """Pin or unpin a session so it sorts to the top of the Recents list."""
+    sessions = _sessions(app)
+    if session_id in sessions:
+        sessions[session_id]["pinned"] = not sessions[session_id]["pinned"]
+        refresh_sessions_list(app)

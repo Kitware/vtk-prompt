@@ -59,6 +59,10 @@ def initialize_state(app: Any) -> None:
     app.state.favorited_conversations = []  # indices into conversation_navigation
     app.state.history_filter_mode = "all"  # "all" or "favorites"
 
+    # Sessions: multiple conversations the user can switch between.
+    app.state.current_session_id = ""  # active session id
+    app.state.sessions_list = []  # drawer-visible [{id,title,pinned,active}]
+
     # Prompt file state variables
     app.state.prompt_object = None
     app.state.prompt_file = None
