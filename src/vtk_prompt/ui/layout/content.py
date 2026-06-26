@@ -142,7 +142,7 @@ def build_content(layout: Any, app: Any) -> None:
                                     prepend_icon="mdi-alert",
                                 )
 
-                            with html.Div(classes="d-flex", style="height: 100%;"):
+                            with html.Div(classes="d-flex"):
                                 # Query input with an inline send arrow (Claude-style):
                                 # the arrow lives in the field and lights up only when
                                 # there is a prompt to send.
@@ -170,7 +170,6 @@ def build_content(layout: Any, app: Any) -> None:
                                             size="small",
                                             variant="flat",
                                             rounded="circle",
-                                            classes="align-self-end",
                                         )
                             vuetify.VBtn(
                                 "Set API Key",

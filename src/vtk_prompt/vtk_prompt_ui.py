@@ -335,6 +335,11 @@ class VTKPromptApp(TrameApp):
         """Handle provider selection change."""
         configuration.on_provider_change(self, provider, **kwargs)
 
+    @change("history_sort_order", "history_filter_mode")
+    def _on_sessions_view_change(self, **_: Any) -> None:
+        """Re-render the Recents list when its sort order or filter changes."""
+        sessions.refresh_sessions_list(self)
+
     @change("generated_code")
     def _on_generated_code_change(self, **_: Any) -> None:
         """Debounce-snapshot manual edits so undo/redo can step through them."""
