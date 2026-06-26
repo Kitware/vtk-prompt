@@ -12,6 +12,7 @@ checksum. That lets generated example-style code which reads such files run.
 import hashlib
 import logging
 import os
+import re
 import shutil
 import urllib.request
 from pathlib import Path
@@ -121,3 +122,32 @@ def available_names() -> list[str]:
 def has_data_root() -> bool:
     """Whether a local VTK data tree is configured (enables name resolution)."""
     return _data_root() is not None
+
+
+# Match single- or double-quoted string literals with no embedded quote/newline.
+_LITERAL_RE = re.compile(r"([\'\"])([^\'\"\n]+?)\1")
+
+
+def stage_code(code: str) -> str:
+    """Rewrite bare data-file references in code to resolved local paths.
+
+    Only string literals that are a bare filename (no directory separator) whose
+    basename is a known dataset are rewritten, so example code like
+    ``reader.SetFileName('cow.g')`` runs against the fetched file. Explicit paths
+    and unrelated strings are left untouched.
+    """
+    index = _load_index()
+    if not index or not code:
+        return code
+
+    def _replace(match: "re.Match[str]") -> str:
+        quote, value = match.group(1), match.group(2)
+        if ("/" in value) or ("\\" in value):
+            return match.group(0)
+        if value in index:
+            path = resolve(value)
+            if path:
+                return f"{quote}{path}{quote}"
+        return match.group(0)
+
+    return _LITERAL_RE.sub(_replace, code)
