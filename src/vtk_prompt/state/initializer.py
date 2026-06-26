@@ -26,6 +26,7 @@ def initialize_state(app: Any) -> None:
     app.state.query_text = ""
     app.state.generated_code = ""
     app.state.generated_explanation = ""
+    app.state.current_prompt = ""  # the sent prompt shown inline with the explanation
     # Code currently shown in the 3D view (last successful render); used to
     # disable Run when the editor already matches what is rendered.
     app.state.rendered_code = ""

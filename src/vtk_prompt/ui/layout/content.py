@@ -258,18 +258,35 @@ def build_content(layout: Any, app: Any) -> None:
                         # Explanation panel
                         with vuetify.VCard(classes="h-25 w-100 mt-2"):
                             vuetify.VCardTitle("Explanation", classes="text-h6")
-                            with vuetify.VCardText(style="height: calc(100% - 50px);"):
-                                vuetify.VTextarea(
-                                    v_model=("generated_explanation", ""),
-                                    readonly=True,
-                                    solo=True,
-                                    hide_details=True,
-                                    no_resize=True,
-                                    classes="overflow-y-auto fill-height",
-                                    placeholder="Explanation will appear here...",
-                                    auto_grow=True,
-                                    density="compact",
-                                    style="overflow-y: auto;",
+                            with vuetify.VCardText(
+                                classes="overflow-y-auto",
+                                style="height: calc(100% - 50px);",
+                            ):
+                                # Your prompt, shown inline above the explanation.
+                                with html.Div(
+                                    v_show="current_prompt",
+                                    classes="d-flex align-start mb-2",
+                                ):
+                                    vuetify.VIcon(
+                                        "mdi-account-circle",
+                                        size="small",
+                                        color="primary",
+                                        classes="mr-2",
+                                    )
+                                    html.Span(
+                                        "{{ current_prompt }}",
+                                        classes="text-body-2 font-weight-medium",
+                                    )
+                                html.Div(
+                                    "{{ generated_explanation }}",
+                                    v_show="generated_explanation",
+                                    classes="text-body-2 text-medium-emphasis",
+                                    style="white-space: pre-wrap;",
+                                )
+                                html.Div(
+                                    "Explanation will appear here...",
+                                    v_show="!current_prompt && !generated_explanation",
+                                    classes="text-medium-emphasis text-body-2",
                                 )
 
         vuetify.VAlert(

@@ -292,7 +292,7 @@ def _process_conversation_pair(app: Any, pair_index: int | None = None) -> None:
         query_text = parts[1].strip() if len(parts) > 1 else user_content
     else:
         query_text = user_content
-    app.state.query_text = query_text
+    app.state.current_prompt = query_text
 
     # Jump the single per-conversation code timeline to this turn's anchored
     # version. Manual edits made after that generation live further forward on
