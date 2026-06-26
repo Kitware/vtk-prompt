@@ -310,14 +310,24 @@ def _process_conversation_pair(app: Any, pair_index: int | None = None) -> None:
         query_text = user_content
     app.state.current_prompt = query_text
 
-    # Jump the single per-conversation code timeline to this turn's anchored
-    # version. Manual edits made after that generation live further forward on
-    # the same timeline (reachable with redo), so they are never discarded.
+    # Jump the single per-conversation code timeline to this turn. Land on the
+    # latest version belonging to the turn: its generation plus any manual edits
+    # made while on it. That is the last position before the next turn's anchor
+    # (or the end of history for the most recent turn), so revisiting a turn no
+    # longer reverts to its original generated code.
     cps = _checkpoints(app)
     history = app.state.code_history or []
     if pair_index < len(cps) and 0 <= cps[pair_index] < len(history):
-        app.state.code_history_pos = cps[pair_index]
-        app.state.generated_code = history[app.state.code_history_pos]
+        start = cps[pair_index]
+        target = len(history) - 1
+        for later in cps[pair_index + 1:]:
+            if later > start:
+                target = later - 1
+                break
+        if target < start:
+            target = start
+        app.state.code_history_pos = target
+        app.state.generated_code = history[target]
     elif code:
         # No anchored version yet (e.g. a freshly loaded conversation): seed one
         # on the timeline and anchor this turn to it.
