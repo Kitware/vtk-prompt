@@ -207,7 +207,13 @@ async def generate_and_execute_code(app: Any) -> None:
 
 def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]:
     """Execute VTK code with our renderer. Returns (success, error_message)."""
-    success, error_message = execute_vtk_code(code_string, app.renderer, app.render_window)
+    # Resolve bare data-file references (e.g. 'cow.g') to fetched local paths so
+    # example-style code runs. No-op unless a VTK data tree is configured. Only
+    # the executed copy is rewritten; the stored/displayed code keeps bare names.
+    from ..data.resolver import stage_code
+
+    exec_code = stage_code(code_string)
+    success, error_message = execute_vtk_code(exec_code, app.renderer, app.render_window)
 
     if not success and error_message:
         app.state.error_message = error_message
