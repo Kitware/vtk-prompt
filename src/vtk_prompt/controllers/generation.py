@@ -64,6 +64,12 @@ async def generate_and_execute_code(app: Any) -> None:
                 enhanced_query = app.state.query_text
                 logger.debug("Using UI mode - client will select appropriate prompt")
 
+            # Capture the prompt for inline display, then clear the input box so
+            # the sent text does not linger (Claude-style).
+            app.state.current_prompt = enhanced_query
+            app.state.query_text = ""
+            app.state.flush()
+
             # Reinitialize client with current settings
             app._init_prompt_client()
             if hasattr(app.state, "error_message") and app.state.error_message:

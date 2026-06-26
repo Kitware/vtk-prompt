@@ -138,6 +138,7 @@ def _reset_live(app: Any) -> None:
     app.state.query_text = ""
     app.state.generated_code = ""
     app.state.generated_explanation = ""
+    app.state.current_prompt = ""
     app.state.code_history = []
     app.state.code_history_labels = []
     app.state.code_history_pos = -1
@@ -188,8 +189,15 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
             nav[-1].get("assistant", {}).get("content", "")
         )
         app.state.generated_explanation = explanation or ""
+        from .conversation import EXTRA_INSTRUCTIONS_TAG
+
+        last_user = (nav[-1].get("user", {}).get("content", "") or "").strip()
+        if EXTRA_INSTRUCTIONS_TAG in last_user:
+            last_user = last_user.split(EXTRA_INSTRUCTIONS_TAG, 1)[-1].strip()
+        app.state.current_prompt = last_user
     else:
         app.state.generated_explanation = ""
+        app.state.current_prompt = ""
     app.state.query_text = ""
 
     if execute and app.state.generated_code:
