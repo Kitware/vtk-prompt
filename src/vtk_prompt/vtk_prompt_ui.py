@@ -122,9 +122,9 @@ class VTKPromptApp(TrameApp):
         # Initialize application state
         self._initialize_state()
 
-        # Create the initial (empty) session so the Recents drawer has an entry.
-        sessions.ensure_session(self)
-        sessions.refresh_sessions_list(self)
+        # Load any persisted conversations (or create the first one) so the
+        # Recents drawer is populated and the most recent conversation reopens.
+        sessions.load_persisted_sessions(self)
 
         # Load custom prompt file after VTK initialization
         if custom_prompt_file:

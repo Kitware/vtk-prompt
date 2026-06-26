@@ -8,9 +8,22 @@ and loads the target; "New" archives the current session and starts a fresh one,
 so the rest of the list is preserved.
 """
 
+import json
+import logging
 import time
 import uuid
+from pathlib import Path
 from typing import Any
+
+from ..utils.env_config import _config_home
+
+logger = logging.getLogger(__name__)
+
+# Keys written to / read from each session's JSON file.
+_PERSIST_KEYS = (
+    "id", "title", "created", "updated", "pinned", "messages",
+    "code_history", "code_history_labels", "code_history_pos", "checkpoints",
+)
 
 
 def _sessions(app: Any) -> dict:
@@ -87,6 +100,7 @@ def capture_current_session(app: Any) -> None:
     sess["checkpoints"] = list(getattr(app, "_conversation_checkpoints", None) or [])
     sess["updated"] = time.time()
     _maybe_title(app, sess)
+    _persist_session(sess)
 
 
 def refresh_sessions_list(app: Any) -> None:
@@ -126,8 +140,12 @@ def _reset_live(app: Any) -> None:
     app.state.code_history_pos = -1
 
 
-def load_session(app: Any, session_id: str) -> None:
-    """Restore a session's saved state into the live app and render it."""
+def load_session(app: Any, session_id: str, execute: bool = True) -> None:
+    """Restore a session's saved state into the live app and render it.
+
+    ``execute=False`` restores state without running the code (used at startup,
+    before the render window and client are ready).
+    """
     sessions = _sessions(app)
     if session_id not in sessions:
         return
@@ -171,7 +189,7 @@ def load_session(app: Any, session_id: str) -> None:
         app.state.generated_explanation = ""
     app.state.query_text = ""
 
-    if app.state.generated_code:
+    if execute and app.state.generated_code:
         app._execute_with_renderer(app.state.generated_code)
 
 
@@ -208,4 +226,72 @@ def toggle_pin_session(app: Any, session_id: str) -> None:
     sessions = _sessions(app)
     if session_id in sessions:
         sessions[session_id]["pinned"] = not sessions[session_id]["pinned"]
+        _persist_session(sessions[session_id])
         refresh_sessions_list(app)
+
+
+def _sessions_dir() -> Path:
+    """Directory holding one JSON file per persisted session."""
+    directory = _config_home() / "sessions"
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def _session_path(session_id: str) -> Path:
+    return _sessions_dir() / f"{session_id}.json"
+
+
+def _persist_session(sess: dict) -> None:
+    """Write a session to disk (skip empty ones so we do not litter files)."""
+    if not sess.get("messages"):
+        return
+    try:
+        data = {key: sess.get(key) for key in _PERSIST_KEYS}
+        _session_path(sess["id"]).write_text(json.dumps(data), encoding="utf-8")
+    except OSError as exc:
+        logger.warning("Could not persist session %s: %s", sess.get("id"), exc)
+
+
+def _delete_session_file(session_id: str) -> None:
+    try:
+        path = _session_path(session_id)
+        if path.exists():
+            path.unlink()
+    except OSError as exc:
+        logger.warning("Could not delete session file %s: %s", session_id, exc)
+
+
+def load_persisted_sessions(app: Any) -> None:
+    """Load saved sessions from disk and open the most recently updated one.
+
+    Called once at startup. Restores state only (no render); if nothing is
+    saved, falls back to creating a fresh empty session.
+    """
+    store = _sessions(app)
+    try:
+        files = sorted(_sessions_dir().glob("*.json"))
+    except OSError:
+        files = []
+    for path in files:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            logger.warning("Skipping unreadable session file %s: %s", path.name, exc)
+            continue
+        session_id = data.get("id")
+        if not session_id:
+            continue
+        base = _new_session()
+        for key in _PERSIST_KEYS:
+            if key in data and data[key] is not None:
+                base[key] = data[key]
+        base["id"] = session_id
+        store[session_id] = base
+
+    if store:
+        most_recent = max(store.values(), key=lambda s: s.get("updated", 0))
+        app.state.current_session_id = most_recent["id"]
+        load_session(app, most_recent["id"], execute=False)
+    else:
+        ensure_session(app)
+    refresh_sessions_list(app)
