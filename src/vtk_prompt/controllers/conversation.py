@@ -218,6 +218,16 @@ def _parse_assistant_content(content: str) -> tuple[str | None, str | None]:
         return None, None
 
 
+def _clean_prompt(user_content: str) -> str:
+    """Strip the extra-instructions wrapper and a leading 'Request:' for display."""
+    content = (user_content or "").strip()
+    if EXTRA_INSTRUCTIONS_TAG in content:
+        content = content.split(EXTRA_INSTRUCTIONS_TAG, 1)[-1].strip()
+    if content[:8].lower() == "request:":
+        content = content[8:].strip()
+    return content
+
+
 def build_conversation_navigation(app: Any) -> None:
     """Build list of conversation pairs (user message + assistant response) for navigation."""
     if not app.state.conversation:
@@ -233,7 +243,13 @@ def build_conversation_navigation(app: Any) -> None:
         if message.get("role") == "user":
             current_user = message
         elif message.get("role") == "assistant" and current_user:
-            pairs.append({"user": current_user, "assistant": message})
+            explanation, _ = _parse_assistant_content(message.get("content", ""))
+            pairs.append({
+                "user": current_user,
+                "assistant": message,
+                "prompt": _clean_prompt(current_user.get("content", "")),
+                "explanation": explanation or "",
+            })
             current_user = None
 
     app.state.conversation_navigation = pairs

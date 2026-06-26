@@ -255,39 +255,82 @@ def build_content(layout: Any, app: Any) -> None:
                                 # Ensure initial render
                                 view.update()
 
-                        # Explanation panel
+                        # Conversation transcript: prompts and responses for the
+                        # active conversation. Click a turn to revisit that step.
                         with vuetify.VCard(classes="h-25 w-100 mt-2"):
-                            vuetify.VCardTitle("Explanation", classes="text-h6")
+                            vuetify.VCardTitle("Conversation", classes="text-h6")
                             with vuetify.VCardText(
                                 classes="overflow-y-auto",
                                 style="height: calc(100% - 50px);",
                             ):
-                                # Your prompt, shown inline above the explanation.
-                                with html.Div(
-                                    v_show="current_prompt",
-                                    classes="d-flex align-start mb-2",
-                                ):
-                                    vuetify.VIcon(
-                                        "mdi-account-circle",
-                                        size="small",
-                                        color="primary",
-                                        classes="mr-2",
-                                    )
-                                    html.Span(
-                                        "{{ current_prompt }}",
-                                        classes="text-body-2 font-weight-medium",
-                                    )
                                 html.Div(
-                                    "{{ generated_explanation }}",
-                                    v_show="generated_explanation",
-                                    classes="text-body-2 text-medium-emphasis",
-                                    style="white-space: pre-wrap;",
-                                )
-                                html.Div(
-                                    "Explanation will appear here...",
-                                    v_show="!current_prompt && !generated_explanation",
+                                    "Your conversation will appear here...",
+                                    v_show=(
+                                        "conversation_navigation.length === 0 && !is_loading"
+                                    ),
                                     classes="text-medium-emphasis text-body-2",
                                 )
+                                with html.Div(
+                                    v_for="(pair, idx) in conversation_navigation",
+                                    key="'turn-' + idx",
+                                    click=(app.ctrl.navigate_to_conversation, "[idx]"),
+                                    classes="mb-2 pl-2",
+                                    style=(
+                                        "'cursor: pointer; border-left: 3px solid '"
+                                        + " + (conversation_index === idx"
+                                        + " ? 'rgb(var(--v-theme-primary))' : 'transparent')",
+                                        "cursor: pointer;",
+                                    ),
+                                ):
+                                    with html.Div(classes="d-flex align-start"):
+                                        vuetify.VIcon(
+                                            "mdi-account-circle",
+                                            size="small",
+                                            color="primary",
+                                            classes="mr-2",
+                                        )
+                                        html.Span(
+                                            "{{ pair.prompt }}",
+                                            classes=(
+                                                "conversation_index === idx"
+                                                + " ? 'text-body-2 font-weight-medium'"
+                                                + " : 'text-body-2'",
+                                                "text-body-2",
+                                            ),
+                                        )
+                                    html.Div(
+                                        "{{ pair.explanation }}",
+                                        v_show="pair.explanation",
+                                        classes="text-body-2 text-medium-emphasis ml-6",
+                                        style="white-space: pre-wrap;",
+                                    )
+                                # Pending turn while a response is generating.
+                                with html.Div(
+                                    v_show="is_loading && current_prompt",
+                                    classes="mb-2 pl-2",
+                                ):
+                                    with html.Div(classes="d-flex align-start"):
+                                        vuetify.VIcon(
+                                            "mdi-account-circle",
+                                            size="small",
+                                            color="primary",
+                                            classes="mr-2",
+                                        )
+                                        html.Span(
+                                            "{{ current_prompt }}",
+                                            classes="text-body-2 font-weight-medium",
+                                        )
+                                    with html.Div(classes="d-flex align-center ml-6 mt-1"):
+                                        vuetify.VProgressCircular(
+                                            indeterminate=True,
+                                            size="14",
+                                            width="2",
+                                            classes="mr-2",
+                                        )
+                                        html.Span(
+                                            "Generating...",
+                                            classes="text-body-2 text-medium-emphasis",
+                                        )
 
         vuetify.VAlert(
             closable=True,
