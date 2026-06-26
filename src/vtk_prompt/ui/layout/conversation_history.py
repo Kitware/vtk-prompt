@@ -1,16 +1,9 @@
-"""Recents drawer: conversations to switch between, with the active one's turns."""
+"""Recents drawer: the list of conversations to switch between."""
 
 from typing import Any
 
 from trame.widgets import html
 from trame.widgets import vuetify3 as vuetify
-
-# Strip the extra-instructions prefix and a leading "Request:" for a clean preview.
-_PROMPT_PREVIEW = (
-    "(pair.user.content.includes('</extra_instructions>')"
-    " ? pair.user.content.split('</extra_instructions>')[1]"
-    " : pair.user.content).trim().replace(/^Request:\\s*/i, '')"
-)
 
 
 def _header(app: Any) -> None:
@@ -146,28 +139,4 @@ def build_conversation_history(app: Any) -> None:
                             style="cursor: pointer;",
                         )
                         _row_menu(app)
-
-                    # The active conversation's follow-up prompts (its turns).
-                    with html.Div(
-                        v_if="s.active && conversation_navigation.length > 0",
-                        classes="ml-4 mt-1 mb-1",
-                    ):
-                        with html.Div(
-                            v_for="(pair, idx) in conversation_navigation",
-                            key="'turn-' + idx",
-                            click=(app.ctrl.navigate_to_conversation, "[idx]"),
-                            classes=(
-                                "(conversation_index === idx"
-                                + " ? 'text-primary font-weight-medium' : 'text-medium-emphasis')"
-                                + " + ' text-caption text-truncate py-1 px-2'",
-                                "text-caption",
-                            ),
-                            style=(
-                                "'cursor: pointer; border-left: 2px solid '"
-                                + " + (conversation_index === idx"
-                                + " ? 'rgb(var(--v-theme-primary))' : 'transparent')",
-                                "cursor: pointer;",
-                            ),
-                        ):
-                            html.Span("{{ idx + 1 }}. {{ " + _PROMPT_PREVIEW + " }}")
         _dialogs(app)
