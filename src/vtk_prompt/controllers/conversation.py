@@ -5,7 +5,6 @@ This module provides controller functions for conversation navigation, file hand
 and conversation state management in the VTK Prompt UI.
 """
 
-import hashlib
 import json
 import re
 from pathlib import Path
@@ -58,31 +57,29 @@ def on_conversation_file_data_change(
         app.generate_code()
 
 
-def _code_states(app: Any) -> dict:
-    """Per-conversation code-state store (server-side backing data, not UI state)."""
-    if not hasattr(app, "_conversation_code_states"):
-        app._conversation_code_states = {}
-    return app._conversation_code_states
+def _checkpoints(app: Any) -> list:
+    """Turn index -> position on the single per-conversation code timeline.
+
+    Server-side backing data (not UI state). Each conversation has one linear
+    code history covering both LLM generations and manual edits; a checkpoint
+    anchors each turn to the version that turn produced.
+    """
+    if not hasattr(app, "_conversation_checkpoints"):
+        app._conversation_checkpoints = []
+    return app._conversation_checkpoints
 
 
-def _pair_key(pair: dict) -> str:
-    """Stable content-hash key for a pair (robust to index shifts and reloads)."""
-    user = pair.get("user", {}).get("content", "")
-    assistant = pair.get("assistant", {}).get("content", "")
-    return hashlib.sha256((user + "\x00" + assistant).encode("utf-8")).hexdigest()
-
-
-def save_current_code_state(app: Any) -> None:
-    """Persist the active editor code + undo/redo history for the current pair."""
-    nav = app.state.conversation_navigation
-    idx = app.state.conversation_index
-    if not nav or idx < 0 or idx >= len(nav):
-        return  # new-entry mode or empty: nothing to persist
-    _code_states(app)[_pair_key(nav[idx])] = {
-        "code": app.state.generated_code,
-        "history": list(app.state.code_history or []),
-        "pos": app.state.code_history_pos,
-    }
+def record_turn_checkpoint(app: Any) -> None:
+    """Anchor the newest turn to the current code version (one per turn)."""
+    nav = app.state.conversation_navigation or []
+    cps = _checkpoints(app)
+    pos = app.state.code_history_pos
+    if len(cps) > len(nav):
+        del cps[len(nav):]
+    while len(cps) < len(nav):
+        cps.append(pos)
+    if nav:
+        cps[-1] = pos
 
 
 def sync_editor_code_into_conversation(app: Any) -> None:
@@ -129,7 +126,6 @@ def navigate_conversation_left(app: Any) -> None:
     if not app.state.conversation_navigation:
         return
 
-    save_current_code_state(app)
     if app.state.conversation_index >= 0:
         app.state.conversation_index -= 1
         if app.state.conversation_index >= 0:
@@ -142,7 +138,6 @@ def navigate_conversation_right(app: Any) -> None:
     if not app.state.conversation_navigation:
         return
 
-    save_current_code_state(app)
     nav_length = len(app.state.conversation_navigation)
     if app.state.conversation_index < nav_length:
         app.state.conversation_index += 1
@@ -161,7 +156,6 @@ def navigate_to_conversation(app: Any, target_index: int) -> None:
         return
     if target_index < 0 or target_index >= len(app.state.conversation_navigation):
         return
-    save_current_code_state(app)
     app.state.conversation_index = target_index
     _process_conversation_pair(app, target_index)
     _update_navigation_state(app)
@@ -179,7 +173,7 @@ def start_new_conversation(app: Any) -> None:
     if app.prompt_client:
         app.prompt_client.conversation = []
         app.prompt_client.conversation_file = None
-    app._conversation_code_states = {}
+    app._conversation_checkpoints = []
     app.state.conversation = []
     app.state.conversation_navigation = []
     app.state.conversation_index = 0
@@ -188,6 +182,7 @@ def start_new_conversation(app: Any) -> None:
     app.state.generated_code = ""
     app.state.generated_explanation = ""
     app.state.code_history = []
+    app.state.code_history_labels = []
     app.state.code_history_pos = -1
     _update_navigation_state(app)
 
@@ -290,38 +285,36 @@ def _process_conversation_pair(app: Any, pair_index: int | None = None) -> None:
     if explanation:
         app.state.generated_explanation = explanation
 
-    # Code is tracked per conversation: restore this pair's saved (possibly
-    # hand-edited) code and its undo/redo history if present, otherwise seed
-    # from the original generated code on first visit.
-    states = _code_states(app)
-    key = _pair_key(pair)
-    if key in states:
-        slot = states[key]
-        app.state.generated_code = slot["code"]
-        app.state.code_history = list(slot["history"])
-        app.state.code_history_pos = slot["pos"]
-        if app.state.generated_code:
-            app._execute_with_renderer(app.state.generated_code)
-    elif explanation and code:
-        app.state.generated_code = EXPLAIN_RENDERER + "\n" + code
-        app.state.code_history = [app.state.generated_code]
-        app.state.code_history_pos = 0
-        states[key] = {
-            "code": app.state.generated_code,
-            "history": list(app.state.code_history),
-            "pos": 0,
-        }
-        app._execute_with_renderer(app.state.generated_code)
-
-    # Process user message for query text
+    # Process user message for query text (also used as a timeline label).
     user_content = pair["user"].get("content", "").strip()
     if EXTRA_INSTRUCTIONS_TAG in user_content:
         parts = user_content.split(EXTRA_INSTRUCTIONS_TAG, 1)
         query_text = parts[1].strip() if len(parts) > 1 else user_content
     else:
         query_text = user_content
-
     app.state.query_text = query_text
+
+    # Jump the single per-conversation code timeline to this turn's anchored
+    # version. Manual edits made after that generation live further forward on
+    # the same timeline (reachable with redo), so they are never discarded.
+    cps = _checkpoints(app)
+    history = app.state.code_history or []
+    if pair_index < len(cps) and 0 <= cps[pair_index] < len(history):
+        app.state.code_history_pos = cps[pair_index]
+        app.state.generated_code = history[app.state.code_history_pos]
+    elif code:
+        # No anchored version yet (e.g. a freshly loaded conversation): seed one
+        # on the timeline and anchor this turn to it.
+        from .generation import push_code_snapshot
+
+        app.state.generated_code = EXPLAIN_RENDERER + "\n" + code
+        push_code_snapshot(app, app.state.generated_code, label=query_text)
+        while len(cps) <= pair_index:
+            cps.append(app.state.code_history_pos)
+        cps[pair_index] = app.state.code_history_pos
+
+    if app.state.generated_code:
+        app._execute_with_renderer(app.state.generated_code)
 
 
 def _process_loaded_conversation(

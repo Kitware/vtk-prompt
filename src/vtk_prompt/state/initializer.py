@@ -32,6 +32,7 @@ def initialize_state(app: Any) -> None:
     # Version history for the editable code panel (undo/redo across generations,
     # runs, and manual edits). code_history_pos indexes the active snapshot.
     app.state.code_history = []
+    app.state.code_history_labels = []  # origin of each version
     app.state.code_history_pos = -1
     app.state.is_loading = False
     app.state.mcp_url = ""
