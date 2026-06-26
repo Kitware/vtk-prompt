@@ -320,6 +320,18 @@ class VTKPromptApp(TrameApp):
         """Pin or unpin a conversation in the Recents drawer."""
         sessions.toggle_pin_session(self, session_id)
 
+    @controller.set("confirm_rename_session")
+    def confirm_rename_session(self) -> None:
+        """Apply the rename from the rename dialog."""
+        sessions.rename_session(self, self.state.rename_target_id, self.state.rename_text)
+        self.state.rename_dialog = False
+
+    @controller.set("confirm_delete_session")
+    def confirm_delete_session(self) -> None:
+        """Apply the delete from the confirm dialog."""
+        sessions.delete_session(self, self.state.delete_target_id)
+        self.state.delete_dialog = False
+
     @trigger("save_conversation")
     def save_conversation(self) -> str:
         """Save current conversation history as JSON string."""
@@ -335,9 +347,9 @@ class VTKPromptApp(TrameApp):
         """Handle provider selection change."""
         configuration.on_provider_change(self, provider, **kwargs)
 
-    @change("history_sort_order", "history_filter_mode")
-    def _on_sessions_view_change(self, **_: Any) -> None:
-        """Re-render the Recents list when its sort order or filter changes."""
+    @change("history_sort_order")
+    def _on_sessions_sort_change(self, **_: Any) -> None:
+        """Re-render the Recents list when its sort order changes."""
         sessions.refresh_sessions_list(self)
 
     @change("generated_code")
