@@ -62,6 +62,12 @@ def initialize_state(app: Any) -> None:
     # Sessions: multiple conversations the user can switch between.
     app.state.current_session_id = ""  # active session id
     app.state.sessions_list = []  # drawer-visible [{id,title,pinned,active}]
+    app.state.rename_dialog = False
+    app.state.rename_text = ""
+    app.state.rename_target_id = ""
+    app.state.delete_dialog = False
+    app.state.delete_target_id = ""
+    app.state.delete_target_title = ""
 
     # Prompt file state variables
     app.state.prompt_object = None

@@ -103,16 +103,15 @@ def capture_current_session(app: Any) -> None:
 
 
 def refresh_sessions_list(app: Any) -> None:
-    """Rebuild the drawer-visible list, honoring the sort order and favorites filter."""
+    """Rebuild the drawer-visible list: pinned first, then by the sort order."""
     sort_order = getattr(app.state, "history_sort_order", "newest") or "newest"
-    filter_mode = getattr(app.state, "history_filter_mode", "all") or "all"
-    ordered = sorted(
-        _sessions(app).values(),
-        key=lambda s: s.get("updated", 0),
-        reverse=(sort_order != "oldest"),
-    )
-    if filter_mode == "favorites":
-        ordered = [s for s in ordered if s.get("pinned")]
+    recent_first = sort_order != "oldest"
+
+    def _key(s: dict):
+        updated = s.get("updated", 0)
+        return (0 if s.get("pinned") else 1, -updated if recent_first else updated)
+
+    ordered = sorted(_sessions(app).values(), key=_key)
     cur = getattr(app.state, "current_session_id", "") or ""
     app.state.sessions_list = [
         {
@@ -299,4 +298,41 @@ def load_persisted_sessions(app: Any) -> None:
         load_session(app, most_recent["id"], execute=False)
     else:
         ensure_session(app)
+    refresh_sessions_list(app)
+
+
+def rename_session(app: Any, session_id: str, title: str) -> None:
+    """Rename a conversation; ignore an all-whitespace title."""
+    sessions = _sessions(app)
+    if session_id not in sessions:
+        return
+    new_title = (title or "").strip()[:80]
+    if not new_title:
+        return
+    sessions[session_id]["title"] = new_title
+    _persist_session(sessions[session_id])
+    refresh_sessions_list(app)
+
+
+def delete_session(app: Any, session_id: str) -> None:
+    """Delete a conversation; if it was active, open the next most recent."""
+    sessions = _sessions(app)
+    if session_id not in sessions:
+        return
+    was_current = session_id == (getattr(app.state, "current_session_id", "") or "")
+    del sessions[session_id]
+    _delete_session_file(session_id)
+
+    if was_current:
+        if sessions:
+            most_recent = max(sessions.values(), key=lambda s: s.get("updated", 0))
+            load_session(app, most_recent["id"])
+        else:
+            sess = _new_session()
+            sessions[sess["id"]] = sess
+            app.state.current_session_id = sess["id"]
+            _reset_live(app)
+            from .conversation import _update_navigation_state
+
+            _update_navigation_state(app)
     refresh_sessions_list(app)
