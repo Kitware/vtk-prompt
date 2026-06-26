@@ -98,17 +98,21 @@ def capture_current_session(app: Any) -> None:
     sess["code_history_labels"] = list(app.state.code_history_labels or [])
     sess["code_history_pos"] = app.state.code_history_pos
     sess["checkpoints"] = list(getattr(app, "_conversation_checkpoints", None) or [])
-    sess["updated"] = time.time()
     _maybe_title(app, sess)
     _persist_session(sess)
 
 
 def refresh_sessions_list(app: Any) -> None:
-    """Rebuild the drawer-visible list (pinned first, then most recently updated)."""
+    """Rebuild the drawer-visible list, honoring the sort order and favorites filter."""
+    sort_order = getattr(app.state, "history_sort_order", "newest") or "newest"
+    filter_mode = getattr(app.state, "history_filter_mode", "all") or "all"
     ordered = sorted(
         _sessions(app).values(),
-        key=lambda s: (not s["pinned"], -s["updated"]),
+        key=lambda s: s.get("updated", 0),
+        reverse=(sort_order != "oldest"),
     )
+    if filter_mode == "favorites":
+        ordered = [s for s in ordered if s.get("pinned")]
     cur = getattr(app.state, "current_session_id", "") or ""
     app.state.sessions_list = [
         {
@@ -216,7 +220,8 @@ def new_session(app: Any) -> None:
 
 
 def touch_current_session(app: Any) -> None:
-    """After a generation: capture state, set the title, and refresh the list."""
+    """After a generation: bump recency, capture state, and refresh the list."""
+    current_session(app)["updated"] = time.time()
     capture_current_session(app)
     refresh_sessions_list(app)
 
