@@ -142,9 +142,11 @@ def build_content(layout: Any, app: Any) -> None:
                                     prepend_icon="mdi-alert",
                                 )
 
-                            with html.Div(classes="d-flex", style="height: calc(100% - 75px);"):
-                                # Query input
-                                vuetify.VTextarea(
+                            with html.Div(classes="d-flex", style="height: 100%;"):
+                                # Query input with an inline send arrow (Claude-style):
+                                # the arrow lives in the field and lights up only when
+                                # there is a prompt to send.
+                                with vuetify.VTextarea(
                                     label="Describe VTK visualization",
                                     v_model=("query_text", ""),
                                     rows=4,
@@ -153,17 +155,23 @@ def build_content(layout: Any, app: Any) -> None:
                                     persistent_placeholder=True,
                                     hide_details=True,
                                     no_resize=True,
-                                )
-                            # Generate button
-                            vuetify.VBtn(
-                                "Generate Code",
-                                color="primary",
-                                block=True,
-                                loading=("is_loading", False),
-                                click=app.ctrl.generate_code,
-                                classes="my-2",
-                                v_show="!use_cloud_models || api_token.trim()",
-                            )
+                                ):
+                                    with vuetify.Template(v_slot_append_inner=True):
+                                        vuetify.VBtn(
+                                            icon="mdi-arrow-up",
+                                            click=app.ctrl.generate_code,
+                                            loading=("is_loading", False),
+                                            disabled=(
+                                                "is_loading || !query_text.trim()"
+                                                + " || (use_cloud_models && !api_token.trim())",
+                                                True,
+                                            ),
+                                            color="primary",
+                                            size="small",
+                                            variant="flat",
+                                            rounded="circle",
+                                            classes="align-self-end",
+                                        )
                             vuetify.VBtn(
                                 "Set API Key",
                                 color="error",
