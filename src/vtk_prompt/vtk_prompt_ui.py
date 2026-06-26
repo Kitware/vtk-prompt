@@ -350,7 +350,7 @@ class VTKPromptApp(TrameApp):
         active = history[pos] if 0 <= pos < len(history) else None
         if self.state.generated_code and self.state.generated_code != active:
             with self.state:
-                generation.push_code_snapshot(self, self.state.generated_code)
+                generation.push_code_snapshot(self, self.state.generated_code, label="Manual edit")
 
     def _build_ui(self) -> None:
         """Build a simplified Vuetify UI."""

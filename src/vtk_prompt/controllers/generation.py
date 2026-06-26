@@ -125,12 +125,15 @@ async def generate_and_execute_code(app: Any) -> None:
 
             app.state.generated_explanation = generated_explanation
             app.state.generated_code = EXPLAIN_RENDERER + "\n" + generated_code
-            push_code_snapshot(app, app.state.generated_code)
+            push_code_snapshot(
+                app, app.state.generated_code, label=app.state.query_text or "Generated"
+            )
 
             # Update navigation after new conversation entry
-            from .conversation import build_conversation_navigation
+            from .conversation import build_conversation_navigation, record_turn_checkpoint
 
             build_conversation_navigation(app)
+            record_turn_checkpoint(app)
 
         app._conversation_loading = False
         success, exec_error = execute_with_renderer(app, app.state.generated_code)
@@ -158,7 +161,12 @@ async def generate_and_execute_code(app: Any) -> None:
                 _, retry_code = retry_result[0], retry_result[1]
                 if retry_code:
                     app.state.generated_code = EXPLAIN_RENDERER + "\n" + retry_code
-                    push_code_snapshot(app, app.state.generated_code)
+                    from .conversation import record_turn_checkpoint
+
+                    push_code_snapshot(
+                        app, app.state.generated_code, label=app.state.query_text or "Generated"
+                    )
+                    record_turn_checkpoint(app)
                     execute_with_renderer(app, app.state.generated_code)
     except ValueError as e:
         if "max_tokens" in str(e):
@@ -204,30 +212,35 @@ def run_current_code(app: Any) -> None:
     app.state.error_message = ""
     app.state.is_loading = True
     try:
-        push_code_snapshot(app, app.state.generated_code)
+        push_code_snapshot(app, app.state.generated_code, label="Run")
         execute_with_renderer(app, app.state.generated_code)
     finally:
         app.state.is_loading = False
 
 
-def push_code_snapshot(app: Any, code_string: str) -> None:
-    """Record a code version on the history stack (drops any redo tail).
+def push_code_snapshot(app: Any, code_string: str, label: str = "") -> None:
+    """Record a labeled code version on the single per-conversation timeline.
 
-    No-op when the snapshot is identical to the current position, so repeated
-    runs of unchanged code do not bloat the history.
+    Drops any redo tail, and is a no-op when identical to the current position so
+    repeated runs of unchanged code do not bloat the history. The parallel label
+    list records what produced each version (a prompt, or "Manual edit").
     """
     history = list(app.state.code_history or [])
+    labels = list(app.state.code_history_labels or [])
     pos = app.state.code_history_pos
 
     # If we branched off after an undo, discard the now-stale redo tail.
     if 0 <= pos < len(history) - 1:
         history = history[: pos + 1]
+        labels = labels[: pos + 1]
 
     if history and history[-1] == code_string:
         return  # nothing changed
 
     history.append(code_string)
+    labels.append(label)
     app.state.code_history = history
+    app.state.code_history_labels = labels
     app.state.code_history_pos = len(history) - 1
 
 
