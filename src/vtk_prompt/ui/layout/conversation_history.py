@@ -1,4 +1,4 @@
-"""Conversation history panel: browsable, sortable, favoritable past prompts."""
+"""Recents drawer: the list of conversations (sessions) the user can switch between."""
 
 from typing import Any
 
@@ -7,12 +7,12 @@ from trame.widgets import vuetify3 as vuetify
 
 
 def build_conversation_history(app: Any) -> None:
-    """Build the conversation history component with clickable conversation cards."""
+    """Build the Recents drawer: one row per conversation, pinned/newest first."""
     with vuetify.VCard(classes="w-100", flat=True):
         with vuetify.VCardTitle("Recents", classes="d-flex align-center"):
             vuetify.VSpacer()
 
-            # New conversation button
+            # New conversation: archive the current one and start a fresh thread.
             with vuetify.VTooltip(text="New conversation", location="bottom"):
                 with vuetify.Template(v_slot_activator="{ props }"):
                     vuetify.VBtn(
@@ -21,127 +21,43 @@ def build_conversation_history(app: Any) -> None:
                         variant="text",
                         density="compact",
                         color="primary",
-                        # Already on a fresh, ungenerated new entry -> nothing to do.
-                        disabled=(
-                            "conversation_index"
-                            + " >= conversation_navigation.length",
-                            True,
-                        ),
-                        v_bind="props",
-                    )
-
-            # Sort toggle button
-            with vuetify.VTooltip(text="Toggle sort order", location="bottom"):
-                with vuetify.Template(v_slot_activator="{ props }"):
-                    vuetify.VBtn(
-                        icon=(
-                            "history_sort_order === 'newest'"
-                            + " ? 'mdi-sort-descending' : 'mdi-sort-ascending'",
-                            "mdi-sort-descending",
-                        ),
-                        click=(
-                            "history_sort_order = "
-                            + "(history_sort_order === 'newest')"
-                            + " ? 'oldest' : 'newest'"
-                        ),
-                        variant="text",
-                        density="compact",
-                        color="primary",
-                        disabled=("conversation_navigation.length === 0", False),
-                        v_bind="props",
-                    )
-
-            # Filter toggle button
-            with vuetify.VTooltip(text="Toggle favorites filter", location="bottom"):
-                with vuetify.Template(v_slot_activator="{ props }"):
-                    vuetify.VBtn(
-                        icon=(
-                            "history_filter_mode === 'favorites'"
-                            + " ? 'mdi-heart' : 'mdi-heart-off'",
-                            "mdi-format-list-bulleted",
-                        ),
-                        click=(
-                            "history_filter_mode = (history_filter_mode === 'all')"
-                            + " ? 'favorites' : 'all'"
-                        ),
-                        variant="text",
-                        density="compact",
-                        color=(
-                            "history_filter_mode === 'favorites' ? 'red' : 'primary'",
-                            "primary",
-                        ),
-                        disabled=(
-                            "conversation_navigation.length === 0"
-                            + " || favorited_conversations.length === 0",
-                            False,
-                        ),
+                        # Already on a fresh, empty conversation -> nothing to add.
+                        disabled=("conversation_navigation.length === 0", True),
                         v_bind="props",
                     )
 
         with vuetify.VCardText(style="overflow-y: auto;"):
-            # Show message when no history
             vuetify.VAlert(
-                text="No conversation history yet." + " Start by generating some VTK code!",
+                text="No conversations yet. Start by generating some VTK code!",
                 type="info",
                 variant="tonal",
-                v_show="conversation_navigation.length === 0",
+                v_show="sessions_list.length === 0",
             )
 
-            # Conversation history list
-            with vuetify.VCard(
-                v_for=(
-                    "item in (history_sort_order === 'newest'"
-                    + " ? conversation_navigation.slice().reverse()"
-                    + ".map((pair, idx) => ({pair, originalIndex: "
-                    + "conversation_navigation.length - 1 - idx}))"
-                    + " : conversation_navigation.map((pair, idx) => "
-                    + "({pair, originalIndex: idx})))"
-                    + ".filter(item => history_filter_mode === 'all' || "
-                    + "favorited_conversations.includes(item.originalIndex))"
-                ),
-                key="item.originalIndex",
-                density="compact",
-                v_show="conversation_navigation.length > 0",
-                color=(
-                    "conversation_index === item.originalIndex" + " ? 'primary' : 'secondary'",
-                    "secondary",
-                ),
-                variant=(
-                    "conversation_index === item.originalIndex" + " ? 'outlined' : 'default'",
-                    "default",
-                ),
-            ):
-                # Track favorited prompts
-                with vuetify.VCardTitle(classes="text-end"):
-                    vuetify.VIcon(
-                        click=(
-                            app.ctrl.toggle_favorite_conversation,
-                            "[item.originalIndex]",
-                        ),
-                        icon=(
-                            "favorited_conversations.includes(item.originalIndex) ? "
-                            + "'mdi-heart' : 'mdi-heart-outline'",
-                            "mdi-heart-outline",
-                        ),
-                        size="small",
-                        color=(
-                            "favorited_conversations.includes(item.originalIndex) ? "
-                            + "'red' : 'grey'",
-                            "grey",
-                        ),
-                    )
-                with vuetify.VCardText(
-                    click=(
-                        app.ctrl.navigate_to_conversation,
-                        "[item.originalIndex]",
-                    ),
-                    rounded=True,
-                    classes="mb-2",
+            with vuetify.VList(density="compact", nav=True):
+                with vuetify.VListItem(
+                    v_for="s in sessions_list",
+                    key="s.id",
+                    active=("s.active", False),
+                    color="primary",
                 ):
-                    # User query preview
-                    html.Span(
-                        "{{ (item.pair.user.content.includes('</extra_instructions>')"
-                        + " ? item.pair.user.content.split('</extra_instructions>')[1]"
-                        + " : item.pair.user.content)"
-                        + ".trim().replace(/^Request:\\s*/i, '') }}"
-                    )
+                    with html.Div(classes="d-flex align-center w-100"):
+                        # Pin / unpin this conversation (its own click; no switch).
+                        vuetify.VBtn(
+                            icon=(
+                                "s.pinned ? 'mdi-pin' : 'mdi-pin-outline'",
+                                "mdi-pin-outline",
+                            ),
+                            click=(app.ctrl.toggle_pin_session, "[s.id]"),
+                            size="x-small",
+                            variant="text",
+                            color=("s.pinned ? 'primary' : 'grey'", "grey"),
+                            classes="mr-1",
+                        )
+                        # Title: click to switch to this conversation.
+                        html.Span(
+                            "{{ s.title }}",
+                            click=(app.ctrl.switch_session, "[s.id]"),
+                            classes="flex-grow-1 text-truncate",
+                            style="cursor: pointer;",
+                        )
