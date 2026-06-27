@@ -228,37 +228,111 @@ def _clean_prompt(user_content: str) -> str:
     return content
 
 
+def _is_real_prompt(content: str) -> bool:
+    """Return True for a real user turn (not a synthetic retry/error message)."""
+    content = (content or "").strip()
+    return (EXTRA_INSTRUCTIONS_TAG in content) or content[:8].lower() == "request:"
+
+
+def _summarize(text: str, limit: int = 160) -> str:
+    text = " ".join((text or "").split())
+    return text if len(text) <= limit else text[:limit] + "..."
+
+
+def _build_trace(body: list, final_idx: int | None) -> list:
+    """Collect the model's working steps for a turn: tool calls, results, retries.
+
+    ``body`` is the messages between a real user prompt and the next one;
+    ``final_idx`` is the index in ``body`` of the turn's final response, which is
+    excluded (it is shown as the explanation, not part of the trace).
+    """
+    results: dict[str, str] = {}
+    for message in body:
+        if message.get("role") == "tool" and message.get("tool_call_id"):
+            results[message["tool_call_id"]] = message.get("content", "")
+
+    steps: list[dict] = []
+    for i, message in enumerate(body):
+        role = message.get("role")
+        if role == "assistant" and message.get("tool_calls"):
+            for call in message["tool_calls"]:
+                fn = call.get("function", {})
+                steps.append({
+                    "kind": "tool",
+                    "name": fn.get("name", "tool"),
+                    "detail": _summarize(fn.get("arguments", ""), 120),
+                    "result": _summarize(results.get(call.get("id", ""), ""), 200),
+                })
+        elif role == "user":
+            steps.append({
+                "kind": "note", "name": "Retry",
+                "detail": _summarize(message.get("content", "")), "result": "",
+            })
+        elif role == "assistant" and i != final_idx:
+            explanation, _ = _parse_assistant_content(message.get("content", ""))
+            text = explanation or re.sub(
+                r"</?(explanation|code)>", "", message.get("content", "")
+            )
+            if text.strip():
+                steps.append({
+                    "kind": "note", "name": "Attempt",
+                    "detail": _summarize(text), "result": "",
+                })
+    return steps
+
+
 def build_conversation_navigation(app: Any) -> None:
-    """Build list of conversation pairs (user message + assistant response) for navigation."""
-    if not app.state.conversation:
+    """Build per-turn navigation pairs, each with its prompt, explanation, and trace.
+
+    The stored conversation interleaves a real prompt with the model's tool calls,
+    tool results, and any retry messages before the final response. Turns are
+    delimited by real prompts; everything in between becomes that turn's trace,
+    and the last response in the span is the turn's answer.
+    """
+    msgs = app.state.conversation or []
+    if not msgs:
         app.state.conversation_navigation = []
         app.state.conversation_index = 0
         _update_navigation_state(app)
         return
 
-    pairs = []
-    current_user = None
+    starts = [
+        i for i, m in enumerate(msgs)
+        if m.get("role") == "user" and _is_real_prompt(m.get("content", ""))
+    ]
+    if not starts:  # plain conversations without wrapper markers: every user msg
+        starts = [i for i, m in enumerate(msgs) if m.get("role") == "user"]
 
-    for message in app.state.conversation:
-        if message.get("role") == "user":
-            current_user = message
-        elif message.get("role") == "assistant" and current_user:
-            explanation, _ = _parse_assistant_content(message.get("content", ""))
-            pairs.append({
-                "user": current_user,
-                "assistant": message,
-                "prompt": _clean_prompt(current_user.get("content", "")),
-                "explanation": explanation or "",
-            })
-            current_user = None
+    pairs = []
+    for si, start in enumerate(starts):
+        end = starts[si + 1] if si + 1 < len(starts) else len(msgs)
+        user_msg = msgs[start]
+        body = msgs[start + 1:end]
+
+        final_idx = None
+        for j in range(len(body) - 1, -1, -1):
+            if body[j].get("role") == "assistant" and not body[j].get("tool_calls"):
+                final_idx = j
+                break
+        if final_idx is None:
+            for j in range(len(body) - 1, -1, -1):
+                if body[j].get("role") == "assistant":
+                    final_idx = j
+                    break
+        final_msg = (
+            body[final_idx] if final_idx is not None else {"role": "assistant", "content": ""}
+        )
+        explanation, _ = _parse_assistant_content(final_msg.get("content", ""))
+        pairs.append({
+            "user": user_msg,
+            "assistant": final_msg,
+            "prompt": _clean_prompt(user_msg.get("content", "")),
+            "explanation": explanation or "",
+            "trace": _build_trace(body, final_idx),
+        })
 
     app.state.conversation_navigation = pairs
-    # Reset index to last pair if we have pairs
-    if pairs:
-        app.state.conversation_index = len(pairs) - 1
-    else:
-        app.state.conversation_index = 0
-
+    app.state.conversation_index = len(pairs) - 1 if pairs else 0
     _update_navigation_state(app)
 
 

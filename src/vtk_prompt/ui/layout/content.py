@@ -273,16 +273,19 @@ def build_content(layout: Any, app: Any) -> None:
                                 with html.Div(
                                     v_for="(pair, idx) in conversation_navigation",
                                     key="'turn-' + idx",
-                                    click=(app.ctrl.navigate_to_conversation, "[idx]"),
                                     classes="mb-2 pl-2",
                                     style=(
-                                        "'cursor: pointer; border-left: 3px solid '"
+                                        "'border-left: 3px solid '"
                                         + " + (conversation_index === idx"
                                         + " ? 'rgb(var(--v-theme-primary))' : 'transparent')",
-                                        "cursor: pointer;",
+                                        "",
                                     ),
                                 ):
-                                    with html.Div(classes="d-flex align-start"):
+                                    with html.Div(
+                                        classes="d-flex align-start",
+                                        click=(app.ctrl.navigate_to_conversation, "[idx]"),
+                                        style="cursor: pointer;",
+                                    ):
                                         vuetify.VIcon(
                                             "mdi-account-circle",
                                             size="small",
@@ -304,6 +307,38 @@ def build_content(layout: Any, app: Any) -> None:
                                         classes="text-body-2 text-medium-emphasis ml-6",
                                         style="white-space: pre-wrap;",
                                     )
+                                    # Collapsible trace: the model's tool calls and
+                                    # retries for this turn, when present.
+                                    with vuetify.VExpansionPanels(
+                                        v_show="pair.trace && pair.trace.length",
+                                        variant="accordion",
+                                        flat=True,
+                                        classes="ml-6 mt-1",
+                                    ):
+                                        with vuetify.VExpansionPanel():
+                                            vuetify.VExpansionPanelTitle(
+                                                "Show work ({{ pair.trace.length }})",
+                                                classes="text-caption pa-2",
+                                                style="min-height: 0;",
+                                            )
+                                            with vuetify.VExpansionPanelText():
+                                                with html.Div(
+                                                    v_for="(step, si) in pair.trace",
+                                                    key="'step-' + idx + '-' + si",
+                                                    classes="mb-2",
+                                                ):
+                                                    html.Div(
+                                                        "{{ step.name }}{{ step.detail"
+                                                        + " ? ': ' + step.detail : '' }}",
+                                                        classes="text-caption font-weight-medium",
+                                                    )
+                                                    html.Div(
+                                                        "{{ step.result }}",
+                                                        v_show="step.result",
+                                                        classes="text-caption"
+                                                        + " text-medium-emphasis",
+                                                        style="white-space: pre-wrap;",
+                                                    )
                                 # Pending turn while a response is generating.
                                 with html.Div(
                                     v_show="is_loading && current_prompt",
