@@ -151,3 +151,32 @@ def stage_code(code: str) -> str:
         return match.group(0)
 
     return _LITERAL_RE.sub(_replace, code)
+
+
+def referenced(code: str) -> list[str]:
+    """Return dataset names referenced as bare string literals in code (no fetch)."""
+    index = _load_index()
+    if not index or not code:
+        return []
+    found: list[str] = []
+    for match in _LITERAL_RE.finditer(code):
+        value = match.group(2)
+        if ("/" in value) or ("\\" in value):
+            continue
+        if value in index and value not in found:
+            found.append(value)
+    return found
+
+
+def artifacts(code: str) -> list[dict]:
+    """Return data artifacts referenced by code (name, cache path, fetched flag).
+
+    Pure lookup (no download); used to surface what files the current code pulls
+    in and where they live.
+    """
+    cache = _cache_dir()
+    result: list[dict] = []
+    for name in referenced(code):
+        path = cache / name
+        result.append({"name": name, "path": str(path), "cached": path.exists()})
+    return result

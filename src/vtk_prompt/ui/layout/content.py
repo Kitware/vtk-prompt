@@ -29,6 +29,41 @@ def build_content(layout: Any, app: Any) -> None:
                         with vuetify.VCardTitle(
                             "Generated Code", classes="d-flex align-center"
                         ):
+                            # Data files this code references, with where they live.
+                            with html.Div(
+                                classes="d-flex align-center ml-3",
+                                v_show="data_artifacts.length > 0",
+                            ):
+                                with vuetify.VTooltip(
+                                    v_for="a in data_artifacts",
+                                    key="a.name",
+                                    location="bottom",
+                                ):
+                                    with vuetify.Template(v_slot_activator="{ props }"):
+                                        vuetify.VChip(
+                                            "{{ a.name }}",
+                                            v_bind="props",
+                                            size="small",
+                                            variant="tonal",
+                                            classes="mr-1",
+                                            color=("a.cached ? 'success' : 'primary'", "primary"),
+                                            prepend_icon=(
+                                                "a.cached ? 'mdi-file-check'"
+                                                + " : 'mdi-cloud-download-outline'",
+                                                "mdi-file-outline",
+                                            ),
+                                        )
+                                    with html.Div():
+                                        html.Div(
+                                            "{{ a.cached ? 'Fetched' :"
+                                            + " 'Will download on run' }}",
+                                            classes="font-weight-medium",
+                                        )
+                                        html.Div("{{ a.path }}", classes="text-caption")
+                                        html.Div(
+                                            "Source: VTK data store",
+                                            classes="text-caption text-medium-emphasis",
+                                        )
                             vuetify.VSpacer()
                             # Undo across code versions (generations, runs, edits)
                             with vuetify.VTooltip(text="Undo code change", location="bottom"):

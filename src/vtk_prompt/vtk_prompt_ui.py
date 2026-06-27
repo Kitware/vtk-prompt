@@ -362,6 +362,11 @@ class VTKPromptApp(TrameApp):
     @change("generated_code")
     def _on_generated_code_change(self, **_: Any) -> None:
         """Debounce-snapshot manual edits so undo/redo can step through them."""
+        # Surface the data files the current code references (pure index lookup).
+        from .data.resolver import artifacts
+
+        self.state.data_artifacts = artifacts(self.state.generated_code)
+
         if self._snapshot_task is not None and not self._snapshot_task.done():
             self._snapshot_task.cancel()
         try:
