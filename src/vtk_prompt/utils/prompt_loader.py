@@ -124,6 +124,12 @@ def _process_rag_and_generation_settings(app: Any) -> None:
         _base = app.custom_prompt_data.get("base_url")
         if isinstance(_base, str) and _base.strip():
             app.state.local_base_url = _base.strip()
+    if "data_root" in app.custom_prompt_data:
+        _dr = app.custom_prompt_data.get("data_root")
+        if isinstance(_dr, str):
+            app.state.data_root = _dr.strip()
+            from ..data.resolver import set_data_root
+            set_data_root(app.state.data_root)
 
 
 def _process_model_parameters(app: Any) -> None:

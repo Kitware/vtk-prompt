@@ -25,6 +25,20 @@ _DATA_ROOT_ENV = "VTK_PROMPT_DATA_ROOT"
 _POINTER_SUFFIX = ".sha512"
 
 _index_cache: dict[str, str] | None = None
+_data_root_override: Path | None = None
+
+
+def set_data_root(path: str | None) -> None:
+    """Point the resolver at a VTK data tree at runtime (the Settings field).
+
+    A falsy value clears the override and falls back to the VTK_PROMPT_DATA_ROOT
+    environment variable. Always invalidates the cached index so the next lookup
+    rebuilds against the new root.
+    """
+    global _data_root_override, _index_cache
+    cleaned = (path or "").strip()
+    _data_root_override = Path(cleaned) if cleaned else None
+    _index_cache = None
 
 
 def _cache_dir() -> Path:
@@ -36,6 +50,8 @@ def _cache_dir() -> Path:
 
 
 def _data_root() -> Path | None:
+    if _data_root_override is not None and _data_root_override.is_dir():
+        return _data_root_override
     root = os.environ.get(_DATA_ROOT_ENV)
     if root and Path(root).is_dir():
         return Path(root)

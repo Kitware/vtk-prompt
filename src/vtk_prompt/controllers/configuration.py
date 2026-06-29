@@ -44,6 +44,7 @@ def save_config(app: Any) -> str:
     max_tokens = int(getattr(app.state, "max_tokens", 1000))
     retries = int(getattr(app.state, "retry_attempts", 1))
     mcp_url = getattr(app.state, "mcp_url", "").strip()
+    data_root = getattr(app.state, "data_root", "").strip()
     top_k = int(getattr(app.state, "top_k", 5))
     base_url = getattr(app.state, "local_base_url", "").strip() if not use_cloud else ""
 
@@ -53,6 +54,7 @@ def save_config(app: Any) -> str:
         "model": provider_model,
         "base_url": base_url,
         "mcp_url": mcp_url,
+        "data_root": data_root,
         "top_k": top_k,
         "retries": retries,
         "modelParameters": {

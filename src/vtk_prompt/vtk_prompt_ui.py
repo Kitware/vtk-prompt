@@ -359,6 +359,14 @@ class VTKPromptApp(TrameApp):
         """Handle provider selection change."""
         configuration.on_provider_change(self, provider, **kwargs)
 
+    @change("data_root")
+    def _on_data_root_change(self, data_root, **_: Any) -> None:
+        """Repoint the sample-data resolver and refresh referenced-file chips."""
+        from .data.resolver import artifacts, set_data_root
+
+        set_data_root(data_root or "")
+        self.state.data_artifacts = artifacts(self.state.generated_code)
+
     @change("history_sort_order")
     def _on_sessions_sort_change(self, **_: Any) -> None:
         """Re-render the Recents list when its sort order changes."""
