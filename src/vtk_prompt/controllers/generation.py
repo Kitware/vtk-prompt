@@ -205,6 +205,26 @@ async def generate_and_execute_code(app: Any) -> None:
         app.state.flush()  # push final state (result/error, spinner off) to client
 
 
+def _editor_line_for(displayed_code: str, line_text: str | None) -> int:
+    """Find the 1-based line of ``line_text`` in the code shown in the editor."""
+    if not line_text:
+        return 0
+    target = line_text.strip()
+    for i, line in enumerate(displayed_code.splitlines(), start=1):
+        if line.strip() == target:
+            return i
+    return 0
+
+
+def _format_exec_error(displayed_code: str, error_message: str, line_text: str | None) -> str:
+    """Prefix a run error with the editor line and the offending source text."""
+    if not line_text:
+        return error_message
+    editor_line = _editor_line_for(displayed_code, line_text)
+    where = f"Line {editor_line}: {line_text}" if editor_line else f"At: {line_text}"
+    return f"{where}\n{error_message}"
+
+
 def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]:
     """Execute VTK code with our renderer. Returns (success, error_message)."""
     # Resolve bare data-file references (e.g. 'cow.g') to fetched local paths so
@@ -213,10 +233,14 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
     from ..data.resolver import stage_code
 
     exec_code = stage_code(code_string)
-    success, error_message = execute_vtk_code(exec_code, app.renderer, app.render_window)
+    success, error_message, error_line_text = execute_vtk_code(
+        exec_code, app.renderer, app.render_window
+    )
 
     if not success and error_message:
-        app.state.error_message = error_message
+        app.state.error_message = _format_exec_error(
+            code_string, error_message, error_line_text
+        )
 
     if success:
         app.state.rendered_code = code_string
