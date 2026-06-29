@@ -53,8 +53,19 @@ def execute_vtk_code(
 
         return True, None, None
 
-    except Exception as e:
-        error_message = f"Error executing code: {str(e)}"
+    except (Exception, SystemExit) as e:
+        # SystemExit is NOT an Exception subclass: generated code that calls
+        # sys.exit() or argparse.parse_args() (common in VTK example scripts that
+        # read command-line data files) would otherwise propagate out and kill the
+        # whole trame app. Trap it here and report it as a normal code error.
+        if isinstance(e, SystemExit):
+            error_message = (
+                "Error executing code: the generated code runs as a standalone "
+                "script (it uses argparse/sys.exit and expects command-line "
+                "arguments), so it cannot run inside the app as written."
+            )
+        else:
+            error_message = f"Error executing code: {str(e)}"
         logger.error(error_message)
         # Identify the offending line *within the executed code* and return its
         # text (not its number). The executed code differs from what the editor
