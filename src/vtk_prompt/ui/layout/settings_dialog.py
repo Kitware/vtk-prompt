@@ -113,7 +113,7 @@ def _model_tab() -> None:
             ):
                 vuetify.VTab("Cloud", prepend_icon="mdi-cloud-outline")
                 vuetify.VTab("Local", prepend_icon="mdi-laptop")
-            with vuetify.VTabsWindow(v_model="tab_index"):
+            with vuetify.VTabsWindow(v_model="tab_index", classes="pt-3"):
                 with vuetify.VTabsWindowItem():
                     vuetify.VSelect(
                         label="Provider",
