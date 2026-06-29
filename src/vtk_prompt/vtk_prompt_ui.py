@@ -344,6 +344,11 @@ class VTKPromptApp(TrameApp):
         """Save current conversation history as JSON string."""
         return conversation.save_conversation(self)
 
+    @trigger("export_session")
+    def export_session(self, session_id: str) -> str:
+        """Return one session's JSON for download (called from utils.js)."""
+        return sessions.export_session(self, session_id)
+
     @trigger("save_config")
     def save_config(self) -> str:
         """Save current configuration as YAML string for download."""

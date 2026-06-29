@@ -242,6 +242,17 @@ def toggle_pin_session(app: Any, session_id: str) -> None:
         refresh_sessions_list(app)
 
 
+def export_session(app: Any, session_id: str) -> str:
+    """Return a session's persisted JSON for download (empty string if unknown)."""
+    if session_id == (getattr(app.state, "current_session_id", "") or ""):
+        capture_current_session(app)  # fold in any unsaved live messages first
+    sess = _sessions(app).get(session_id)
+    if not sess:
+        return ""
+    data = {key: sess.get(key) for key in _PERSIST_KEYS}
+    return json.dumps(data, indent=2)
+
+
 def _sessions_dir() -> Path:
     """Directory holding one JSON file per persisted session."""
     directory = _config_home() / "sessions"

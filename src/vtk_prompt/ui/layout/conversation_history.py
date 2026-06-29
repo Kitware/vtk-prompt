@@ -20,6 +20,16 @@ def _header(app: Any) -> None:
                     disabled=("conversation_navigation.length === 0", True),
                     v_bind="props",
                 )
+        with vuetify.VTooltip(text="Import conversation", location="bottom"):
+            with vuetify.Template(v_slot_activator="{ props }"):
+                vuetify.VBtn(
+                    icon="mdi-tray-arrow-up",
+                    click="import_dialog = true",
+                    variant="text",
+                    density="compact",
+                    color="primary",
+                    v_bind="props",
+                )
         with vuetify.VTooltip(text="Toggle sort order", location="bottom"):
             with vuetify.Template(v_slot_activator="{ props }"):
                 vuetify.VBtn(
@@ -58,6 +68,10 @@ def _row_menu(app: Any) -> None:
             ):
                 vuetify.VListItemTitle("Rename")
             with vuetify.VListItem(
+                click="window.trame.utils.vtk_prompt.exportSession(s.id, s.title)"
+            ):
+                vuetify.VListItemTitle("Export")
+            with vuetify.VListItem(
                 click=(
                     "delete_target_id = s.id; delete_target_title = s.title;"
                     + " delete_dialog = true"
@@ -88,6 +102,23 @@ def _dialogs(app: Any) -> None:
                     color="primary",
                     variant="text",
                 )
+    # Import
+    with vuetify.VDialog(v_model=("import_dialog", False), max_width="480"):
+        with vuetify.VCard():
+            vuetify.VCardTitle("Import conversation")
+            with vuetify.VCardText():
+                vuetify.VFileUpload(
+                    label="Choose a .json conversation file",
+                    v_model=("uploaded_files", None),
+                    accept=".json",
+                    multiple=True,
+                    hide_details="auto",
+                    density="compact",
+                    color="teal-lighten-5",
+                )
+            with vuetify.VCardActions():
+                vuetify.VSpacer()
+                vuetify.VBtn("Close", click="import_dialog = false", variant="text")
     # Delete
     with vuetify.VDialog(v_model=("delete_dialog", False), max_width="420"):
         with vuetify.VCard():
