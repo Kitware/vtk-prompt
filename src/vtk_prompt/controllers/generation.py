@@ -36,6 +36,14 @@ def generate_code(app: Any) -> None:
     """
     if getattr(app, "_generating", False):
         return
+    # Mirror the send button's disabled condition so Ctrl+Enter (which bypasses
+    # the button) cannot submit an empty prompt or run without a cloud token.
+    if not (getattr(app.state, "query_text", "") or "").strip():
+        return
+    if getattr(app.state, "use_cloud_models", True) and not (
+        getattr(app.state, "api_token", "") or ""
+    ).strip():
+        return
     app._generating = True
     asynchronous.create_task(generate_and_execute_code(app))
 

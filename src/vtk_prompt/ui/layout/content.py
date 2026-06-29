@@ -155,6 +155,7 @@ def build_content(layout: Any, app: Any) -> None:
                                     persistent_placeholder=True,
                                     hide_details=True,
                                     no_resize=True,
+                                    keydown_ctrl_enter=app.ctrl.generate_code,
                                 ):
                                     with vuetify.Template(v_slot_append_inner=True):
                                         vuetify.VBtn(
