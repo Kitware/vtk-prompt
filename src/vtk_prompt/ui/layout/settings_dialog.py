@@ -24,35 +24,28 @@ def build_settings_dialog(layout: Any, app: Any) -> None:
                     color="primary",
                     classes="pa-1",
                 ):
-                    vuetify.VTab("Files", value="files")
+                    vuetify.VTab("Config", value="files")
                     vuetify.VTab("Model", value="model")
                     vuetify.VTab("Advanced", value="advanced")
                 with vuetify.VTabsWindow(v_model=("active_settings_tab", "files")):
                     # Files Tab
                     with vuetify.VTabsWindowItem(value="files"):
                         with vuetify.VCard():
-                            with vuetify.VCardTitle("Uploads"):
+                            with vuetify.VCardTitle("Import config"):
                                 vuetify.VCardSubtitle(
-                                    "Upload conversation files (.json) or prompt "
-                                    "config files (.yaml/.yml)"
+                                    "Load a prompt/config file (.yaml/.yml). To import "
+                                    "a conversation, use Import in Recents."
                                 )
                             with vuetify.VCardText():
-                                with vuetify.VTooltip(
-                                    text="Upload conversation files (.json) or prompt "
-                                    "config files (.yaml/.yml)",
-                                    location="top",
-                                ):
-                                    with vuetify.Template(v_slot_activator="{ props }"):
-                                        vuetify.VFileUpload(
-                                            label="Upload Files (.json, .yaml, .yml)",
-                                            v_model=("uploaded_files", None),
-                                            accept=".json,.yaml,.yml",
-                                            multiple=True,
-                                            hide_details="auto",
-                                            classes="py-3 pr-1 mr-1 w-100",
-                                            v_bind="props",
-                                            color="teal-lighten-5",
-                                        )
+                                vuetify.VFileUpload(
+                                    label="Choose a config file (.yaml, .yml)",
+                                    v_model=("uploaded_files", None),
+                                    accept=".yaml,.yml",
+                                    multiple=True,
+                                    hide_details="auto",
+                                    classes="py-3 pr-1 mr-1 w-100",
+                                    color="teal-lighten-5",
+                                )
                         with vuetify.VCard():
                             with vuetify.VCardTitle("Settings"):
                                 vuetify.VCardSubtitle("Configure default behavior")
@@ -65,26 +58,18 @@ def build_settings_dialog(layout: Any, app: Any) -> None:
                                     hide_details=True,
                                 )
                         with vuetify.VCard():
-                            with vuetify.VCardTitle("Downloads"):
-                                vuetify.VCardSubtitle("Download conversation or prompt files")
+                            with vuetify.VCardTitle("Export config"):
+                                vuetify.VCardSubtitle(
+                                    "Download the current settings as a config file"
+                                )
                             with vuetify.VCardText():
-                                with vuetify.VRow(cols=12):
-                                    with vuetify.VCol(cols=6):
-                                        vuetify.VBtn(
-                                            "Download Conversation File",
-                                            color="secondary",
-                                            classes="mr-2 mt-2 w-100",
-                                            click="download_conversation_file",
-                                            append_icon="mdi-download",
-                                        )
-                                    with vuetify.VCol(cols=6):
-                                        vuetify.VBtn(
-                                            "Download Prompt File",
-                                            color="secondary",
-                                            classes="mr-2 mt-2 w-100",
-                                            click="download_prompt_file",
-                                            append_icon="mdi-download",
-                                        )
+                                vuetify.VBtn(
+                                    "Download Config File",
+                                    color="secondary",
+                                    classes="mt-2 w-100",
+                                    click="window.trame.utils.vtk_prompt.exportConfig()",
+                                    append_icon="mdi-download",
+                                )
                     # Model Tab
                     with vuetify.VTabsWindowItem(value="model"):
                         # Tab Navigation - Centered
