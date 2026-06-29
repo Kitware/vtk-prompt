@@ -197,6 +197,7 @@ def assemble_vtk_prompt(
     request: str,
     ui_mode: bool = False,
     context_snippets: str | None = None,
+    mcp_active: bool = False,
     **variables: Any,
 ) -> PromptData:
     """Assemble VTK prompt from file-based components.
@@ -205,6 +206,7 @@ def assemble_vtk_prompt(
         request: User's request text
         ui_mode: Whether to include UI-specific instructions
         context_snippets: Optional context snippets from vtk-mcp (enables rag_context component)
+        mcp_active: Whether a vtk-mcp server is reachable (enables tool_use guidance)
         **variables: Additional variables for substitution
 
     Returns:
@@ -218,6 +220,7 @@ def assemble_vtk_prompt(
     assembler.add_component("vtk_instructions")
 
     # Conditional components (order matters for message composition)
+    assembler.add_if(mcp_active, "tool_use")
     assembler.add_if(bool(context_snippets), "rag_context")
     assembler.add_if(ui_mode, "ui_renderer")
 
