@@ -70,6 +70,24 @@ def build_settings_dialog(layout: Any, app: Any) -> None:
                                     click="window.trame.utils.vtk_prompt.exportConfig()",
                                     append_icon="mdi-download",
                                 )
+                        with vuetify.VCard():
+                            with vuetify.VCardTitle("Sample data"):
+                                vuetify.VCardSubtitle(
+                                    "Local VTK data tree used to resolve example "
+                                    "datasets by name (e.g. cow.g)"
+                                )
+                            with vuetify.VCardText():
+                                vuetify.VTextField(
+                                    label="Sample data location",
+                                    v_model=("data_root", ""),
+                                    placeholder="/path/to/VTK/Testing/Data",
+                                    hint="Folder of .sha512 data pointers; blank uses "
+                                    "the VTK_PROMPT_DATA_ROOT environment variable",
+                                    persistent_hint=True,
+                                    density="compact",
+                                    hide_details="auto",
+                                    clearable=True,
+                                )
                     # Model Tab
                     with vuetify.VTabsWindowItem(value="model"):
                         # Tab Navigation - Centered
