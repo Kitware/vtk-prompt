@@ -309,6 +309,13 @@ class VTKPromptApp(TrameApp):
     def start_new_conversation(self) -> None:
         """Archive the current conversation and start a fresh one."""
         sessions.new_session(self)
+        # A fresh conversation has no scene yet, so reset the render window to
+        # the default (empty) state instead of leaving the previous result.
+        from .rendering import clear_scene
+
+        clear_scene(self.renderer, self.render_window)
+        if self.ctrl.view_update:
+            self.ctrl.view_update()
 
     @controller.set("switch_session")
     def switch_session(self, session_id: str) -> None:
