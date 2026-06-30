@@ -397,6 +397,7 @@ class VTKPromptClient:
                     request=message,
                     ui_mode=ui_mode,
                     context_snippets=context_snippets,
+                    mcp_active=bool(mcp_client),
                     VTK_VERSION=VTK_VERSION,
                     PYTHON_VERSION=PYTHON_VERSION,
                 )

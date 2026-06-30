@@ -344,6 +344,11 @@ class VTKPromptApp(TrameApp):
         """Save current conversation history as JSON string."""
         return conversation.save_conversation(self)
 
+    @trigger("export_session")
+    def export_session(self, session_id: str) -> str:
+        """Return one session's JSON for download (called from utils.js)."""
+        return sessions.export_session(self, session_id)
+
     @trigger("save_config")
     def save_config(self) -> str:
         """Save current configuration as YAML string for download."""
@@ -354,6 +359,14 @@ class VTKPromptApp(TrameApp):
         """Handle provider selection change."""
         configuration.on_provider_change(self, provider, **kwargs)
 
+    @change("data_root")
+    def _on_data_root_change(self, data_root, **_: Any) -> None:
+        """Repoint the sample-data resolver and refresh referenced-file chips."""
+        from .data.resolver import artifacts, set_data_root
+
+        set_data_root(data_root or "")
+        self.state.data_artifacts = artifacts(self.state.generated_code)
+
     @change("history_sort_order")
     def _on_sessions_sort_change(self, **_: Any) -> None:
         """Re-render the Recents list when its sort order changes."""
@@ -362,6 +375,11 @@ class VTKPromptApp(TrameApp):
     @change("generated_code")
     def _on_generated_code_change(self, **_: Any) -> None:
         """Debounce-snapshot manual edits so undo/redo can step through them."""
+        # Surface the data files the current code references (pure index lookup).
+        from .data.resolver import artifacts
+
+        self.state.data_artifacts = artifacts(self.state.generated_code)
+
         if self._snapshot_task is not None and not self._snapshot_task.done():
             self._snapshot_task.cancel()
         try:

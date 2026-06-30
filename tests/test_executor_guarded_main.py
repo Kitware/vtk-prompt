@@ -46,6 +46,6 @@ def test_guarded_main_script_adds_actor_to_renderer():
     except Exception:  # pragma: no cover - no VTK rendering backend available
         pytest.skip("VTK render window unavailable in this environment")
 
-    ok, err = execute_vtk_code(GUARDED_SPHERE, renderer, render_window)
+    ok, err, _ = execute_vtk_code(GUARDED_SPHERE, renderer, render_window)
     assert ok, err
     assert renderer.GetActors().GetNumberOfItems() == 1
