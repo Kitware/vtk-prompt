@@ -190,6 +190,15 @@ def _advanced_tab() -> None:
                 hint="Context snippets retrieved per request",
                 persistent_hint=True,
             )
+            vuetify.VCheckbox(
+                label="Log tool calls to the server console",
+                v_model=("log_tool_calls", False),
+                density="compact",
+                color="primary",
+                disabled=("!mcp_url",),
+                hide_details=True,
+                classes="mt-2",
+            )
 
             vuetify.VDivider(classes="my-5")
             _section("Generation")

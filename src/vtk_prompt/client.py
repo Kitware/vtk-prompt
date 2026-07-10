@@ -296,6 +296,7 @@ class VTKPromptClient:
         custom_prompt: dict | None = None,
         ui_mode: bool = False,
         execution_error: str | None = None,
+        log_tool_calls: bool = False,
     ) -> tuple[str, str, Any] | tuple[str, str, Any, list[str]] | str:
         """Generate VTK code using vtk-mcp tools when available.
 
@@ -468,7 +469,15 @@ class VTKPromptClient:
                         except Exception:
                             args = {}
                         result = mcp_client.call_tool(tc.function.name, args)  # type: ignore
-                        logger.debug("Tool %s -> %s...", tc.function.name, result[:80])
+                        if log_tool_calls:
+                            logger.info(
+                                "vtk-mcp: %s(%s) -> %s",
+                                tc.function.name,
+                                tc.function.arguments,
+                                result[:120],
+                            )
+                        else:
+                            logger.debug("Tool %s -> %s...", tc.function.name, result[:80])
                         self.conversation.append(
                             {"role": "tool", "tool_call_id": tc.id, "content": result}
                         )
@@ -480,6 +489,11 @@ class VTKPromptClient:
 
             if content is None:
                 # Tool loop exhausted without a text response
+                if log_tool_calls:
+                    logger.info(
+                        "vtk-mcp: tool loop hit the %d-round cap without a final response",
+                        MAX_TOOL_ROUNDS,
+                    )
                 if attempt == retry_attempts - 1:
                     return ("No response generated", "", getattr(response, "usage", None) or {})
                 continue
