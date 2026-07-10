@@ -18,6 +18,8 @@ import urllib.request
 from pathlib import Path
 from urllib.error import URLError
 
+from . import uploads
+
 logger = logging.getLogger(__name__)
 
 _STORE_URL = "https://data.kitware.com/api/v1/file/hashsum/sha512/{digest}/download"
@@ -152,14 +154,17 @@ def stage_code(code: str) -> str:
     ``reader.SetFileName('cow.g')`` runs against the fetched file. Explicit paths
     and unrelated strings are left untouched.
     """
-    index = _load_index()
-    if not index or not code:
+    if not code:
         return code
+    index = _load_index()
 
     def _replace(match: "re.Match[str]") -> str:
         quote, value = match.group(1), match.group(2)
         if ("/" in value) or ("\\" in value):
             return match.group(0)
+        uploaded = uploads.uploaded_path(value)
+        if uploaded:
+            return f"{quote}{uploaded}{quote}"
         if value in index:
             path = resolve(value)
             if path:
@@ -171,15 +176,17 @@ def stage_code(code: str) -> str:
 
 def referenced(code: str) -> list[str]:
     """Return dataset names referenced as bare string literals in code (no fetch)."""
-    index = _load_index()
-    if not index or not code:
+    if not code:
+        return []
+    names = set(_load_index()) | set(uploads.uploaded_names())
+    if not names:
         return []
     found: list[str] = []
     for match in _LITERAL_RE.finditer(code):
         value = match.group(2)
         if ("/" in value) or ("\\" in value):
             continue
-        if value in index and value not in found:
+        if value in names and value not in found:
             found.append(value)
     return found
 
@@ -193,6 +200,14 @@ def artifacts(code: str) -> list[dict]:
     cache = _cache_dir()
     result: list[dict] = []
     for name in referenced(code):
-        path = cache / name
-        result.append({"name": name, "path": str(path), "cached": path.exists()})
+        uploaded = uploads.uploaded_path(name)
+        if uploaded:
+            result.append(
+                {"name": name, "path": uploaded, "cached": True, "source": "upload"}
+            )
+        else:
+            path = cache / name
+            result.append(
+                {"name": name, "path": str(path), "cached": path.exists(), "source": "sample"}
+            )
     return result
