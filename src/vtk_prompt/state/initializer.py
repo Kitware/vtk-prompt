@@ -28,6 +28,10 @@ def initialize_state(app: Any) -> None:
     app.state.generated_explanation = ""
     app.state.current_prompt = ""  # the sent prompt shown inline with the explanation
     app.state.data_artifacts = []  # datasets referenced by the current code
+    from ..data.uploads import uploaded_names as _uploaded_names
+
+    app.state.uploaded_data_files = _uploaded_names()  # user-supplied data files
+    app.state.data_uploads = None  # file-input model for new uploads
     # Sample-data resolver root: defaults to the env var, overridable in Settings.
     import os as _os
     from ..data.resolver import set_data_root as _set_data_root

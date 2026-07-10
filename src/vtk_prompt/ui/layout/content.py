@@ -46,22 +46,29 @@ def build_content(layout: Any, app: Any) -> None:
                                             size="small",
                                             variant="tonal",
                                             classes="mr-1",
-                                            color=("a.cached ? 'success' : 'primary'", "primary"),
+                                            color=(
+                                                "a.source == 'upload' ? 'info'"
+                                                + " : (a.cached ? 'success' : 'primary')",
+                                                "primary",
+                                            ),
                                             prepend_icon=(
-                                                "a.cached ? 'mdi-file-check'"
-                                                + " : 'mdi-cloud-download-outline'",
+                                                "a.source == 'upload' ? 'mdi-tray-arrow-up'"
+                                                + " : (a.cached ? 'mdi-file-check'"
+                                                + " : 'mdi-cloud-download-outline')",
                                                 "mdi-file-outline",
                                             ),
                                         )
                                     with html.Div():
                                         html.Div(
-                                            "{{ a.cached ? 'Fetched' :"
-                                            + " 'Will download on run' }}",
+                                            "{{ a.source == 'upload' ? 'Uploaded'"
+                                            + " : (a.cached ? 'Fetched'"
+                                            + " : 'Will download on run') }}",
                                             classes="font-weight-medium",
                                         )
                                         html.Div("{{ a.path }}", classes="text-caption")
                                         html.Div(
-                                            "Source: VTK data store",
+                                            "{{ a.source == 'upload' ? 'Source: your upload'"
+                                            + " : 'Source: VTK data store' }}",
                                             classes="text-caption text-medium-emphasis",
                                         )
                             vuetify.VSpacer()
@@ -177,6 +184,34 @@ def build_content(layout: Any, app: Any) -> None:
                                     prepend_icon="mdi-alert",
                                 )
 
+                            # Custom data files: upload your own to reference by name in a prompt.
+                            vuetify.VFileInput(
+                                v_model=("data_uploads", None),
+                                label="Upload data files",
+                                multiple=True,
+                                prepend_icon="",
+                                prepend_inner_icon="mdi-paperclip",
+                                density="compact",
+                                variant="outlined",
+                                hide_details=True,
+                                classes="mb-2",
+                            )
+                            with html.Div(
+                                classes="d-flex align-center flex-wrap mb-2",
+                                v_show="uploaded_data_files.length > 0",
+                            ):
+                                vuetify.VChip(
+                                    "{{ f }}",
+                                    v_for="f in uploaded_data_files",
+                                    key="f",
+                                    size="small",
+                                    variant="tonal",
+                                    color="info",
+                                    closable=True,
+                                    click_close="window.trame.trigger('remove_uploaded_file', [f])",
+                                    prepend_icon="mdi-file-outline",
+                                    classes="mr-1 mb-1",
+                                )
                             with html.Div(classes="d-flex"):
                                 # Query input with an inline send arrow (Claude-style):
                                 # the arrow lives in the field and lights up only when

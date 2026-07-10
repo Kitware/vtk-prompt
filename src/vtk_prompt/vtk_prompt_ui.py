@@ -258,6 +258,31 @@ class VTKPromptApp(TrameApp):
             self.state.prompt_file = None
             self.state.conversation_file = None
 
+    @change("data_uploads")
+    def _on_data_uploads_change(self, data_uploads, **kwargs):
+        """Store user-uploaded custom data files so code can reference them."""
+        if not data_uploads:
+            return
+        from .data import add_upload, artifacts, uploaded_names
+
+        for file_obj in data_uploads:
+            name = file_obj.get("name")
+            if name:
+                add_upload(name, file_obj.get("content", b""))
+        self.state.data_uploads = None
+        self.state.uploaded_data_files = uploaded_names()
+        # A newly uploaded file may already be named in the current code.
+        self.state.data_artifacts = artifacts(self.state.generated_code)
+
+    @trigger("remove_uploaded_file")
+    def remove_uploaded_file(self, name):
+        """Remove one uploaded data file and refresh dependent state."""
+        from .data import artifacts, remove_upload, uploaded_names
+
+        remove_upload(name)
+        self.state.uploaded_data_files = uploaded_names()
+        self.state.data_artifacts = artifacts(self.state.generated_code)
+
     @change("conversation_object")
     def on_conversation_file_data_change(
         self, conversation_object: dict[str, Any] | None, **_: Any
