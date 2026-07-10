@@ -393,11 +393,14 @@ class VTKPromptClient:
             if not yaml_messages:
                 from .prompts import PYTHON_VERSION, VTK_VERSION
 
+                from .data import uploaded_names
+
                 prompt_data = assemble_vtk_prompt(
                     request=message,
                     ui_mode=ui_mode,
                     context_snippets=context_snippets,
                     mcp_active=bool(mcp_client),
+                    uploaded_files=uploaded_names(),
                     VTK_VERSION=VTK_VERSION,
                     PYTHON_VERSION=PYTHON_VERSION,
                 )
