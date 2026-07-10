@@ -30,11 +30,25 @@ def _safe_name(filename: str) -> str:
     return name.lstrip(".") or "upload"
 
 
-def add_upload(filename: str, content: bytes) -> str:
+def _as_bytes(content: object) -> bytes:
+    """Coerce uploaded file content (bytes, bytearray, str, or ints) to bytes."""
+    if isinstance(content, bytes):
+        return content
+    if isinstance(content, bytearray):
+        return bytes(content)
+    if isinstance(content, str):
+        return content.encode("utf-8", "surrogateescape")
+    try:
+        return bytes(content)  # e.g. a list of byte values
+    except (TypeError, ValueError):
+        return b""
+
+
+def add_upload(filename: str, content: object) -> str:
     """Store uploaded content under its sanitized basename; return the path."""
     dest = _uploads_dir() / _safe_name(filename)
     with open(dest, "wb") as handle:
-        handle.write(content)
+        handle.write(_as_bytes(content))
     return str(dest)
 
 
