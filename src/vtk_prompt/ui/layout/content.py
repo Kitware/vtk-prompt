@@ -71,6 +71,27 @@ def build_content(layout: Any, app: Any) -> None:
                                             + " : 'Source: VTK data store' }}",
                                             classes="text-caption text-medium-emphasis",
                                         )
+                            # Upload a custom data file to reference by name in generated code.
+                            with vuetify.VTooltip(text="Upload data file", location="bottom"):
+                                with vuetify.Template(v_slot_activator="{ props }"):
+                                    vuetify.VChip(
+                                        "Add data",
+                                        v_bind="props",
+                                        size="small",
+                                        variant="outlined",
+                                        prepend_icon="mdi-tray-arrow-up",
+                                        classes="ml-2",
+                                        click=(
+                                            "document.querySelector("
+                                            + "'#data-upload-wrap input').click()"
+                                        ),
+                                    )
+                            # Hidden input driven by the chip above; trame handles the bytes.
+                            with html.Div(id="data-upload-wrap", classes="d-none"):
+                                vuetify.VFileInput(
+                                    v_model=("data_uploads", None),
+                                    multiple=True,
+                                )
                             vuetify.VSpacer()
                             # Undo across code versions (generations, runs, edits)
                             with vuetify.VTooltip(text="Undo code change", location="bottom"):
@@ -184,34 +205,6 @@ def build_content(layout: Any, app: Any) -> None:
                                     prepend_icon="mdi-alert",
                                 )
 
-                            # Custom data files: upload your own to reference by name in a prompt.
-                            vuetify.VFileInput(
-                                v_model=("data_uploads", None),
-                                label="Upload data files",
-                                multiple=True,
-                                prepend_icon="",
-                                prepend_inner_icon="mdi-paperclip",
-                                density="compact",
-                                variant="outlined",
-                                hide_details=True,
-                                classes="mb-2",
-                            )
-                            with html.Div(
-                                classes="d-flex align-center flex-wrap mb-2",
-                                v_show="uploaded_data_files.length > 0",
-                            ):
-                                vuetify.VChip(
-                                    "{{ f }}",
-                                    v_for="f in uploaded_data_files",
-                                    key="f",
-                                    size="small",
-                                    variant="tonal",
-                                    color="info",
-                                    closable=True,
-                                    click_close="window.trame.trigger('remove_uploaded_file', [f])",
-                                    prepend_icon="mdi-file-outline",
-                                    classes="mr-1 mb-1",
-                                )
                             with html.Div(classes="d-flex"):
                                 # Query input with an inline send arrow (Claude-style):
                                 # the arrow lives in the field and lights up only when
