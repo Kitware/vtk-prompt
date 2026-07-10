@@ -82,7 +82,7 @@ def build_content(layout: Any, app: Any) -> None:
                                         prepend_icon="mdi-tray-arrow-up",
                                         classes="ml-2",
                                         click=(
-                                            "document.querySelector("
+                                            "window.document.querySelector("
                                             + "'#data-upload-wrap input').click()"
                                         ),
                                     )
