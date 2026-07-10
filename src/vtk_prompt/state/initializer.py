@@ -32,6 +32,9 @@ def initialize_state(app: Any) -> None:
 
     app.state.uploaded_data_files = _uploaded_names()  # user-supplied data files
     app.state.data_uploads = None  # file-input model for new uploads
+    from ..data.resolver import cached_names as _cached_names
+
+    app.state.cached_data_files = _cached_names()  # sample data fetched to cache
     # Sample-data resolver root: defaults to the env var, overridable in Settings.
     import os as _os
     from ..data.resolver import set_data_root as _set_data_root

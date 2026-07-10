@@ -33,11 +33,13 @@ def build_settings_dialog(layout: Any, app: Any) -> None:
                     classes="px-2",
                 ):
                     vuetify.VTab("Config", value="files")
+                    vuetify.VTab("Data", value="data")
                     vuetify.VTab("Model", value="model")
                     vuetify.VTab("Advanced", value="advanced")
                 vuetify.VDivider()
                 with vuetify.VTabsWindow(v_model=("active_settings_tab", "files")):
                     _config_tab()
+                    _data_tab()
                     _model_tab()
                     _advanced_tab()
 
@@ -80,25 +82,6 @@ def _config_tab() -> None:
                 density="compact",
                 color="primary",
                 hide_details=True,
-            )
-
-            vuetify.VDivider(classes="my-5")
-            _section("Sample data")
-            html.Div(
-                "Local VTK data tree used to resolve example datasets by name "
-                "(e.g. cow.g).",
-                classes=_DESC,
-            )
-            vuetify.VTextField(
-                label="Sample data location",
-                v_model=("data_root", ""),
-                placeholder="/path/to/VTK/Testing/Data",
-                hint="Folder of .sha512 data pointers; blank uses the "
-                "VTK_PROMPT_DATA_ROOT environment variable",
-                persistent_hint=True,
-                density="compact",
-                variant="outlined",
-                clearable=True,
             )
 
 
@@ -243,3 +226,89 @@ def _advanced_tab() -> None:
                 density="compact",
                 variant="outlined",
             )
+
+
+def _data_tab() -> None:
+    with vuetify.VTabsWindowItem(value="data"):
+        with vuetify.VCardText(classes="pa-4"):
+            _section("Sample data location")
+            html.Div(
+                "Local VTK data tree used to resolve example datasets by name "
+                "(e.g. cow.g).",
+                classes=_DESC,
+            )
+            vuetify.VTextField(
+                label="Sample data location",
+                v_model=("data_root", ""),
+                placeholder="/path/to/VTK/Testing/Data",
+                hint="Folder of .sha512 data pointers; blank uses the "
+                "VTK_PROMPT_DATA_ROOT environment variable",
+                persistent_hint=True,
+                density="compact",
+                variant="outlined",
+                clearable=True,
+            )
+
+            vuetify.VDivider(classes="my-5")
+            _section("Uploaded files")
+            html.Div(
+                "Your own data files, referenced by bare name in generated code.",
+                classes=_DESC,
+            )
+            html.Div(
+                "No files uploaded yet.",
+                classes="text-caption text-disabled mb-2",
+                v_show="uploaded_data_files.length === 0",
+            )
+            with html.Div(
+                classes="d-flex flex-wrap",
+                v_show="uploaded_data_files.length > 0",
+            ):
+                vuetify.VChip(
+                    "{{ f }}",
+                    v_for="f in uploaded_data_files",
+                    key="f",
+                    size="small",
+                    variant="tonal",
+                    color="info",
+                    closable=True,
+                    click_close="window.trame.trigger('remove_uploaded_file', [f])",
+                    prepend_icon="mdi-file-outline",
+                    classes="mr-1 mb-1",
+                )
+
+            vuetify.VDivider(classes="my-5")
+            with html.Div(classes="d-flex align-center justify-space-between"):
+                html.Div("Fetched sample data", classes=_LABEL)
+                vuetify.VBtn(
+                    "Clear cache",
+                    variant="text",
+                    size="small",
+                    color="primary",
+                    prepend_icon="mdi-delete-outline",
+                    click="window.trame.trigger('clear_data_cache')",
+                    v_show="cached_data_files.length > 0",
+                )
+            html.Div(
+                "Sample datasets downloaded to the local cache.",
+                classes=_DESC,
+            )
+            html.Div(
+                "Nothing fetched yet.",
+                classes="text-caption text-disabled mb-2",
+                v_show="cached_data_files.length === 0",
+            )
+            with html.Div(
+                classes="d-flex flex-wrap",
+                v_show="cached_data_files.length > 0",
+            ):
+                vuetify.VChip(
+                    "{{ f }}",
+                    v_for="f in cached_data_files",
+                    key="f",
+                    size="small",
+                    variant="tonal",
+                    color="success",
+                    prepend_icon="mdi-file-check",
+                    classes="mr-1 mb-1",
+                )
