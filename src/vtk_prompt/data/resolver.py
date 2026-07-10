@@ -211,3 +211,16 @@ def artifacts(code: str) -> list[dict]:
                 {"name": name, "path": str(path), "cached": path.exists(), "source": "sample"}
             )
     return result
+
+
+def cached_names() -> list[str]:
+    """Sorted basenames of sample-data files already fetched to the local cache."""
+    directory = _cache_dir()
+    return sorted(p.name for p in directory.iterdir() if p.is_file())
+
+
+def clear_cache() -> None:
+    """Delete all fetched sample-data files from the local cache."""
+    for p in _cache_dir().iterdir():
+        if p.is_file():
+            p.unlink(missing_ok=True)

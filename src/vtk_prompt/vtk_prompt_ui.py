@@ -283,6 +283,24 @@ class VTKPromptApp(TrameApp):
         self.state.uploaded_data_files = uploaded_names()
         self.state.data_artifacts = artifacts(self.state.generated_code)
 
+    @change("advanced_settings_open")
+    def _on_settings_open(self, advanced_settings_open, **kwargs):
+        """Refresh the data lists whenever the settings dialog opens."""
+        if advanced_settings_open:
+            from .data import cached_names, uploaded_names
+
+            self.state.uploaded_data_files = uploaded_names()
+            self.state.cached_data_files = cached_names()
+
+    @trigger("clear_data_cache")
+    def clear_data_cache(self):
+        """Delete fetched sample data and refresh dependent state."""
+        from .data import artifacts, cached_names, clear_cache
+
+        clear_cache()
+        self.state.cached_data_files = cached_names()
+        self.state.data_artifacts = artifacts(self.state.generated_code)
+
     @change("conversation_object")
     def on_conversation_file_data_change(
         self, conversation_object: dict[str, Any] | None, **_: Any
