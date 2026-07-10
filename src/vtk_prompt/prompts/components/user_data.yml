@@ -1,0 +1,5 @@
+role: user
+content: |
+  I have uploaded the following data files. You can load each one directly by its
+  bare filename (do not invent a directory path): {{uploaded_files_list}}.
+  Choose the appropriate VTK reader for each file based on its extension.

@@ -198,6 +198,7 @@ def assemble_vtk_prompt(
     ui_mode: bool = False,
     context_snippets: str | None = None,
     mcp_active: bool = False,
+    uploaded_files: list[str] | None = None,
     **variables: Any,
 ) -> PromptData:
     """Assemble VTK prompt from file-based components.
@@ -207,6 +208,7 @@ def assemble_vtk_prompt(
         ui_mode: Whether to include UI-specific instructions
         context_snippets: Optional context snippets from vtk-mcp (enables rag_context component)
         mcp_active: Whether a vtk-mcp server is reachable (enables tool_use guidance)
+        uploaded_files: Names of user-uploaded data files (enables user_data component)
         **variables: Additional variables for substitution
 
     Returns:
@@ -223,6 +225,7 @@ def assemble_vtk_prompt(
     assembler.add_if(mcp_active, "tool_use")
     assembler.add_if(bool(context_snippets), "rag_context")
     assembler.add_if(ui_mode, "ui_renderer")
+    assembler.add_if(bool(uploaded_files), "user_data")
 
     # Always add output format and request last
     assembler.add_component("output_format")
@@ -233,6 +236,7 @@ def assemble_vtk_prompt(
         "VTK_VERSION": variables.get("VTK_VERSION", "9.6.1"),
         "PYTHON_VERSION": variables.get("PYTHON_VERSION", ">=3.10"),
         "context_snippets": context_snippets or "",
+        "uploaded_files_list": ", ".join(uploaded_files or []),
     }
     default_variables.update(variables)
 
