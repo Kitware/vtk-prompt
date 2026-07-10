@@ -120,6 +120,10 @@ def _process_rag_and_generation_settings(app: Any) -> None:
         _mcp = app.custom_prompt_data.get("mcp_url")
         if isinstance(_mcp, str):
             app.state.mcp_url = _mcp.strip()
+    if "log_tool_calls" in app.custom_prompt_data:
+        _ltc = app.custom_prompt_data.get("log_tool_calls")
+        if isinstance(_ltc, bool):
+            app.state.log_tool_calls = _ltc
     if "base_url" in app.custom_prompt_data:
         _base = app.custom_prompt_data.get("base_url")
         if isinstance(_base, str) and _base.strip():
