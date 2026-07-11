@@ -199,6 +199,14 @@ def _advanced_tab() -> None:
                 hide_details=True,
                 classes="mt-2",
             )
+            vuetify.VCheckbox(
+                label="Agentic retrieval (use tools instead of pre-injected context)",
+                v_model=("agentic_retrieval", False),
+                density="compact",
+                color="primary",
+                disabled=("!mcp_url",),
+                hide_details=True,
+            )
 
             vuetify.VDivider(classes="my-5")
             _section("Generation")

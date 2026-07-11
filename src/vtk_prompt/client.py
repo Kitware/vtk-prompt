@@ -331,6 +331,7 @@ class VTKPromptClient:
         ui_mode: bool = False,
         execution_error: str | None = None,
         log_tool_calls: bool = False,
+        agentic_retrieval: bool = False,
     ) -> tuple[str, str, Any] | tuple[str, str, Any, list[str]] | str:
         """Generate VTK code using vtk-mcp tools when available.
 
@@ -394,7 +395,8 @@ class VTKPromptClient:
         else:
             # Normal path: build context and prompt
             context_snippets = None
-            if mcp_client:
+            # Agentic mode: skip pre-injected context so the model must use tools.
+            if mcp_client and not agentic_retrieval:
                 mcp_context = mcp_client.get_enriched_context(message, top_k=top_k)
                 if mcp_context:
                     context_snippets = mcp_context

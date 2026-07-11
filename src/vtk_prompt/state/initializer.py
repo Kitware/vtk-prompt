@@ -52,6 +52,7 @@ def initialize_state(app: Any) -> None:
     app.state.is_loading = False
     app.state.mcp_url = ""
     app.state.log_tool_calls = False  # log vtk-mcp tool calls to the console
+    app.state.agentic_retrieval = False  # skip pre-injected context; use tools
     app.state.error_message = ""
     app.state.input_tokens = 0
     app.state.output_tokens = 0

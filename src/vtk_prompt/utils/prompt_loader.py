@@ -124,6 +124,10 @@ def _process_rag_and_generation_settings(app: Any) -> None:
         _ltc = app.custom_prompt_data.get("log_tool_calls")
         if isinstance(_ltc, bool):
             app.state.log_tool_calls = _ltc
+    if "agentic_retrieval" in app.custom_prompt_data:
+        _ag = app.custom_prompt_data.get("agentic_retrieval")
+        if isinstance(_ag, bool):
+            app.state.agentic_retrieval = _ag
     if "base_url" in app.custom_prompt_data:
         _base = app.custom_prompt_data.get("base_url")
         if isinstance(_base, str) and _base.strip():
