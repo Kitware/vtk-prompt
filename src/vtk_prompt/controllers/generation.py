@@ -82,6 +82,10 @@ async def generate_and_execute_code(app: Any) -> None:
             app._init_prompt_client()
             if hasattr(app.state, "error_message") and app.state.error_message:
                 return
+            # Tie this generation to the active conversation. A reset or session
+            # switch during the offloaded query bumps the epoch, so a stale result
+            # is discarded rather than written back over the new conversation.
+            epoch = getattr(app, "_conversation_epoch", 0)
 
             # Refine the CURRENT editor code (including manual edits), not the
             # model's previous output, so generation mutates what is on screen.
@@ -103,6 +107,8 @@ async def generate_and_execute_code(app: Any) -> None:
                 custom_prompt=app.custom_prompt_data,
                 ui_mode=True,  # This tells the client to use UI-specific components
             )
+            if getattr(app, "_conversation_epoch", 0) != epoch:
+                return  # conversation was reset/switched while the query ran
             # Keep UI in sync with conversation
             app.state.conversation = app.prompt_client.conversation
 
