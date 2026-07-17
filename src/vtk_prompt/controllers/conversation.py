@@ -200,9 +200,7 @@ def toggle_favorite_conversation(app: Any, conversation_index: int) -> None:
 
 def save_conversation(app: Any) -> str:
     """Save current conversation history as JSON string."""
-    if hasattr(app, "prompt_client") and app.prompt_client is not None:
-        return json.dumps(app.prompt_client.conversation, indent=2)
-    return ""
+    return json.dumps(getattr(app.state, "conversation", None) or [], indent=2)
 
 
 def _parse_assistant_content(content: str) -> tuple[str | None, str | None]:
@@ -350,8 +348,7 @@ def _update_navigation_state(app: Any) -> None:
 
 def sync_with_prompt_client(app: Any) -> None:
     """Sync conversation navigation with prompt client conversation."""
-    if app.prompt_client and app.prompt_client.conversation:
-        app.state.conversation = app.prompt_client.conversation
+    if app.state.conversation:
         build_conversation_navigation(app)
 
 

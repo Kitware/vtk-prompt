@@ -91,8 +91,7 @@ def _maybe_title(app: Any, sess: dict) -> None:
 def capture_current_session(app: Any) -> None:
     """Snapshot the live app state into the current session object."""
     sess = current_session(app)
-    client = getattr(app, "prompt_client", None)
-    messages = list(getattr(client, "conversation", None) or app.state.conversation or [])
+    messages = list(app.state.conversation or [])
     sess["messages"] = messages
     sess["code_history"] = list(app.state.code_history or [])
     sess["code_history_labels"] = list(app.state.code_history_labels or [])
@@ -126,6 +125,8 @@ def refresh_sessions_list(app: Any) -> None:
 
 def _reset_live(app: Any) -> None:
     """Clear all live conversation/code state (the fresh-conversation hinge)."""
+    # Invalidate any in-flight generation so its result is not written back here.
+    app._conversation_epoch = getattr(app, "_conversation_epoch", 0) + 1
     client = getattr(app, "prompt_client", None)
     if client:
         client.conversation = []
@@ -155,6 +156,7 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
         return
     sess = sessions[session_id]
     app.state.current_session_id = session_id
+    app._conversation_epoch = getattr(app, "_conversation_epoch", 0) + 1
 
     client = getattr(app, "prompt_client", None)
     if client:

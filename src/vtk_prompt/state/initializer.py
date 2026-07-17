@@ -161,7 +161,7 @@ def init_prompt_client(app: Any) -> None:
         mcp_url = getattr(app.state, "mcp_url", "").strip() or None
         app.prompt_client = VTKPromptClient(
             verbose=False,
-            conversation=app.state.conversation,
+            conversation=list(app.state.conversation or []),
             mcp_url=mcp_url,
         )
     except ValueError as e:
