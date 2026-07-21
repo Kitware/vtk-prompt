@@ -93,9 +93,13 @@ async def generate_and_execute_code(app: Any) -> None:
 
             sync_editor_code_into_conversation(app)
 
+            # This generation works on its own copy; it is adopted as the
+            # conversation only if this is still the active one when it finishes.
+            messages = list(app.state.conversation or [])
             result = await asyncio.to_thread(
                 app.prompt_client.query,
                 enhanced_query,
+                conversation=messages,
                 api_key=app._get_api_key(),
                 model=app._get_model(),
                 base_url=app._get_base_url(),
@@ -112,7 +116,7 @@ async def generate_and_execute_code(app: Any) -> None:
             if getattr(app, "_conversation_epoch", 0) != epoch:
                 return  # conversation was reset/switched while the query ran
             # Keep UI in sync with conversation
-            app.state.conversation = app.prompt_client.conversation
+            app.state.conversation = messages
 
             # Handle result with optional validation warnings
             validation_warnings: list[str] = []
@@ -168,8 +172,10 @@ async def generate_and_execute_code(app: Any) -> None:
         if not success and exec_error and getattr(app.state, "mcp_url", "").strip():
             logger.debug("Execution error, retrying with vtk-mcp: %s", exec_error)
             app.state.error_message = ""
+            retry_messages = list(app.state.conversation or [])
             retry_result = await asyncio.to_thread(
                 app.prompt_client.query,
+                conversation=retry_messages,
                 execution_error=exec_error,
                 api_key=app._get_api_key(),
                 model=app._get_model(),
@@ -184,7 +190,7 @@ async def generate_and_execute_code(app: Any) -> None:
                 custom_prompt=app.custom_prompt_data,
                 ui_mode=True,
             )
-            app.state.conversation = app.prompt_client.conversation
+            app.state.conversation = retry_messages
             if isinstance(retry_result, tuple) and len(retry_result) >= 2:
                 _, retry_code = retry_result[0], retry_result[1]
                 if retry_code:

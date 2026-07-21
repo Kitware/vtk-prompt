@@ -127,10 +127,6 @@ def _reset_live(app: Any) -> None:
     """Clear all live conversation/code state (the fresh-conversation hinge)."""
     # Invalidate any in-flight generation so its result is not written back here.
     app._conversation_epoch = getattr(app, "_conversation_epoch", 0) + 1
-    client = getattr(app, "prompt_client", None)
-    if client:
-        client.conversation = []
-        client.conversation_file = None
     app._conversation_checkpoints = []
     app.state.conversation = []
     app.state.conversation_navigation = []
@@ -158,10 +154,6 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
     app.state.current_session_id = session_id
     app._conversation_epoch = getattr(app, "_conversation_epoch", 0) + 1
 
-    client = getattr(app, "prompt_client", None)
-    if client:
-        client.conversation = list(sess["messages"])
-        client.conversation_file = None
     app.state.conversation = list(sess["messages"])
     app.state.conversation_file = None
     app.state.code_history = list(sess["code_history"])
