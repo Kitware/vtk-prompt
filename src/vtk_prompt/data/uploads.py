@@ -9,7 +9,9 @@ same name.
 
 import os
 import re
+from collections.abc import Iterable
 from pathlib import Path
+from typing import cast
 
 # Characters allowed in a stored filename; anything else is replaced.
 _SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9._-]")
@@ -34,14 +36,16 @@ def _as_bytes(content: object) -> bytes:
     """Coerce uploaded file content (bytes, bytearray, str, or ints) to bytes."""
     if isinstance(content, bytes):
         return content
-    if isinstance(content, bytearray):
+    if isinstance(content, (bytearray, memoryview)):
         return bytes(content)
     if isinstance(content, str):
         return content.encode("utf-8", "surrogateescape")
-    try:
-        return bytes(content)  # e.g. a list of byte values
-    except (TypeError, ValueError):
-        return b""
+    if isinstance(content, Iterable):
+        try:
+            return bytes(cast(Iterable[int], content))  # e.g. a list of byte values
+        except (TypeError, ValueError):
+            return b""
+    return b""
 
 
 def add_upload(filename: str, content: object) -> str:
