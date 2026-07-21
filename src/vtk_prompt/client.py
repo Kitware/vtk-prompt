@@ -454,7 +454,11 @@ class VTKPromptClient:
 
         # Fetch vtk-mcp tools for LLM tool calling
         tools = mcp_client.list_tools() if mcp_client else []
-        tool_names = {(t.get("function") or {}).get("name") for t in tools}
+        tool_names: set[str] = {
+            str(name)
+            for t in tools
+            if (name := (t.get("function") or {}).get("name")) is not None
+        }
 
         # Retry loop for AST validation
         for attempt in range(retry_attempts):
@@ -524,23 +528,19 @@ class VTKPromptClient:
                 # in tool_calls (common with quantized local models). Run it anyway.
                 text_calls = _parse_text_tool_calls(choice.message.content, tool_names)
                 if tools and text_calls:
-                    self.conversation.append(
+                    text_msg: dict = {"role": "assistant", "content": ""}
+                    text_msg["tool_calls"] = [
                         {
-                            "role": "assistant",
-                            "content": "",
-                            "tool_calls": [
-                                {
-                                    "id": f"call_{i}",
-                                    "type": "function",
-                                    "function": {
-                                        "name": c["name"],
-                                        "arguments": json.dumps(c["arguments"]),
-                                    },
-                                }
-                                for i, c in enumerate(text_calls)
-                            ],
+                            "id": f"call_{i}",
+                            "type": "function",
+                            "function": {
+                                "name": c["name"],
+                                "arguments": json.dumps(c["arguments"]),
+                            },
                         }
-                    )
+                        for i, c in enumerate(text_calls)
+                    ]
+                    self.conversation.append(text_msg)
                     for i, c in enumerate(text_calls):
                         result = mcp_client.call_tool(c["name"], c["arguments"])  # type: ignore
                         if log_tool_calls:
