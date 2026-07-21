@@ -9,6 +9,7 @@ def _app():
     app = types.SimpleNamespace()
     app.state = types.SimpleNamespace(
         code_history=[],
+        code_history_labels=[],
         code_history_pos=-1,
         generated_code="",
         error_message="",
@@ -29,7 +30,7 @@ def test_push_builds_history_and_dedups_head():
     assert app.state.code_history_pos == 1
 
 
-def test_undo_then_redo_resets_position_and_rerenders(monkeypatch):
+def test_undo_then_redo_steps_the_editor_without_rerunning(monkeypatch):
     rendered = []
     monkeypatch.setattr(
         generation,
@@ -51,8 +52,8 @@ def test_undo_then_redo_resets_position_and_rerenders(monkeypatch):
     generation.redo_code(app)
     assert (app.state.generated_code, app.state.code_history_pos) == ("v2", 1)
 
-    # each successful undo/redo re-renders the restored code
-    assert rendered == ["v2", "v1", "v2"]
+    # stepping through history only moves the editor; it does not re-run the code
+    assert rendered == []
 
 
 def test_editing_after_undo_drops_the_redo_tail():
