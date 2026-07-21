@@ -132,6 +132,7 @@ def refresh_sessions_list(app: Any) -> None:
 
     ordered = sorted(_sessions(app).values(), key=_key)
     cur = getattr(app.state, "current_session_id", "") or ""
+    busy = getattr(app, "_generating_session_ids", set())
     app.state.sessions_list = [
         {
             "id": s["id"],
@@ -139,6 +140,7 @@ def refresh_sessions_list(app: Any) -> None:
             "pinned": s["pinned"],
             "active": s["id"] == cur,
             "unseen": bool(s.get("unseen")) and s["id"] != cur,
+            "generating": s["id"] in busy,
         }
         for s in ordered
     ]
@@ -181,6 +183,7 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
     app.state.error_message = sess.get("error_message", "") or ""
     if sess.get("unseen"):
         sess["unseen"] = False
+        refresh_sessions_list(app)  # drop the new-result marker now it is seen
     app.state.code_history = list(sess["code_history"])
     app.state.code_history_labels = list(sess["code_history_labels"])
     app.state.code_history_pos = sess["code_history_pos"]

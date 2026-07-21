@@ -122,6 +122,9 @@ def generate_code(app: Any) -> None:
     ).strip():
         return
     _generating_sessions(app).add(session_id)
+    from . import sessions as sessions_mod
+
+    sessions_mod.refresh_sessions_list(app)  # show the spinner on this conversation
     asynchronous.create_task(generate_and_execute_code(app, session_id))
 
 
@@ -300,7 +303,10 @@ async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> No
         _deliver_error(app, origin_session_id, f"Error generating code: {str(e)}")
     finally:
         _generating_sessions(app).discard(origin_session_id)
-        # Only the visible conversation owns the spinner.
+        from . import sessions as sessions_mod
+
+        sessions_mod.refresh_sessions_list(app)  # clear this conversation's spinner
+        # Only the visible conversation owns the in-pane spinner.
         if _is_visible(app, origin_session_id):
             app.state.is_loading = False
         app.state.flush()  # push final state (result/error, spinner off) to client
