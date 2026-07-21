@@ -303,23 +303,31 @@ def push_code_snapshot(app: Any, code_string: str, label: str = "") -> None:
 
 
 def undo_code(app: Any) -> None:
-    """Step the editor back to the previous code version (does not re-run)."""
+    """Step the editor back to the previous code version and re-run it."""
     history = app.state.code_history or []
     pos = app.state.code_history_pos
     if pos > 0:
         pos -= 1
-        app.state.code_history_pos = pos
-        app.state.generated_code = history[pos]
+        _restore_code_version(app, history[pos], pos)
 
 
 def redo_code(app: Any) -> None:
-    """Step the editor forward to the next code version (does not re-run)."""
+    """Step the editor forward to the next code version and re-run it."""
     history = app.state.code_history or []
     pos = app.state.code_history_pos
     if pos < len(history) - 1:
         pos += 1
-        app.state.code_history_pos = pos
-        app.state.generated_code = history[pos]
+        _restore_code_version(app, history[pos], pos)
+
+
+def _restore_code_version(app: Any, code_string: str, pos: int) -> None:
+    """Show a stored code version and re-render so the view matches the editor."""
+    app.state.code_history_pos = pos
+    app.state.generated_code = code_string
+    # Without this the editor and the render window disagree after undo/redo.
+    success, error = execute_with_renderer(app, code_string)
+    if not success and error:
+        app.state.error_message = error
 
 
 def clear_scene(app: Any) -> None:

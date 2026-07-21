@@ -30,7 +30,7 @@ def test_push_builds_history_and_dedups_head():
     assert app.state.code_history_pos == 1
 
 
-def test_undo_then_redo_steps_the_editor_without_rerunning(monkeypatch):
+def test_undo_then_redo_resets_position_and_rerenders(monkeypatch):
     rendered = []
     monkeypatch.setattr(
         generation,
@@ -52,8 +52,8 @@ def test_undo_then_redo_steps_the_editor_without_rerunning(monkeypatch):
     generation.redo_code(app)
     assert (app.state.generated_code, app.state.code_history_pos) == ("v2", 1)
 
-    # stepping through history only moves the editor; it does not re-run the code
-    assert rendered == []
+    # each successful undo/redo re-renders the restored code
+    assert rendered == ["v2", "v1", "v2"]
 
 
 def test_editing_after_undo_drops_the_redo_tail():
