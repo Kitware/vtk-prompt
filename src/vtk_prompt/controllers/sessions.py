@@ -49,6 +49,26 @@ def _new_session() -> dict:
     }
 
 
+def sessions_by_id(app: Any) -> dict:
+    """All known sessions keyed by id (public accessor for other controllers)."""
+    return _sessions(app)
+
+
+def clear_session_error(app: Any, session_id: str) -> None:
+    """Drop a conversation's stored error (its next generation supersedes it)."""
+    sess = _sessions(app).get(session_id)
+    if sess is not None:
+        sess.pop("error_message", None)
+
+
+def finish_background_session(app: Any, sess: dict) -> None:
+    """Persist a conversation that finished while the user was looking elsewhere."""
+    sess["updated"] = time.time()
+    _maybe_title(app, sess)
+    _persist_session(sess)
+    refresh_sessions_list(app)
+
+
 def ensure_session(app: Any) -> dict:
     """Guarantee a current session exists; create the first one if needed."""
     sessions = _sessions(app)
@@ -118,6 +138,7 @@ def refresh_sessions_list(app: Any) -> None:
             "title": s["title"] or "New conversation",
             "pinned": s["pinned"],
             "active": s["id"] == cur,
+            "unseen": bool(s.get("unseen")) and s["id"] != cur,
         }
         for s in ordered
     ]
@@ -156,6 +177,10 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
 
     app.state.conversation = list(sess["messages"])
     app.state.conversation_file = None
+    # An error belongs to its conversation, so it surfaces on switching to it.
+    app.state.error_message = sess.get("error_message", "") or ""
+    if sess.get("unseen"):
+        sess["unseen"] = False
     app.state.code_history = list(sess["code_history"])
     app.state.code_history_labels = list(sess["code_history_labels"])
     app.state.code_history_pos = sess["code_history_pos"]

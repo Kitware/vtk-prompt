@@ -169,5 +169,15 @@ def build_conversation_history(app: Any) -> None:
                             classes="flex-grow-1 text-truncate",
                             style="cursor: pointer;",
                         )
+                        # A conversation that finished while you were elsewhere.
+                        with vuetify.VTooltip(text="New result", location="left"):
+                            with vuetify.Template(v_slot_activator="{ props }"):
+                                vuetify.VIcon(
+                                    "mdi-circle-medium",
+                                    v_bind="props",
+                                    size="small",
+                                    color="primary",
+                                    v_show="s.unseen",
+                                )
                         _row_menu(app)
         _dialogs(app)

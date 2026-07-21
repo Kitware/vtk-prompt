@@ -26,6 +26,82 @@ EXPLAIN_RENDERER = (
 )
 
 
+def _unpack_result(result: Any) -> tuple[str, str]:
+    """Reduce a query result to (explanation, code) regardless of its shape."""
+    if isinstance(result, tuple):
+        if len(result) >= 2:
+            return str(result[0]), str(result[1])
+        return str(result[0]) if result else "", ""
+    return str(result), ""
+
+
+def _deliver_to_background_session(
+    app: Any, session_id: str, messages: list, result: Any
+) -> None:
+    """Store a finished generation in a conversation the user is not viewing.
+
+    The visible conversation keeps the render window; this only updates the
+    originating session record and flags it so the drawer can show that it has a
+    new result waiting.
+    """
+    from . import sessions as sessions_mod
+
+    sess = sessions_mod.sessions_by_id(app).get(session_id)
+    if sess is None:
+        return  # conversation was deleted while the query ran
+    explanation, code = _unpack_result(result)
+    display_code = EXPLAIN_RENDERER + "\n" + code if code else ""
+
+    sess["messages"] = list(messages)
+    if display_code:
+        history = list(sess.get("code_history") or [])
+        labels = list(sess.get("code_history_labels") or [])
+        if not history or history[-1] != display_code:
+            history.append(display_code)
+            labels.append(sess.get("pending_prompt") or "Generated")
+        sess["code_history"] = history
+        sess["code_history_labels"] = labels
+        sess["code_history_pos"] = len(history) - 1
+    sess["explanation"] = explanation
+    sess.pop("error_message", None)
+    sess["unseen"] = True
+    sess.pop("pending_prompt", None)
+    sessions_mod.finish_background_session(app, sess)
+
+
+def _deliver_error(app: Any, session_id: str, message: str) -> None:
+    """Attach a failure to the conversation that caused it.
+
+    An error belongs to its conversation, so a background failure is stored on
+    that session and surfaces when the user switches to it instead of
+    interrupting whatever they are looking at now.
+    """
+    if _is_visible(app, session_id):
+        app.state.error_message = message
+        return
+    from . import sessions as sessions_mod
+
+    sess = sessions_mod.sessions_by_id(app).get(session_id)
+    if sess is None:
+        return
+    sess["error_message"] = message
+    sess["unseen"] = True
+    sess.pop("pending_prompt", None)
+    sessions_mod.finish_background_session(app, sess)
+
+
+def _generating_sessions(app: Any) -> set:
+    """Ids of conversations with a generation in flight (one per conversation)."""
+    if not hasattr(app, "_generating_session_ids"):
+        app._generating_session_ids = set()
+    return app._generating_session_ids
+
+
+def _is_visible(app: Any, session_id: str) -> bool:
+    """Whether the given conversation is the one currently on screen."""
+    return (getattr(app.state, "current_session_id", "") or "") == session_id
+
+
 def generate_code(app: Any) -> None:
     """Generate VTK code from user query.
 
@@ -34,8 +110,9 @@ def generate_code(app: Any) -> None:
     synchronous re-entry guard prevents overlapping generations from a second
     click (the button no longer freezes the UI, so double-clicks are possible).
     """
-    if getattr(app, "_generating", False):
-        return
+    session_id = getattr(app.state, "current_session_id", "") or ""
+    if session_id in _generating_sessions(app):
+        return  # this conversation is already generating; others may proceed
     # Mirror the send button's disabled condition so Ctrl+Enter (which bypasses
     # the button) cannot submit an empty prompt or run without a cloud token.
     if not (getattr(app.state, "query_text", "") or "").strip():
@@ -44,11 +121,11 @@ def generate_code(app: Any) -> None:
         getattr(app.state, "api_token", "") or ""
     ).strip():
         return
-    app._generating = True
-    asynchronous.create_task(generate_and_execute_code(app))
+    _generating_sessions(app).add(session_id)
+    asynchronous.create_task(generate_and_execute_code(app, session_id))
 
 
-async def generate_and_execute_code(app: Any) -> None:
+async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> None:
     """Generate VTK code using AI API and execute it.
 
     Only the blocking network call (prompt_client.query) is offloaded to a
@@ -114,7 +191,14 @@ async def generate_and_execute_code(app: Any) -> None:
                 ui_mode=True,  # This tells the client to use UI-specific components
             )
             if getattr(app, "_conversation_epoch", 0) != epoch:
-                return  # conversation was reset/switched while the query ran
+                # The originating conversation was reset, so there is nothing to
+                # deliver to: its state is gone.
+                return
+            if not _is_visible(app, origin_session_id):
+                # The user moved on. Deliver into the originating conversation
+                # without touching the visible one or the render window.
+                _deliver_to_background_session(app, origin_session_id, messages, result)
+                return
             # Keep UI in sync with conversation
             app.state.conversation = messages
 
@@ -208,16 +292,17 @@ async def generate_and_execute_code(app: Any) -> None:
                     execute_with_renderer(app, app.state.generated_code)
     except ValueError as e:
         if "max_tokens" in str(e):
-            app.state.error_message = (
-                f"{str(e)} Current: {app.state.max_tokens}. Try increasing max tokens."
-            )
+            msg = f"{str(e)} Current: {app.state.max_tokens}. Try increasing max tokens."
         else:
-            app.state.error_message = f"Error generating code: {str(e)}"
+            msg = f"Error generating code: {str(e)}"
+        _deliver_error(app, origin_session_id, msg)
     except Exception as e:
-        app.state.error_message = f"Error generating code: {str(e)}"
+        _deliver_error(app, origin_session_id, f"Error generating code: {str(e)}")
     finally:
-        app.state.is_loading = False
-        app._generating = False
+        _generating_sessions(app).discard(origin_session_id)
+        # Only the visible conversation owns the spinner.
+        if _is_visible(app, origin_session_id):
+            app.state.is_loading = False
         app.state.flush()  # push final state (result/error, spinner off) to client
 
 
