@@ -132,7 +132,7 @@ def refresh_sessions_list(app: Any) -> None:
 
     ordered = sorted(_sessions(app).values(), key=_key)
     cur = getattr(app.state, "current_session_id", "") or ""
-    busy = getattr(app, "_generating_session_ids", set())
+    busy: set[str] = getattr(app, "_generating_session_ids", set())
     app.state.sessions_list = [
         {
             "id": s["id"],
