@@ -179,6 +179,9 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
 
     app.state.conversation = list(sess["messages"])
     app.state.conversation_file = None
+    # The in-pane spinner reflects whether the conversation being shown is busy.
+    busy: set[str] = getattr(app, "_generating_session_ids", set())
+    app.state.is_loading = session_id in busy
     # An error belongs to its conversation, so it surfaces on switching to it.
     app.state.error_message = sess.get("error_message", "") or ""
     if sess.get("unseen"):

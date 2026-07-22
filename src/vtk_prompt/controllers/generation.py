@@ -136,8 +136,9 @@ async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> No
     the event loop (main) thread, so all VTK execution and rendering stays
     main-thread-bound as VTK/OpenGL requires.
     """
-    app.state.is_loading = True
-    app.state.error_message = ""
+    if _is_visible(app, origin_session_id):
+        app.state.is_loading = True
+        app.state.error_message = ""
     app.state.flush()  # show the spinner immediately, before the slow request
 
     try:
