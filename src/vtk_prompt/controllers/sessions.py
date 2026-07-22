@@ -177,6 +177,10 @@ def _reset_live(app: Any) -> None:
     app.state.code_history = []
     app.state.code_history_labels = []
     app.state.code_history_pos = -1
+    # Busy belongs to the conversation too: a fresh one is idle even while
+    # another conversation is still generating.
+    busy: set[str] = getattr(app, "_generating_session_ids", set())
+    app.state.is_loading = (getattr(app.state, "current_session_id", "") or "") in busy
     # The window belongs to the conversation, so every reset clears it here
     # rather than only on the paths that remember to.
     renderer = getattr(app, "renderer", None)
