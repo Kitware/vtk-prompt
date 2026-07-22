@@ -97,6 +97,29 @@ def _generating_sessions(app: Any) -> set:
     return app._generating_session_ids
 
 
+def conversation_token(app: Any, session_id: str) -> int:
+    """Return the current generation token for one conversation.
+
+    A generation captures this at start and its result is delivered only if the
+    token still matches. Bumped when the conversation is reset or a new
+    generation starts in it, so an obsolete result is dropped. Crucially, merely
+    switching between conversations does NOT bump anyone's token, so returning to
+    a conversation does not orphan its own in-flight generation.
+    """
+    tokens = getattr(app, "_conversation_tokens", None)
+    if tokens is None:
+        tokens = app._conversation_tokens = {}
+    return tokens.get(session_id, 0)
+
+
+def bump_conversation_token(app: Any, session_id: str) -> None:
+    """Invalidate any in-flight generation belonging to one conversation."""
+    tokens = getattr(app, "_conversation_tokens", None)
+    if tokens is None:
+        tokens = app._conversation_tokens = {}
+    tokens[session_id] = tokens.get(session_id, 0) + 1
+
+
 def _is_visible(app: Any, session_id: str) -> bool:
     """Whether the given conversation is the one currently on screen."""
     return (getattr(app.state, "current_session_id", "") or "") == session_id
@@ -121,6 +144,7 @@ def generate_code(app: Any) -> None:
         getattr(app.state, "api_token", "") or ""
     ).strip():
         return
+    bump_conversation_token(app, session_id)
     _generating_sessions(app).add(session_id)
     from . import sessions as sessions_mod
 
@@ -157,16 +181,22 @@ async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> No
             # the sent text does not linger (Claude-style).
             app.state.current_prompt = enhanced_query
             app.state.query_text = ""
+            # Record the prompt in the conversation immediately, so switching away
+            # mid-generation still snapshots what this conversation is about.
+            if enhanced_query:
+                app.state.conversation = list(app.state.conversation or []) + [
+                    {"role": "user", "content": enhanced_query}
+                ]
             app.state.flush()
 
             # Reinitialize client with current settings
             app._init_prompt_client()
             if hasattr(app.state, "error_message") and app.state.error_message:
                 return
-            # Tie this generation to the active conversation. A reset or session
-            # switch during the offloaded query bumps the epoch, so a stale result
-            # is discarded rather than written back over the new conversation.
-            epoch = getattr(app, "_conversation_epoch", 0)
+            # Tie this generation to its conversation by token. The result is
+            # delivered only if this conversation has not been reset or
+            # re-generated meanwhile. Switching conversations does not change it.
+            token = conversation_token(app, origin_session_id)
 
             # Refine the CURRENT editor code (including manual edits), not the
             # model's previous output, so generation mutates what is on screen.
@@ -194,9 +224,8 @@ async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> No
                 custom_prompt=app.custom_prompt_data,
                 ui_mode=True,  # This tells the client to use UI-specific components
             )
-            if getattr(app, "_conversation_epoch", 0) != epoch:
-                # The originating conversation was reset, so there is nothing to
-                # deliver to: its state is gone.
+            if conversation_token(app, origin_session_id) != token:
+                # The originating conversation was reset or re-generated; drop this.
                 return
             if not _is_visible(app, origin_session_id):
                 # The user moved on. Deliver into the originating conversation

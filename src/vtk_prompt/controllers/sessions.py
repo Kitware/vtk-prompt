@@ -148,8 +148,10 @@ def refresh_sessions_list(app: Any) -> None:
 
 def _reset_live(app: Any) -> None:
     """Clear all live conversation/code state (the fresh-conversation hinge)."""
-    # Invalidate any in-flight generation so its result is not written back here.
-    app._conversation_epoch = getattr(app, "_conversation_epoch", 0) + 1
+    # Invalidate any in-flight generation for THIS conversation only.
+    from .generation import bump_conversation_token
+
+    bump_conversation_token(app, getattr(app.state, "current_session_id", "") or "")
     app._conversation_checkpoints = []
     app.state.conversation = []
     app.state.conversation_navigation = []
@@ -175,7 +177,6 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
         return
     sess = sessions[session_id]
     app.state.current_session_id = session_id
-    app._conversation_epoch = getattr(app, "_conversation_epoch", 0) + 1
 
     app.state.conversation = list(sess["messages"])
     app.state.conversation_file = None
