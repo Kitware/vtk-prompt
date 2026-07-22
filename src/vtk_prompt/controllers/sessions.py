@@ -205,6 +205,11 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
     app.state.code_history_labels = list(sess["code_history_labels"])
     app.state.code_history_pos = sess["code_history_pos"]
     app._conversation_checkpoints = list(sess["checkpoints"])
+    # Put this conversation's current version in the editor. Without it the
+    # editor and the render window keep showing the conversation just left.
+    history = app.state.code_history
+    pos = app.state.code_history_pos
+    app.state.generated_code = history[pos] if 0 <= pos < len(history) else ""
 
     from .conversation import (
         _parse_assistant_content,
@@ -240,8 +245,16 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
         app.state.current_prompt = ""
     app.state.query_text = ""
 
-    if execute and app.state.generated_code:
-        app._execute_with_renderer(app.state.generated_code)
+    if execute:
+        if app.state.generated_code:
+            app._execute_with_renderer(app.state.generated_code)
+        else:
+            # A conversation with no code shows an empty scene, not the last one.
+            from ..rendering import clear_scene
+
+            clear_scene(app.renderer, app.render_window)
+            if app.ctrl.view_update:
+                app.ctrl.view_update()
 
 
 def switch_session(app: Any, session_id: str) -> None:
