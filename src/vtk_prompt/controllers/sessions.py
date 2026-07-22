@@ -95,15 +95,28 @@ def _maybe_title(app: Any, sess: dict) -> None:
     """Set a session's title from its first user prompt (once it has one)."""
     if sess["title"] not in ("", "New conversation"):
         return
-    nav = app.state.conversation_navigation or []
-    if not nav:
-        return
     from .conversation import EXTRA_INSTRUCTIONS_TAG
 
-    content = (nav[0].get("user", {}).get("content", "") or "").strip()
-    if EXTRA_INSTRUCTIONS_TAG in content:
-        content = content.split(EXTRA_INSTRUCTIONS_TAG, 1)[-1].strip()
-    content = content.replace("Request:", "").strip()
+    def _clean(raw: str) -> str:
+        text = (raw or "").strip()
+        if EXTRA_INSTRUCTIONS_TAG in text:
+            text = text.split(EXTRA_INSTRUCTIONS_TAG, 1)[-1].strip()
+        return text.replace("Request:", "").strip()
+
+    # Title from the session's own first prompt. Live navigation describes the
+    # conversation on screen, which is the wrong one when a generation finishes
+    # in a conversation the user has already navigated away from.
+    content = ""
+    for msg in sess.get("messages") or []:
+        if msg.get("role") == "user":
+            content = _clean(msg.get("content", ""))
+            if content:
+                break
+    if not content:
+        nav = app.state.conversation_navigation or []
+        if not nav:
+            return
+        content = _clean(nav[0].get("user", {}).get("content", ""))
     if content:
         sess["title"] = _truncate(content)
 
@@ -220,7 +233,8 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
         last_user = (nav[-1].get("user", {}).get("content", "") or "").strip()
         if EXTRA_INSTRUCTIONS_TAG in last_user:
             last_user = last_user.split(EXTRA_INSTRUCTIONS_TAG, 1)[-1].strip()
-        app.state.current_prompt = last_user
+        # Show the prompt as typed, without the internal "Request:" marker.
+        app.state.current_prompt = last_user.replace("Request:", "").strip()
     else:
         app.state.generated_explanation = ""
         app.state.current_prompt = ""
