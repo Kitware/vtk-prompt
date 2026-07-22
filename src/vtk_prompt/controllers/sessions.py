@@ -177,6 +177,15 @@ def _reset_live(app: Any) -> None:
     app.state.code_history = []
     app.state.code_history_labels = []
     app.state.code_history_pos = -1
+    # The window belongs to the conversation, so every reset clears it here
+    # rather than only on the paths that remember to.
+    renderer = getattr(app, "renderer", None)
+    if renderer is not None:
+        from ..rendering import clear_scene
+
+        clear_scene(renderer, app.render_window)
+        if getattr(app.ctrl, "view_update", None):
+            app.ctrl.view_update()
 
 
 def load_session(app: Any, session_id: str, execute: bool = True) -> None:
