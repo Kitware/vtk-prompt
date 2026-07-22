@@ -10,6 +10,25 @@ from ..utils.helpers import ensure_vtk_importable
 logger = get_logger(__name__)
 
 
+class _NoOpInteractor:
+    """Stand-in for vtkRenderWindowInteractor used while running generated code.
+
+    Standalone VTK scripts end with interactor.Start(), which opens a native
+    window and blocks the event loop until the user presses q. Inside the app the
+    scene belongs to the trame view, so the interactor is replaced by an inert
+    object that accepts the usual calls and does nothing.
+    """
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        pass
+
+    def __getattr__(self, name: str):
+        def _noop(*args: object, **kwargs: object) -> None:
+            return None
+
+        return _noop
+
+
 def execute_vtk_code(
     code_string: str, renderer: vtk.vtkRenderer, render_window: vtk.vtkRenderWindow
 ) -> tuple[bool, str | None, str | None]:
@@ -41,8 +60,19 @@ def execute_vtk_code(
             "__name__": "__main__",
         }
 
-        # Execute the code
-        exec(code_segment, exec_globals)
+        # Keep generated code inside the app: a script that builds its own window
+        # or interactor would otherwise pop up a native window and block on
+        # Start() until the user pressed q. Hand it the app's render window and an
+        # inert interactor instead, then restore vtk for everyone else.
+        real_window_cls = vtk.vtkRenderWindow
+        real_interactor_cls = vtk.vtkRenderWindowInteractor
+        vtk.vtkRenderWindow = lambda *a, **k: render_window  # type: ignore[assignment,misc]
+        vtk.vtkRenderWindowInteractor = _NoOpInteractor  # type: ignore[assignment,misc]
+        try:
+            exec(code_segment, exec_globals)
+        finally:
+            vtk.vtkRenderWindow = real_window_cls  # type: ignore[assignment,misc]
+            vtk.vtkRenderWindowInteractor = real_interactor_cls  # type: ignore[assignment,misc]
 
         # Reset camera and render
         try:
