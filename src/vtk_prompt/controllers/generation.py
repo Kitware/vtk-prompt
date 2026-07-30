@@ -244,9 +244,19 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
     )
 
     if not success and error_message:
-        app.state.error_message = _format_exec_error(
-            code_string, error_message, error_line_text
-        )
+        formatted = _format_exec_error(code_string, error_message, error_line_text)
+        # If the failure references a data file that does not exist but resembles
+        # a known one, point at the real names instead of silently guessing.
+        from ..data.resolver import suggestions
+
+        hints = suggestions(code_string)
+        if hints:
+            lines = [
+                f"'{h['name']}' not found. Did you mean: {', '.join(h['matches'])}?"
+                for h in hints
+            ]
+            formatted = formatted + "\n\n" + "\n".join(lines)
+        app.state.error_message = formatted
 
     if success:
         app.state.rendered_code = code_string
