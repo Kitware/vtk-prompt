@@ -10,6 +10,25 @@ from ..utils.helpers import ensure_vtk_importable
 logger = get_logger(__name__)
 
 
+class _NoOpRenderWindow:
+    """Stand-in for a render window that generated code constructs itself.
+
+    Handing back the app's real window let scripts call AddRenderer/SetSize/
+    SetOffScreenRendering on it, which stacked renderers and corrupted the view
+    (black screen after a few switches). This absorbs those calls harmlessly; the
+    scene still reaches the app because the code draws into the injected renderer.
+    """
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        pass
+
+    def __getattr__(self, name: str):
+        def _noop(*args: object, **kwargs: object):
+            return None
+
+        return _noop
+
+
 class _NoOpInteractor:
     """Stand-in for vtkRenderWindowInteractor used while running generated code.
 
@@ -66,7 +85,7 @@ def execute_vtk_code(
         # inert interactor instead, then restore vtk for everyone else.
         real_window_cls = vtk.vtkRenderWindow
         real_interactor_cls = vtk.vtkRenderWindowInteractor
-        vtk.vtkRenderWindow = lambda *a, **k: render_window  # type: ignore[assignment,misc]
+        vtk.vtkRenderWindow = _NoOpRenderWindow  # type: ignore[assignment,misc]
         vtk.vtkRenderWindowInteractor = _NoOpInteractor  # type: ignore[assignment,misc]
         try:
             exec(code_segment, exec_globals)
