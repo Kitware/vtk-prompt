@@ -431,16 +431,39 @@ def build_content(layout: Any, app: Any) -> None:
                                             classes="text-body-2 text-medium-emphasis",
                                         )
 
-        vuetify.VAlert(
+        with vuetify.VAlert(
             closable=True,
             v_show=("error_message", ""),
             density="compact",
             type="error",
-            text=("error_message",),
             classes="h-auto position-absolute bottom-0 align-self-center mb-1",
             style="width: 30%; z-index: 1000;",
             icon="mdi-alert-outline",
-        )
+        ):
+            html.Pre(
+                "{{ error_message }}",
+                classes="text-caption",
+                style="white-space: pre-wrap; margin: 0;",
+            )
+            # Actionable fixes for unresolved data-file references.
+            with html.Div(
+                classes="d-flex flex-wrap align-center mt-2",
+                v_show=("data_suggestions.length > 0",),
+            ):
+                html.Span("Use:", classes="text-caption mr-1")
+                vuetify.VChip(
+                    "{{ pick.suggestion }}",
+                    v_for="pick in data_suggestions",
+                    key="pick.missing + pick.suggestion",
+                    size="x-small",
+                    variant="tonal",
+                    color="primary",
+                    classes="mr-1 mb-1",
+                    click=(
+                        app.ctrl.apply_data_suggestion,
+                        "[pick.missing, pick.suggestion]",
+                    ),
+                )
 
         # Toast notification snackbar for validation warnings
         with vuetify.VSnackbar(

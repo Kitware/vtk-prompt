@@ -30,3 +30,26 @@ def test_paths_and_code_are_ignored(monkeypatch):
 def test_no_index_no_suggestions(monkeypatch):
     _index(monkeypatch, [])
     assert resolver.suggestions("r.SetFileName('can.ex')") == []
+
+
+def test_apply_swaps_reference_in_current_code(monkeypatch):
+    import types
+    from vtk_prompt.controllers import generation
+
+    calls = []
+    app = types.SimpleNamespace()
+    app.state = types.SimpleNamespace(
+        generated_code="r.SetFileName('can.ex')",
+        code_history=["r.SetFileName('can.ex')"],
+        code_history_labels=["gen"],
+        code_history_pos=0,
+        data_suggestions=[{"missing": "can.ex", "suggestion": "can.ex2"}],
+        error_message="nope",
+    )
+    monkeypatch.setattr(generation, "push_code_snapshot", lambda a, c, label="": calls.append(("snap", c)))
+    monkeypatch.setattr(generation, "execute_with_renderer", lambda a, c: calls.append(("run", c)))
+    generation.apply_data_suggestion(app, "can.ex", "can.ex2")
+    assert "'can.ex2'" in app.state.generated_code
+    assert app.state.data_suggestions == []
+    assert app.state.error_message == ""
+    assert ("run", "r.SetFileName('can.ex2')") in calls

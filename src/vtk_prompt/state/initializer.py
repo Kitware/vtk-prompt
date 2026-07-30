@@ -52,6 +52,7 @@ def initialize_state(app: Any) -> None:
     app.state.is_loading = False
     app.state.mcp_url = ""
     app.state.error_message = ""
+    app.state.data_suggestions = []  # one-click fixes for unresolved data files
     app.state.input_tokens = 0
     app.state.output_tokens = 0
     app.state.advanced_settings_open = False
