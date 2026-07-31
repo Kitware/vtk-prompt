@@ -231,6 +231,83 @@ def _format_exec_error(displayed_code: str, error_message: str, line_text: str |
     return f"{where}\n{error_message}"
 
 
+def _classify_line(text: str) -> str:
+    """Tag a captured line by severity so the console can colour it.
+
+    VTK (C++) and Python both use recognisable markers: "ERROR"/"Traceback" for
+    failures, "Warning" for warnings. Everything else is ordinary output.
+    """
+    low = text.lower()
+    if ("error" in low) or ("traceback" in low) or low.startswith("  file "):
+        return "err"
+    if ("warning" in low) or ("warn:" in low) or ("deprecat" in low):
+        return "warn"
+    return "out"
+
+
+def _append_console(
+    app: Any, stdout: str, stderr: str = "", error: str | None = None
+) -> None:
+    """Record a run's captured output as a collapsible group in the console.
+
+    Each run is one entry {stamp, lines:[{kind,text}], summary}. A run that
+    produced no output is skipped, so the console never shows an empty marker.
+    """
+    import time
+
+    def _cap(s: str) -> str:
+        # A single very long line (e.g. print(dir(vtk))) is unwieldy; keep the
+        # console readable by truncating with an indicator.
+        return s if len(s) <= 2000 else s[:2000] + " ... [truncated]"
+
+    entries: list[dict] = []
+    # stdout is ordinary output; stderr is a warning; a raised exception is an
+    # error. Classify by origin rather than by scanning text for words like
+    # "error" (a printed class name such as vtkErrorCode is not an error).
+    for raw in (stdout or "").splitlines():
+        entries.append({"kind": "out", "text": _cap(raw)})
+    for raw in (stderr or "").splitlines():
+        # Everything on stderr is at least a warning; VTK also writes hard
+        # errors there, so upgrade to error when the text says so.
+        kind = "err" if _classify_line(raw) == "err" else "warn"
+        entries.append({"kind": kind, "text": _cap(raw)})
+    if error:
+        for raw in error.splitlines():
+            entries.append({"kind": "err", "text": _cap(raw)})
+    if not entries:
+        return  # nothing to show for this run
+
+    n_err = sum(1 for e in entries if e["kind"] == "err")
+    n_warn = sum(1 for e in entries if e["kind"] == "warn")
+    parts = [f"{len(entries)} line" + ("s" if len(entries) != 1 else "")]
+    if n_err:
+        parts.append(f"{n_err} error" + ("s" if n_err != 1 else ""))
+    if n_warn:
+        parts.append(f"{n_warn} warning" + ("s" if n_warn != 1 else ""))
+    stamp = time.strftime("%H:%M:%S")
+    level = "err" if n_err else ("warn" if n_warn else "out")
+    runs = list(getattr(app.state, "console_log", []) or [])
+    runs.append(
+        {"stamp": stamp, "lines": entries, "summary": ", ".join(parts), "level": level}
+    )
+    app.state.console_log = runs[-100:]
+
+    # Flat, render-friendly view: a header line per run then its output lines.
+    # A single non-nested list keeps the UI markup simple and robust.
+    _class = {
+        "err": "text-error",
+        "warn": "text-warning",
+        "run": "text-medium-emphasis font-weight-medium",
+        "out": "text-high-emphasis",
+    }
+    flat = list(getattr(app.state, "console_lines", []) or [])
+    header = {"kind": "run", "text": f"\u25b6 {stamp}  \u2014  {', '.join(parts)}"}
+    for item in [header, *entries]:
+        item["cls"] = _class.get(item["kind"], "text-high-emphasis")
+        flat.append(item)
+    app.state.console_lines = flat[-1000:]
+
+
 def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]:
     """Execute VTK code with our renderer. Returns (success, error_message)."""
     # Resolve bare data-file references (e.g. 'cow.g') to fetched local paths so
@@ -250,6 +327,14 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
 
     if success:
         app.state.rendered_code = code_string
+
+    # Surface anything the code printed (and any error) in the console panel.
+    from ..rendering.code_executor import last_console_output
+
+    _stdout, _stderr = last_console_output()
+    _append_console(
+        app, _stdout, _stderr, error_message if not success else None
+    )
 
     # Always update view
     try:

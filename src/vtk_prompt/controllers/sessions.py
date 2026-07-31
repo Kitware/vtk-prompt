@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 _PERSIST_KEYS = (
     "id", "title", "created", "updated", "pinned", "messages",
     "code_history", "code_history_labels", "code_history_pos", "checkpoints",
+    "console_log", "console_lines",
 )
 
 
@@ -46,6 +47,8 @@ def _new_session() -> dict:
         "code_history_labels": [],
         "code_history_pos": -1,
         "checkpoints": [],
+        "console_log": [],
+        "console_lines": [],
     }
 
 
@@ -97,6 +100,8 @@ def capture_current_session(app: Any) -> None:
     sess["code_history_labels"] = list(app.state.code_history_labels or [])
     sess["code_history_pos"] = app.state.code_history_pos
     sess["checkpoints"] = list(getattr(app, "_conversation_checkpoints", None) or [])
+    sess["console_log"] = list(app.state.console_log or [])
+    sess["console_lines"] = list(app.state.console_lines or [])
     _maybe_title(app, sess)
     _persist_session(sess)
 
@@ -143,6 +148,8 @@ def _reset_live(app: Any) -> None:
     app.state.code_history = []
     app.state.code_history_labels = []
     app.state.code_history_pos = -1
+    app.state.console_log = []
+    app.state.console_lines = []
 
 
 def load_session(app: Any, session_id: str, execute: bool = True) -> None:
@@ -168,6 +175,8 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
     app.state.code_history_labels = list(sess["code_history_labels"])
     app.state.code_history_pos = sess["code_history_pos"]
     app._conversation_checkpoints = list(sess["checkpoints"])
+    app.state.console_log = list(sess.get("console_log") or [])
+    app.state.console_lines = list(sess.get("console_lines") or [])
 
     from .conversation import (
         _parse_assistant_content,

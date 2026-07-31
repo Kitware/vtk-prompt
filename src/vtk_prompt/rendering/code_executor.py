@@ -1,5 +1,7 @@
 """VTK Code Execution Module."""
 
+import contextlib
+import io
 import traceback
 
 import vtk
@@ -8,6 +10,24 @@ from .. import get_logger
 from ..utils.helpers import ensure_vtk_importable
 
 logger = get_logger(__name__)
+
+# Output captured from the most recent run of generated code. The executor keeps
+# its (success, error, line) return contract; callers read the console text from
+# here so a print() in generated code is visible in the app, not just the server
+# terminal.
+_last_stdout: str = ""
+_last_stderr: str = ""
+
+
+def last_console_output() -> tuple[str, str]:
+    """(stdout, stderr) captured from the most recent execute_vtk_code call.
+
+    Kept as separate streams so callers can classify by origin: stdout is
+    ordinary output, stderr is a warning/error. This avoids guessing severity
+    from line content (e.g. a printed class name like vtkErrorCode is not an
+    error).
+    """
+    return _last_stdout, _last_stderr
 
 
 def execute_vtk_code(
@@ -41,19 +61,26 @@ def execute_vtk_code(
             "__name__": "__main__",
         }
 
-        # Execute the code
-        exec(code_segment, exec_globals)
+        # Execute the code, capturing stdout and stderr separately so the app
+        # can colour output by its stream rather than by guessing from content.
+        global _last_stdout, _last_stderr
+        out_buf, err_buf = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
+            exec(code_segment, exec_globals)
 
-        # Reset camera and render
-        try:
-            renderer.ResetCamera()
-            render_window.Render()
-        except Exception as render_error:
-            logger.warning("Render error: %s", render_error)
+            # Reset camera and render
+            try:
+                renderer.ResetCamera()
+                render_window.Render()
+            except Exception as render_error:
+                logger.warning("Render error: %s", render_error)
+        _last_stdout, _last_stderr = out_buf.getvalue(), err_buf.getvalue()
 
         return True, None, None
 
     except (Exception, SystemExit) as e:
+        _last_stdout = locals().get("out_buf", io.StringIO()).getvalue()
+        _last_stderr = locals().get("err_buf", io.StringIO()).getvalue()
         # SystemExit is NOT an Exception subclass: generated code that calls
         # sys.exit() or argparse.parse_args() (common in VTK example scripts that
         # read command-line data files) would otherwise propagate out and kill the

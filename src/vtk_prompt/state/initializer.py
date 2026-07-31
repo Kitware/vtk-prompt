@@ -52,6 +52,10 @@ def initialize_state(app: Any) -> None:
     app.state.is_loading = False
     app.state.mcp_url = ""
     app.state.error_message = ""
+    app.state.console_log = []  # per-run captured output groups
+    app.state.info_tab = "conversation"  # Conversation | Console tab in the info pane
+    app.state.console_open_runs = []  # which run groups are expanded
+    app.state.console_lines = []  # flat render-friendly console lines
     app.state.input_tokens = 0
     app.state.output_tokens = 0
     app.state.advanced_settings_open = False

@@ -19,11 +19,16 @@ def build_content(layout: Any, app: Any) -> None:
     """Build the main content area with code panels and VTK viewer."""
     with layout.content:
         with vuetify.VContainer(
-            classes="fluid fill-height", style="min-width: 100%; padding: 0!important;"
+            classes="fluid fill-height",
+            style="width: 100%; padding: 0 !important; overflow: hidden;",
         ):
-            with vuetify.VRow(rows=12, classes="fill-height px-4 pt-1 pb-1"):
+            with vuetify.VRow(
+                rows=12,
+                classes="fill-height px-4 pt-1 pb-1 flex-nowrap",
+                style="min-width: 0;",
+            ):
                 # Left column - Generated code view
-                with vuetify.VCol(cols=6):
+                with vuetify.VCol(cols=6, style="min-width: 0;"):
                     # Generated code panel (editable + re-runnable)
                     with vuetify.VCard(classes="h-75"):
                         with vuetify.VCardTitle(
@@ -248,189 +253,253 @@ def build_content(layout: Any, app: Any) -> None:
                             )
 
                 # Right column - VTK viewer and prompt
-                with vuetify.VCol(cols=6):
-                    with vuetify.VRow(no_gutters=True, classes="fill-height"):
-                        # Top: VTK render view
-                        with vuetify.VCard(classes="h-75 w-100"):
-                            with vuetify.VCardTitle("VTK Visualization", classes="d-flex"):
-                                vuetify.VSpacer()
-                                # Token usage display
-                                with vuetify.VChip(
-                                    small=True,
-                                    color="secondary",
-                                    text_color="white",
-                                    v_show="input_tokens > 0 || output_tokens > 0",
-                                    classes="mr-2",
-                                    density="compact",
-                                ):
-                                    html.Span(
-                                        "Tokens: In: {{ input_tokens }} | Out: {{ output_tokens }}"
-                                    )
-                                # VTK control buttons
-                                with vuetify.VTooltip(
-                                    text="Clear Scene",
-                                    location="bottom",
-                                ):
-                                    with vuetify.Template(v_slot_activator="{ props }"):
-                                        with vuetify.VBtn(
-                                            click=app.ctrl.clear_scene,
-                                            icon=True,
-                                            color="secondary",
-                                            v_bind="props",
-                                            classes="mr-2",
-                                            density="compact",
-                                            variant="text",
-                                        ):
-                                            vuetify.VIcon("mdi-reload")
-                                with vuetify.VTooltip(
-                                    text="Reset Camera",
-                                    location="bottom",
-                                ):
-                                    with vuetify.Template(v_slot_activator="{ props }"):
-                                        with vuetify.VBtn(
-                                            click=app.ctrl.reset_camera,
-                                            icon=True,
-                                            color="secondary",
-                                            v_bind="props",
-                                            classes="mr-2",
-                                            density="compact",
-                                            variant="text",
-                                        ):
-                                            vuetify.VIcon("mdi-camera-retake-outline")
-                            with vuetify.VCardText(style="height: calc(100% - 50px);"):
-                                # VTK render window
-                                view = vtk_widgets.VtkRemoteView(
-                                    app.render_window,
-                                    ref="view",
-                                    classes="w-100 h-100",
-                                    interactor_settings=[
-                                        (
-                                            "SetInteractorStyle",
-                                            ["vtkInteractorStyleTrackballCamera"],
-                                        ),
-                                    ],
+                with vuetify.VCol(
+                    cols=6,
+                    classes="d-flex flex-column",
+                    style="min-height: 0; min-width: 0;",
+                ):
+                    # Top: VTK render view. flex-grow so it owns the space and
+                    # never collapses when the panel below changes.
+                    with vuetify.VCard(
+                        classes="w-100 flex-grow-1 d-flex flex-column",
+                        style="min-height: 0; min-width: 0; overflow: hidden;",
+                    ):
+                        with vuetify.VCardTitle("VTK Visualization", classes="d-flex flex-grow-0"):
+                            vuetify.VSpacer()
+                            # Token usage display
+                            with vuetify.VChip(
+                                small=True,
+                                color="secondary",
+                                text_color="white",
+                                v_show="input_tokens > 0 || output_tokens > 0",
+                                classes="mr-2",
+                                density="compact",
+                            ):
+                                html.Span(
+                                    "Tokens: In: {{ input_tokens }} | Out: {{ output_tokens }}"
                                 )
-                                app.ctrl.view_update = view.update
-                                app.ctrl.view_reset_camera = view.reset_camera
+                            # VTK control buttons
+                            with vuetify.VTooltip(
+                                text="Clear Scene",
+                                location="bottom",
+                            ):
+                                with vuetify.Template(v_slot_activator="{ props }"):
+                                    with vuetify.VBtn(
+                                        click=app.ctrl.clear_scene,
+                                        icon=True,
+                                        color="secondary",
+                                        v_bind="props",
+                                        classes="mr-2",
+                                        density="compact",
+                                        variant="text",
+                                    ):
+                                        vuetify.VIcon("mdi-reload")
+                            with vuetify.VTooltip(
+                                text="Reset Camera",
+                                location="bottom",
+                            ):
+                                with vuetify.Template(v_slot_activator="{ props }"):
+                                    with vuetify.VBtn(
+                                        click=app.ctrl.reset_camera,
+                                        icon=True,
+                                        color="secondary",
+                                        v_bind="props",
+                                        classes="mr-2",
+                                        density="compact",
+                                        variant="text",
+                                    ):
+                                        vuetify.VIcon("mdi-camera-retake-outline")
+                        with vuetify.VCardText(
+                            classes="flex-grow-1 pa-0",
+                            style="height: 0; min-height: 0;",
+                        ):
+                            # VTK render window
+                            view = vtk_widgets.VtkRemoteView(
+                                app.render_window,
+                                ref="view",
+                                classes="w-100 h-100",
+                                interactor_settings=[
+                                    (
+                                        "SetInteractorStyle",
+                                        ["vtkInteractorStyleTrackballCamera"],
+                                    ),
+                                ],
+                            )
+                            app.ctrl.view_update = view.update
+                            app.ctrl.view_reset_camera = view.reset_camera
 
-                                # Register custom controller methods
-                                app.ctrl.on_tab_change = app.on_tab_change
+                            # Register custom controller methods
+                            app.ctrl.on_tab_change = app.on_tab_change
 
-                                # Ensure initial render
-                                view.update()
+                            # Ensure initial render
+                            view.update()
 
-                        # Conversation transcript: prompts and responses for the
-                        # active conversation. Click a turn to revisit that step.
-                        with vuetify.VCard(classes="h-25 w-100 mt-2"):
-                            vuetify.VCardTitle("Conversation", classes="text-h6")
-                            with vuetify.VCardText(
-                                classes="overflow-y-auto",
-                                style="height: calc(100% - 50px);",
+                    # Conversation transcript: prompts and responses for the
+                    # active conversation. Click a turn to revisit that step.
+                    with vuetify.VCard(
+                        classes="w-100 mt-2 d-flex flex-column flex-grow-0",
+                        style="height: 260px; min-height: 260px; overflow: hidden;",
+                    ):
+                        # Conversation and Console share this pane as tabs
+                        # so they do not fight for vertical space.
+                        with vuetify.VTabs(
+                            v_model=("info_tab", "conversation"),
+                            density="compact",
+                            classes="flex-grow-0",
+                        ):
+                            vuetify.VTab("Conversation", value="conversation")
+                            with vuetify.VTab(value="console"):
+                                html.Span("Console")
+                                vuetify.VChip(
+                                    "{{ console_log.length }}",
+                                    v_show=("console_log.length > 0",),
+                                    size="x-small",
+                                    variant="tonal",
+                                    classes="ml-2",
+                                )
+                        with vuetify.VCardText(
+                            v_show=("info_tab !== 'console'",),
+                            classes="overflow-y-auto flex-grow-1 pa-2",
+                            style="height: 0; min-height: 0;",
+                        ):
+                            html.Div(
+                                "Your conversation will appear here...",
+                                v_show=(
+                                    "conversation_navigation.length === 0 && !is_loading"
+                                ),
+                                classes="text-medium-emphasis text-body-2",
+                            )
+                            with html.Div(
+                                v_for="(pair, idx) in conversation_navigation",
+                                key="'turn-' + idx",
+                                classes="mb-2 pl-2",
+                                style=(
+                                    "'border-left: 3px solid '"
+                                    + " + (conversation_index === idx"
+                                    + " ? 'rgb(var(--v-theme-primary))' : 'transparent')",
+                                    "",
+                                ),
+                            ):
+                                with html.Div(
+                                    classes="d-flex align-start",
+                                    click=(app.ctrl.navigate_to_conversation, "[idx]"),
+                                    style="cursor: pointer;",
+                                ):
+                                    vuetify.VIcon(
+                                        "mdi-account-circle",
+                                        size="small",
+                                        color="primary",
+                                        classes="mr-2",
+                                    )
+                                    html.Span(
+                                        "{{ pair.prompt }}",
+                                        classes=(
+                                            "conversation_index === idx"
+                                            + " ? 'text-body-2 font-weight-medium'"
+                                            + " : 'text-body-2'",
+                                            "text-body-2",
+                                        ),
+                                    )
+                                html.Div(
+                                    "{{ pair.explanation }}",
+                                    v_show="pair.explanation",
+                                    classes="text-body-2 text-medium-emphasis ml-6",
+                                    style="white-space: pre-wrap;",
+                                )
+                                # Collapsible trace: the model's tool calls and
+                                # retries for this turn, when present.
+                                with vuetify.VExpansionPanels(
+                                    v_show="pair.trace && pair.trace.length",
+                                    variant="accordion",
+                                    flat=True,
+                                    classes="ml-6 mt-1",
+                                ):
+                                    with vuetify.VExpansionPanel():
+                                        vuetify.VExpansionPanelTitle(
+                                            "Show work ({{ pair.trace.length }})",
+                                            classes="text-caption pa-2",
+                                            style="min-height: 0;",
+                                        )
+                                        with vuetify.VExpansionPanelText():
+                                            with html.Div(
+                                                v_for="(step, si) in pair.trace",
+                                                key="'step-' + idx + '-' + si",
+                                                classes="mb-2",
+                                            ):
+                                                html.Div(
+                                                    "{{ step.name }}{{ step.detail"
+                                                    + " ? ': ' + step.detail : '' }}",
+                                                    classes="text-caption font-weight-medium",
+                                                )
+                                                html.Div(
+                                                    "{{ step.result }}",
+                                                    v_show="step.result",
+                                                    classes="text-caption"
+                                                    + " text-medium-emphasis",
+                                                    style="white-space: pre-wrap;",
+                                                )
+                            # Pending turn while a response is generating.
+                            with html.Div(
+                                v_show="is_loading && current_prompt",
+                                classes="mb-2 pl-2",
+                            ):
+                                with html.Div(classes="d-flex align-start"):
+                                    vuetify.VIcon(
+                                        "mdi-account-circle",
+                                        size="small",
+                                        color="primary",
+                                        classes="mr-2",
+                                    )
+                                    html.Span(
+                                        "{{ current_prompt }}",
+                                        classes="text-body-2 font-weight-medium",
+                                    )
+                                with html.Div(classes="d-flex align-center ml-6 mt-1"):
+                                    vuetify.VProgressCircular(
+                                        indeterminate=True,
+                                        size="14",
+                                        width="2",
+                                        classes="mr-2",
+                                    )
+                                    html.Span(
+                                        "Generating...",
+                                        classes="text-body-2 text-medium-emphasis",
+                                    )
+                        with vuetify.VCardText(
+                            v_show=("info_tab === 'console'",),
+                            classes="overflow-auto flex-grow-1 pa-2",
+                            style=(
+                                "height: 0; min-height: 0;"
+                                " font-family: monospace; font-size: 12px;"
+                            ),
+                        ):
+                            html.Div(
+                                "No output yet.",
+                                v_show=("console_lines.length === 0",),
+                                classes="text-caption text-disabled",
+                            )
+                            with html.Div(
+                                classes="d-flex justify-end",
+                                v_show=("console_lines.length > 0",),
+                            ):
+                                vuetify.VBtn(
+                                    "Clear",
+                                    size="x-small",
+                                    variant="text",
+                                    click="console_lines = []; console_log = []",
+                                )
+                            # Wide non-wrapping lines scroll inside this fixed-
+                            # width box instead of widening the page/layout.
+                            with html.Div(
+                                style="width: 100%; overflow-x: auto;",
                             ):
                                 html.Div(
-                                    "Your conversation will appear here...",
-                                    v_show=(
-                                        "conversation_navigation.length === 0 && !is_loading"
-                                    ),
-                                    classes="text-medium-emphasis text-body-2",
+                                    "{{ line.text }}",
+                                    v_for="(line, ci) in console_lines",
+                                    key="'c-' + ci",
+                                    classes=("line.cls",),
+                                    style="white-space: pre; width: max-content;",
                                 )
-                                with html.Div(
-                                    v_for="(pair, idx) in conversation_navigation",
-                                    key="'turn-' + idx",
-                                    classes="mb-2 pl-2",
-                                    style=(
-                                        "'border-left: 3px solid '"
-                                        + " + (conversation_index === idx"
-                                        + " ? 'rgb(var(--v-theme-primary))' : 'transparent')",
-                                        "",
-                                    ),
-                                ):
-                                    with html.Div(
-                                        classes="d-flex align-start",
-                                        click=(app.ctrl.navigate_to_conversation, "[idx]"),
-                                        style="cursor: pointer;",
-                                    ):
-                                        vuetify.VIcon(
-                                            "mdi-account-circle",
-                                            size="small",
-                                            color="primary",
-                                            classes="mr-2",
-                                        )
-                                        html.Span(
-                                            "{{ pair.prompt }}",
-                                            classes=(
-                                                "conversation_index === idx"
-                                                + " ? 'text-body-2 font-weight-medium'"
-                                                + " : 'text-body-2'",
-                                                "text-body-2",
-                                            ),
-                                        )
-                                    html.Div(
-                                        "{{ pair.explanation }}",
-                                        v_show="pair.explanation",
-                                        classes="text-body-2 text-medium-emphasis ml-6",
-                                        style="white-space: pre-wrap;",
-                                    )
-                                    # Collapsible trace: the model's tool calls and
-                                    # retries for this turn, when present.
-                                    with vuetify.VExpansionPanels(
-                                        v_show="pair.trace && pair.trace.length",
-                                        variant="accordion",
-                                        flat=True,
-                                        classes="ml-6 mt-1",
-                                    ):
-                                        with vuetify.VExpansionPanel():
-                                            vuetify.VExpansionPanelTitle(
-                                                "Show work ({{ pair.trace.length }})",
-                                                classes="text-caption pa-2",
-                                                style="min-height: 0;",
-                                            )
-                                            with vuetify.VExpansionPanelText():
-                                                with html.Div(
-                                                    v_for="(step, si) in pair.trace",
-                                                    key="'step-' + idx + '-' + si",
-                                                    classes="mb-2",
-                                                ):
-                                                    html.Div(
-                                                        "{{ step.name }}{{ step.detail"
-                                                        + " ? ': ' + step.detail : '' }}",
-                                                        classes="text-caption font-weight-medium",
-                                                    )
-                                                    html.Div(
-                                                        "{{ step.result }}",
-                                                        v_show="step.result",
-                                                        classes="text-caption"
-                                                        + " text-medium-emphasis",
-                                                        style="white-space: pre-wrap;",
-                                                    )
-                                # Pending turn while a response is generating.
-                                with html.Div(
-                                    v_show="is_loading && current_prompt",
-                                    classes="mb-2 pl-2",
-                                ):
-                                    with html.Div(classes="d-flex align-start"):
-                                        vuetify.VIcon(
-                                            "mdi-account-circle",
-                                            size="small",
-                                            color="primary",
-                                            classes="mr-2",
-                                        )
-                                        html.Span(
-                                            "{{ current_prompt }}",
-                                            classes="text-body-2 font-weight-medium",
-                                        )
-                                    with html.Div(classes="d-flex align-center ml-6 mt-1"):
-                                        vuetify.VProgressCircular(
-                                            indeterminate=True,
-                                            size="14",
-                                            width="2",
-                                            classes="mr-2",
-                                        )
-                                        html.Span(
-                                            "Generating...",
-                                            classes="text-body-2 text-medium-emphasis",
-                                        )
-
         vuetify.VAlert(
             closable=True,
             v_show=("error_message", ""),
