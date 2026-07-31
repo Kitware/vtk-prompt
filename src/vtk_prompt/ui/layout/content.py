@@ -169,6 +169,11 @@ def build_content(layout: Any, app: Any) -> None:
                             )
                         with vuetify.VCardText(style="height: calc(100% - 50px);"):
                             code.Editor(
+                                # Remount when the shown code changes to a new
+                                # version, so the editor never keeps a cursor
+                                # pointing past the end of shorter content
+                                # ("Illegal value for lineNumber").
+                                key=("'ed-' + code_history.length + '-' + code_history_pos",),
                                 v_model=("generated_code", ""),
                                 language="python",
                                 theme="vs",
