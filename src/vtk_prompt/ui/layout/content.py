@@ -20,15 +20,12 @@ def build_content(layout: Any, app: Any) -> None:
     with layout.content:
         with vuetify.VContainer(
             classes="fluid fill-height",
-            style=(
-                "min-width: 100%; max-width: 100%; padding: 0!important;"
-                " overflow: hidden;"
-            ),
+            style="width: 100%; padding: 0 !important; overflow: hidden;",
         ):
             with vuetify.VRow(
                 rows=12,
                 classes="fill-height px-4 pt-1 pb-1 flex-nowrap",
-                style="max-width: 100%; min-width: 0;",
+                style="min-width: 0;",
             ):
                 # Left column - Generated code view
                 with vuetify.VCol(cols=6, style="min-width: 0;"):
@@ -472,7 +469,7 @@ def build_content(layout: Any, app: Any) -> None:
                             v_show=("info_tab === 'console'",),
                             classes="overflow-auto flex-grow-1 pa-2",
                             style=(
-                                "height: 0; min-height: 0; max-width: 100%;"
+                                "height: 0; min-height: 0;"
                                 " font-family: monospace; font-size: 12px;"
                             ),
                         ):
