@@ -383,6 +383,11 @@ def build_content(layout: Any, app: Any) -> None:
                                     size="x-small",
                                     variant="tonal",
                                     classes="ml-2",
+                                    color=(
+                                        "console_level === 'err' ? 'error'"
+                                        " : console_level === 'warn' ? 'warning'"
+                                        " : undefined",
+                                    ),
                                 )
                         with vuetify.VCardText(
                             v_show=("info_tab !== 'console'",),
@@ -527,19 +532,6 @@ def build_content(layout: Any, app: Any) -> None:
                                     classes=("line.cls",),
                                     style="white-space: pre; width: max-content;",
                                 )
-        vuetify.VAlert(
-            closable=True,
-            v_show=("error_message", ""),
-            density="compact",
-            type="error",
-            text=("error_message",),
-            classes="position-absolute align-self-center",
-            style=(
-                "width: 30%; bottom: 8px; z-index: 1000;"
-                " max-height: 40%; overflow-y: auto;"
-            ),
-            icon="mdi-alert-outline",
-        )
 
         # Toast notification snackbar for validation warnings
         with vuetify.VSnackbar(

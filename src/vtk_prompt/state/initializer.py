@@ -56,6 +56,7 @@ def initialize_state(app: Any) -> None:
     app.state.info_tab = "conversation"  # Conversation | Console tab in the info pane
     app.state.console_open_runs = []  # which run groups are expanded
     app.state.console_lines = []  # flat render-friendly console lines
+    app.state.console_level = "out"  # severity of the latest run (tab badge colour)
     app.state.data_suggestions = []  # one-click fixes for unresolved data files
     app.state.input_tokens = 0
     app.state.output_tokens = 0

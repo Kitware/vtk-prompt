@@ -80,7 +80,11 @@ async def generate_and_execute_code(app: Any) -> None:
 
             # Reinitialize client with current settings
             app._init_prompt_client()
-            if hasattr(app.state, "error_message") and app.state.error_message:
+            if getattr(app.state, "error_message", ""):
+                # Config/validation error (e.g. missing API key). Surface it in
+                # the console like every other error, then clear the signal.
+                console_message(app, app.state.error_message)
+                app.state.error_message = ""
                 return
             # Tie this generation to the active conversation. A reset or session
             # switch during the offloaded query bumps the epoch, so a stale result
@@ -198,13 +202,14 @@ async def generate_and_execute_code(app: Any) -> None:
                     execute_with_renderer(app, app.state.generated_code)
     except ValueError as e:
         if "max_tokens" in str(e):
-            app.state.error_message = (
+            msg = (
                 f"{str(e)} Current: {app.state.max_tokens}. Try increasing max tokens."
             )
         else:
-            app.state.error_message = f"Error generating code: {str(e)}"
+            msg = f"Error generating code: {str(e)}"
+        console_message(app, msg)
     except Exception as e:
-        app.state.error_message = f"Error generating code: {str(e)}"
+        console_message(app, f"Error generating code: {str(e)}")
     finally:
         app.state.is_loading = False
         app._generating = False
@@ -245,8 +250,26 @@ def _classify_line(text: str) -> str:
     return "out"
 
 
+def console_message(app: Any, text: str, level: str = "err") -> None:
+    """Record a standalone message (not tied to code output) in the console.
+
+    Used for generation and configuration errors that occur before any run, so
+    the console remains the single place all errors and output appear.
+    """
+    if not text:
+        return
+    if level == "err":
+        _append_console(app, stdout="", stderr="", error=text)
+    else:
+        _append_console(app, stdout="", stderr="", extra_warnings=[text])
+
+
 def _append_console(
-    app: Any, stdout: str, stderr: str = "", error: str | None = None
+    app: Any,
+    stdout: str,
+    stderr: str = "",
+    error: str | None = None,
+    extra_warnings: list[str] | None = None,
 ) -> None:
     """Record a run's captured output as a collapsible group in the console.
 
@@ -274,6 +297,9 @@ def _append_console(
     if error:
         for raw in error.splitlines():
             entries.append({"kind": "err", "text": _cap(raw)})
+    for warning in extra_warnings or []:
+        for raw in warning.splitlines():
+            entries.append({"kind": "warn", "text": _cap(raw)})
     if not entries:
         return  # nothing to show for this run
 
@@ -291,6 +317,8 @@ def _append_console(
         {"stamp": stamp, "lines": entries, "summary": ", ".join(parts), "level": level}
     )
     app.state.console_log = runs[-100:]
+    # Severity of the latest run, for the Console tab badge.
+    app.state.console_level = level
 
     # Flat, render-friendly view: a header line per run then its output lines.
     # A single non-nested list keeps the UI markup simple and robust.
@@ -334,8 +362,9 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
         exec_code, app.renderer, app.render_window
     )
 
+    # The formatted run error goes to the console (below), not a floating alert.
     if not success and error_message:
-        app.state.error_message = _format_exec_error(
+        error_message = _format_exec_error(
             code_string, error_message, error_line_text
         )
 
@@ -349,22 +378,28 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
         for match in hint["matches"]:
             picks.append({"missing": hint["name"], "suggestion": match})
     app.state.data_suggestions = picks
-    if picks and not app.state.error_message:
+    resolver_warning = ""
+    if picks:
         names = ", ".join(sorted({p["missing"] for p in picks}))
-        app.state.error_message = (
+        resolver_warning = (
             f"Could not resolve data file(s): {names}. "
-            "A close match is available below."
+            "Use the Fix data file menu to pick a close match."
         )
 
     if success:
         app.state.rendered_code = code_string
 
-    # Surface anything the code printed (and any error) in the console panel.
+    # The console is the single record of a run: stdout, stderr, any exception,
+    # and the resolver's suggestion. No floating alert.
     from ..rendering.code_executor import last_console_output
 
     _stdout, _stderr = last_console_output()
     _append_console(
-        app, _stdout, _stderr, error_message if not success else None
+        app,
+        _stdout,
+        _stderr,
+        error_message if not success else None,
+        extra_warnings=[resolver_warning] if resolver_warning else None,
     )
 
     # Always update view
