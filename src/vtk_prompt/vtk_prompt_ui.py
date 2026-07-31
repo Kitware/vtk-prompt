@@ -192,6 +192,11 @@ class VTKPromptApp(TrameApp):
         """Execute the current (possibly edited) code without calling the LLM."""
         generation.run_current_code(self)
 
+    @controller.set("apply_data_suggestion")
+    def apply_data_suggestion(self, missing: str, suggestion: str) -> None:
+        """Swap an unresolved data-file reference for a chosen one and re-run."""
+        generation.apply_data_suggestion(self, missing, suggestion)
+
     @controller.set("undo_code")
     def undo_code(self) -> None:
         """Revert the code panel to the previous version and re-render."""

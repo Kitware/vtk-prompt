@@ -308,6 +308,20 @@ def _append_console(
     app.state.console_lines = flat[-1000:]
 
 
+def apply_data_suggestion(app: Any, missing: str, suggestion: str) -> None:
+    """Replace an unresolved data-file reference with a chosen known file and re-run."""
+    history = app.state.code_history or []
+    pos = app.state.code_history_pos
+    code = history[pos] if 0 <= pos < len(history) else (app.state.generated_code or "")
+    for quote in ("'", '"'):
+        code = code.replace(f"{quote}{missing}{quote}", f"{quote}{suggestion}{quote}")
+    app.state.generated_code = code
+    push_code_snapshot(app, code, f"use {suggestion}")
+    app.state.data_suggestions = []
+    app.state.error_message = ""
+    execute_with_renderer(app, code)
+
+
 def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]:
     """Execute VTK code with our renderer. Returns (success, error_message)."""
     # Resolve bare data-file references (e.g. 'cow.g') to fetched local paths so
@@ -323,6 +337,23 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
     if not success and error_message:
         app.state.error_message = _format_exec_error(
             code_string, error_message, error_line_text
+        )
+
+    # Offer one-click fixes for data references that could not be resolved
+    # (e.g. can.ex -> can.ex2). Checked regardless of Python-level success,
+    # since some VTK readers log an error and return without raising.
+    from ..data.resolver import suggestions
+
+    picks: list[dict] = []
+    for hint in suggestions(code_string):
+        for match in hint["matches"]:
+            picks.append({"missing": hint["name"], "suggestion": match})
+    app.state.data_suggestions = picks
+    if picks and not app.state.error_message:
+        names = ", ".join(sorted({p["missing"] for p in picks}))
+        app.state.error_message = (
+            f"Could not resolve data file(s): {names}. "
+            "A close match is available below."
         )
 
     if success:

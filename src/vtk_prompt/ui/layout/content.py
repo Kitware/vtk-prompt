@@ -127,6 +127,33 @@ def build_content(layout: Any, app: Any) -> None:
                                         ),
                                     ):
                                         vuetify.VIcon("mdi-redo")
+                            # One-click fixes for unresolved data-file references,
+                            # right by the code they apply to.
+                            with vuetify.VMenu():
+                                with vuetify.Template(v_slot_activator="{ props }"):
+                                    vuetify.VBtn(
+                                        "Fix data file",
+                                        v_bind="props",
+                                        v_show=("data_suggestions.length > 0",),
+                                        prepend_icon="mdi-file-alert-outline",
+                                        append_icon="mdi-menu-down",
+                                        size="small",
+                                        color="warning",
+                                        variant="tonal",
+                                        classes="mr-2",
+                                    )
+                                with vuetify.VList(density="compact"):
+                                    with vuetify.VListItem(
+                                        v_for="pick in data_suggestions",
+                                        key="pick.missing + pick.suggestion",
+                                        click=(
+                                            app.ctrl.apply_data_suggestion,
+                                            "[pick.missing, pick.suggestion]",
+                                        ),
+                                    ):
+                                        vuetify.VListItemTitle(
+                                            "{{ pick.missing }} \u2192 {{ pick.suggestion }}"
+                                        )
                             # Run the (possibly edited) code without the LLM
                             vuetify.VBtn(
                                 "Run",
@@ -506,8 +533,11 @@ def build_content(layout: Any, app: Any) -> None:
             density="compact",
             type="error",
             text=("error_message",),
-            classes="h-auto position-absolute bottom-0 align-self-center mb-1",
-            style="width: 30%; z-index: 1000;",
+            classes="position-absolute align-self-center",
+            style=(
+                "width: 30%; bottom: 8px; z-index: 1000;"
+                " max-height: 40%; overflow-y: auto;"
+            ),
             icon="mdi-alert-outline",
         )
 
