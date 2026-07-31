@@ -245,7 +245,9 @@ def _classify_line(text: str) -> str:
     return "out"
 
 
-def _append_console(app: Any, output: str, error: str | None = None) -> None:
+def _append_console(
+    app: Any, stdout: str, stderr: str = "", error: str | None = None
+) -> None:
     """Record a run's captured output as a collapsible group in the console.
 
     Each run is one entry {stamp, lines:[{kind,text}], summary}. A run that
@@ -259,8 +261,16 @@ def _append_console(app: Any, output: str, error: str | None = None) -> None:
         return s if len(s) <= 2000 else s[:2000] + " ... [truncated]"
 
     entries: list[dict] = []
-    for raw in (output or "").splitlines():
-        entries.append({"kind": _classify_line(raw), "text": _cap(raw)})
+    # stdout is ordinary output; stderr is a warning; a raised exception is an
+    # error. Classify by origin rather than by scanning text for words like
+    # "error" (a printed class name such as vtkErrorCode is not an error).
+    for raw in (stdout or "").splitlines():
+        entries.append({"kind": "out", "text": _cap(raw)})
+    for raw in (stderr or "").splitlines():
+        # Everything on stderr is at least a warning; VTK also writes hard
+        # errors there, so upgrade to error when the text says so.
+        kind = "err" if _classify_line(raw) == "err" else "warn"
+        entries.append({"kind": kind, "text": _cap(raw)})
     if error:
         for raw in error.splitlines():
             entries.append({"kind": "err", "text": _cap(raw)})
@@ -321,7 +331,10 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
     # Surface anything the code printed (and any error) in the console panel.
     from ..rendering.code_executor import last_console_output
 
-    _append_console(app, last_console_output(), error_message if not success else None)
+    _stdout, _stderr = last_console_output()
+    _append_console(
+        app, _stdout, _stderr, error_message if not success else None
+    )
 
     # Always update view
     try:
