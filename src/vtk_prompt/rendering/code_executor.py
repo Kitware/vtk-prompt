@@ -1,5 +1,7 @@
 """VTK Code Execution Module."""
 
+import contextlib
+import io
 import traceback
 
 import vtk
@@ -8,6 +10,17 @@ from .. import get_logger
 from ..utils.helpers import ensure_vtk_importable
 
 logger = get_logger(__name__)
+
+# Output captured from the most recent run of generated code. The executor keeps
+# its (success, error, line) return contract; callers read the console text from
+# here so a print() in generated code is visible in the app, not just the server
+# terminal.
+_last_console_output: str = ""
+
+
+def last_console_output() -> str:
+    """Stdout/stderr captured from the most recent execute_vtk_code call."""
+    return _last_console_output
 
 
 def execute_vtk_code(
@@ -41,19 +54,24 @@ def execute_vtk_code(
             "__name__": "__main__",
         }
 
-        # Execute the code
-        exec(code_segment, exec_globals)
+        # Execute the code, capturing anything it prints so the app can show it.
+        global _last_console_output
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+            exec(code_segment, exec_globals)
 
-        # Reset camera and render
-        try:
-            renderer.ResetCamera()
-            render_window.Render()
-        except Exception as render_error:
-            logger.warning("Render error: %s", render_error)
+            # Reset camera and render
+            try:
+                renderer.ResetCamera()
+                render_window.Render()
+            except Exception as render_error:
+                logger.warning("Render error: %s", render_error)
+        _last_console_output = buffer.getvalue()
 
         return True, None, None
 
     except (Exception, SystemExit) as e:
+        _last_console_output = locals().get("buffer", io.StringIO()).getvalue()
         # SystemExit is NOT an Exception subclass: generated code that calls
         # sys.exit() or argparse.parse_args() (common in VTK example scripts that
         # read command-line data files) would otherwise propagate out and kill the
