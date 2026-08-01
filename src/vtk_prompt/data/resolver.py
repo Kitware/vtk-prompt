@@ -12,6 +12,7 @@ checksum. That lets generated example-style code which reads such files run.
 import hashlib
 import logging
 import os
+import difflib
 import re
 import shutil
 import urllib.request
@@ -189,6 +190,47 @@ def referenced(code: str) -> list[str]:
         if value in names and value not in found:
             found.append(value)
     return found
+
+
+# A bare literal that looks like a data file: has an extension, no path, and is
+# not obviously code or a format string.
+_DATA_LIKE_RE = re.compile(r"^[\w.\-]+\.[A-Za-z][\w]{1,5}$")
+
+
+def _looks_like_data_file(value: str) -> bool:
+    return bool(_DATA_LIKE_RE.match(value)) and "{" not in value
+
+
+def suggestions(code: str) -> list[dict]:
+    """Suggest known data files for referenced names that cannot be resolved.
+
+    The model sometimes references a file that does not exist but is close to a
+    real one (e.g. ``can.ex`` when the dataset is ``can.ex2``). For each such
+    unresolved, data-file-looking literal, return the closest known names so the
+    caller can surface them rather than silently substituting a possibly-wrong
+    dataset. Returns [{"name", "matches": [...]}] for names that have candidates.
+    """
+    if not code:
+        return []
+    known = set(_load_index()) | set(uploads.uploaded_names())
+    if not known:
+        return []
+    out: list[dict] = []
+    seen: set[str] = set()
+    for match in _LITERAL_RE.finditer(code):
+        value = match.group(2)
+        if value in seen or value in known:
+            continue
+        if ("/" in value) or ("\\" in value) or not _looks_like_data_file(value):
+            continue
+        seen.add(value)
+        stem = value.rsplit(".", 1)[0]
+        # Prefer files sharing the exact stem (can.ex -> can.ex2, can.exdg).
+        stem_matches = sorted(n for n in known if n.rsplit(".", 1)[0] == stem and n != value)
+        matches = stem_matches or difflib.get_close_matches(value, known, n=3, cutoff=0.7)
+        if matches:
+            out.append({"name": value, "matches": list(matches)[:3]})
+    return out
 
 
 def artifacts(code: str) -> list[dict]:

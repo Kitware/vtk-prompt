@@ -1,5 +1,7 @@
 """VTK Code Execution Module."""
 
+import contextlib
+import io
 import traceback
 
 import vtk
@@ -8,6 +10,24 @@ from .. import get_logger
 from ..utils.helpers import ensure_vtk_importable
 
 logger = get_logger(__name__)
+
+# Output captured from the most recent run of generated code. The executor keeps
+# its (success, error, line) return contract; callers read the console text from
+# here so a print() in generated code is visible in the app, not just the server
+# terminal.
+_last_stdout: str = ""
+_last_stderr: str = ""
+
+
+def last_console_output() -> tuple[str, str]:
+    """(stdout, stderr) captured from the most recent execute_vtk_code call.
+
+    Kept as separate streams so callers can classify by origin: stdout is
+    ordinary output, stderr is a warning/error. This avoids guessing severity
+    from line content (e.g. a printed class name like vtkErrorCode is not an
+    error).
+    """
+    return _last_stdout, _last_stderr
 
 
 class _NoOpRenderWindow:
@@ -79,30 +99,38 @@ def execute_vtk_code(
             "__name__": "__main__",
         }
 
-        # Keep generated code inside the app: a script that builds its own window
+        # Keep generated code inside the app (a script that builds its own window
         # or interactor would otherwise pop up a native window and block on
-        # Start() until the user pressed q. Hand it the app's render window and an
-        # inert interactor instead, then restore vtk for everyone else.
+        # Start()), and capture stdout/stderr separately so the console can
+        # colour output by stream. Restore vtk afterwards.
+        global _last_stdout, _last_stderr
         real_window_cls = vtk.vtkRenderWindow
         real_interactor_cls = vtk.vtkRenderWindowInteractor
         vtk.vtkRenderWindow = _NoOpRenderWindow  # type: ignore[assignment,misc]
         vtk.vtkRenderWindowInteractor = _NoOpInteractor  # type: ignore[assignment,misc]
+        out_buf, err_buf = io.StringIO(), io.StringIO()
         try:
-            exec(code_segment, exec_globals)
+            with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(
+                err_buf
+            ):
+                exec(code_segment, exec_globals)
+
+                # Reset camera and render
+                try:
+                    renderer.ResetCamera()
+                    render_window.Render()
+                except Exception as render_error:
+                    logger.warning("Render error: %s", render_error)
         finally:
             vtk.vtkRenderWindow = real_window_cls  # type: ignore[assignment,misc]
-            vtk.vtkRenderWindowInteractor = real_interactor_cls  # type: ignore[assignment,misc]
-
-        # Reset camera and render
-        try:
-            renderer.ResetCamera()
-            render_window.Render()
-        except Exception as render_error:
-            logger.warning("Render error: %s", render_error)
+            vtk.vtkRenderWindowInteractor = real_interactor_cls  # noqa: E501  # type: ignore[assignment,misc]
+        _last_stdout, _last_stderr = out_buf.getvalue(), err_buf.getvalue()
 
         return True, None, None
 
     except (Exception, SystemExit) as e:
+        _last_stdout = locals().get("out_buf", io.StringIO()).getvalue()
+        _last_stderr = locals().get("err_buf", io.StringIO()).getvalue()
         # SystemExit is NOT an Exception subclass: generated code that calls
         # sys.exit() or argparse.parse_args() (common in VTK example scripts that
         # read command-line data files) would otherwise propagate out and kill the
