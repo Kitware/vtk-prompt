@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 _PERSIST_KEYS = (
     "id", "title", "created", "updated", "pinned", "messages",
     "code_history", "code_history_labels", "code_history_pos", "checkpoints",
+    "console_log", "console_lines", "console_level",
 )
 
 
@@ -46,6 +47,9 @@ def _new_session() -> dict:
         "code_history_labels": [],
         "code_history_pos": -1,
         "checkpoints": [],
+        "console_log": [],
+        "console_lines": [],
+        "console_level": "out",
     }
 
 
@@ -130,6 +134,9 @@ def capture_current_session(app: Any) -> None:
     sess["code_history_labels"] = list(app.state.code_history_labels or [])
     sess["code_history_pos"] = app.state.code_history_pos
     sess["checkpoints"] = list(getattr(app, "_conversation_checkpoints", None) or [])
+    sess["console_log"] = list(app.state.console_log or [])
+    sess["console_lines"] = list(app.state.console_lines or [])
+    sess["console_level"] = getattr(app.state, "console_level", "out")
     _maybe_title(app, sess)
     _persist_session(sess)
 
@@ -177,6 +184,9 @@ def _reset_live(app: Any) -> None:
     app.state.code_history = []
     app.state.code_history_labels = []
     app.state.code_history_pos = -1
+    app.state.console_log = []
+    app.state.console_lines = []
+    app.state.console_level = "out"
     # Busy belongs to the conversation too: a fresh one is idle even while
     # another conversation is still generating.
     busy: set[str] = getattr(app, "_generating_session_ids", set())
@@ -209,8 +219,7 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
     # The in-pane spinner reflects whether the conversation being shown is busy.
     busy: set[str] = getattr(app, "_generating_session_ids", set())
     app.state.is_loading = session_id in busy
-    # An error belongs to its conversation, so it surfaces on switching to it.
-    app.state.error_message = sess.get("error_message", "") or ""
+    app.state.error_message = ""
     if sess.get("unseen"):
         sess["unseen"] = False
         refresh_sessions_list(app)  # drop the new-result marker now it is seen
@@ -223,6 +232,17 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
     history = app.state.code_history
     pos = app.state.code_history_pos
     app.state.generated_code = history[pos] if 0 <= pos < len(history) else ""
+    app.state.console_log = list(sess.get("console_log") or [])
+    app.state.console_lines = list(sess.get("console_lines") or [])
+    app.state.console_level = sess.get("console_level", "out")
+    # A background error belongs to this conversation: surface it in the console
+    # now (after the restore above, so it is not overwritten), then clear it.
+    _stored_error = sess.get("error_message", "") or ""
+    if _stored_error:
+        from .generation import console_message
+
+        console_message(app, _stored_error)
+        sess.pop("error_message", None)
 
     from .conversation import (
         _parse_assistant_content,

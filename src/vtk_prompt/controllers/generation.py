@@ -77,7 +77,8 @@ def _deliver_error(app: Any, session_id: str, message: str) -> None:
     interrupting whatever they are looking at now.
     """
     if _is_visible(app, session_id):
-        app.state.error_message = message
+        # The console is the single record now; no floating alert.
+        console_message(app, message)
         return
     from . import sessions as sessions_mod
 
@@ -191,7 +192,11 @@ async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> No
 
             # Reinitialize client with current settings
             app._init_prompt_client()
-            if hasattr(app.state, "error_message") and app.state.error_message:
+            if getattr(app.state, "error_message", ""):
+                # Config/validation error (e.g. missing API key). Surface it in
+                # the console like every other error, then clear the signal.
+                console_message(app, app.state.error_message)
+                app.state.error_message = ""
                 return
             # Tie this generation to its conversation by token. The result is
             # delivered only if this conversation has not been reset or
@@ -325,7 +330,9 @@ async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> No
                     execute_with_renderer(app, app.state.generated_code)
     except ValueError as e:
         if "max_tokens" in str(e):
-            msg = f"{str(e)} Current: {app.state.max_tokens}. Try increasing max tokens."
+            msg = (
+                f"{str(e)} Current: {app.state.max_tokens}. Try increasing max tokens."
+            )
         else:
             msg = f"Error generating code: {str(e)}"
         _deliver_error(app, origin_session_id, msg)
@@ -362,6 +369,120 @@ def _format_exec_error(displayed_code: str, error_message: str, line_text: str |
     return f"{where}\n{error_message}"
 
 
+def _classify_line(text: str) -> str:
+    """Tag a captured line by severity so the console can colour it.
+
+    VTK (C++) and Python both use recognisable markers: "ERROR"/"Traceback" for
+    failures, "Warning" for warnings. Everything else is ordinary output.
+    """
+    low = text.lower()
+    if ("error" in low) or ("traceback" in low) or low.startswith("  file "):
+        return "err"
+    if ("warning" in low) or ("warn:" in low) or ("deprecat" in low):
+        return "warn"
+    return "out"
+
+
+def console_message(app: Any, text: str, level: str = "err") -> None:
+    """Record a standalone message (not tied to code output) in the console.
+
+    Used for generation and configuration errors that occur before any run, so
+    the console remains the single place all errors and output appear.
+    """
+    if not text:
+        return
+    if level == "err":
+        _append_console(app, stdout="", stderr="", error=text)
+    else:
+        _append_console(app, stdout="", stderr="", extra_warnings=[text])
+
+
+def _append_console(
+    app: Any,
+    stdout: str,
+    stderr: str = "",
+    error: str | None = None,
+    extra_warnings: list[str] | None = None,
+) -> None:
+    """Record a run's captured output as a collapsible group in the console.
+
+    Each run is one entry {stamp, lines:[{kind,text}], summary}. A run that
+    produced no output is skipped, so the console never shows an empty marker.
+    """
+    import time
+
+    def _cap(s: str) -> str:
+        # A single very long line (e.g. print(dir(vtk))) is unwieldy; keep the
+        # console readable by truncating with an indicator.
+        return s if len(s) <= 2000 else s[:2000] + " ... [truncated]"
+
+    entries: list[dict] = []
+    # stdout is ordinary output; stderr is a warning; a raised exception is an
+    # error. Classify by origin rather than by scanning text for words like
+    # "error" (a printed class name such as vtkErrorCode is not an error).
+    for raw in (stdout or "").splitlines():
+        entries.append({"kind": "out", "text": _cap(raw)})
+    for raw in (stderr or "").splitlines():
+        # Everything on stderr is at least a warning; VTK also writes hard
+        # errors there, so upgrade to error when the text says so.
+        kind = "err" if _classify_line(raw) == "err" else "warn"
+        entries.append({"kind": kind, "text": _cap(raw)})
+    if error:
+        for raw in error.splitlines():
+            entries.append({"kind": "err", "text": _cap(raw)})
+    for warning in extra_warnings or []:
+        for raw in warning.splitlines():
+            entries.append({"kind": "warn", "text": _cap(raw)})
+    if not entries:
+        return  # nothing to show for this run
+
+    n_err = sum(1 for e in entries if e["kind"] == "err")
+    n_warn = sum(1 for e in entries if e["kind"] == "warn")
+    parts = [f"{len(entries)} line" + ("s" if len(entries) != 1 else "")]
+    if n_err:
+        parts.append(f"{n_err} error" + ("s" if n_err != 1 else ""))
+    if n_warn:
+        parts.append(f"{n_warn} warning" + ("s" if n_warn != 1 else ""))
+    stamp = time.strftime("%H:%M:%S")
+    level = "err" if n_err else ("warn" if n_warn else "out")
+    runs = list(getattr(app.state, "console_log", []) or [])
+    runs.append(
+        {"stamp": stamp, "lines": entries, "summary": ", ".join(parts), "level": level}
+    )
+    app.state.console_log = runs[-100:]
+    # Severity of the latest run, for the Console tab badge.
+    app.state.console_level = level
+
+    # Flat, render-friendly view: a header line per run then its output lines.
+    # A single non-nested list keeps the UI markup simple and robust.
+    _class = {
+        "err": "text-error",
+        "warn": "text-warning",
+        "run": "text-medium-emphasis font-weight-medium",
+        "out": "text-high-emphasis",
+    }
+    flat = list(getattr(app.state, "console_lines", []) or [])
+    header = {"kind": "run", "text": f"\u25b6 {stamp}  \u2014  {', '.join(parts)}"}
+    for item in [header, *entries]:
+        item["cls"] = _class.get(item["kind"], "text-high-emphasis")
+        flat.append(item)
+    app.state.console_lines = flat[-1000:]
+
+
+def apply_data_suggestion(app: Any, missing: str, suggestion: str) -> None:
+    """Replace an unresolved data-file reference with a chosen known file and re-run."""
+    history = app.state.code_history or []
+    pos = app.state.code_history_pos
+    code = history[pos] if 0 <= pos < len(history) else (app.state.generated_code or "")
+    for quote in ("'", '"'):
+        code = code.replace(f"{quote}{missing}{quote}", f"{quote}{suggestion}{quote}")
+    app.state.generated_code = code
+    push_code_snapshot(app, code, f"use {suggestion}")
+    app.state.data_suggestions = []
+    app.state.error_message = ""
+    execute_with_renderer(app, code)
+
+
 def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]:
     """Execute VTK code with our renderer. Returns (success, error_message)."""
     # Resolve bare data-file references (e.g. 'cow.g') to fetched local paths so
@@ -374,13 +495,45 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
         exec_code, app.renderer, app.render_window
     )
 
+    # The formatted run error goes to the console (below), not a floating alert.
     if not success and error_message:
-        app.state.error_message = _format_exec_error(
+        error_message = _format_exec_error(
             code_string, error_message, error_line_text
+        )
+
+    # Offer one-click fixes for data references that could not be resolved
+    # (e.g. can.ex -> can.ex2). Checked regardless of Python-level success,
+    # since some VTK readers log an error and return without raising.
+    from ..data.resolver import suggestions
+
+    picks: list[dict] = []
+    for hint in suggestions(code_string):
+        for match in hint["matches"]:
+            picks.append({"missing": hint["name"], "suggestion": match})
+    app.state.data_suggestions = picks
+    resolver_warning = ""
+    if picks:
+        names = ", ".join(sorted({p["missing"] for p in picks}))
+        resolver_warning = (
+            f"Could not resolve data file(s): {names}. "
+            "Use the Fix data file menu to pick a close match."
         )
 
     if success:
         app.state.rendered_code = code_string
+
+    # The console is the single record of a run: stdout, stderr, any exception,
+    # and the resolver's suggestion. No floating alert.
+    from ..rendering.code_executor import last_console_output
+
+    _stdout, _stderr = last_console_output()
+    _append_console(
+        app,
+        _stdout,
+        _stderr,
+        error_message if not success else None,
+        extra_warnings=[resolver_warning] if resolver_warning else None,
+    )
 
     # Always update view
     try:
