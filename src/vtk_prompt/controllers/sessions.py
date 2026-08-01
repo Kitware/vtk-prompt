@@ -49,6 +49,26 @@ def _new_session() -> dict:
     }
 
 
+def sessions_by_id(app: Any) -> dict:
+    """All known sessions keyed by id (public accessor for other controllers)."""
+    return _sessions(app)
+
+
+def clear_session_error(app: Any, session_id: str) -> None:
+    """Drop a conversation's stored error (its next generation supersedes it)."""
+    sess = _sessions(app).get(session_id)
+    if sess is not None:
+        sess.pop("error_message", None)
+
+
+def finish_background_session(app: Any, sess: dict) -> None:
+    """Persist a conversation that finished while the user was looking elsewhere."""
+    sess["updated"] = time.time()
+    _maybe_title(app, sess)
+    _persist_session(sess)
+    refresh_sessions_list(app)
+
+
 def ensure_session(app: Any) -> dict:
     """Guarantee a current session exists; create the first one if needed."""
     sessions = _sessions(app)
@@ -75,15 +95,28 @@ def _maybe_title(app: Any, sess: dict) -> None:
     """Set a session's title from its first user prompt (once it has one)."""
     if sess["title"] not in ("", "New conversation"):
         return
-    nav = app.state.conversation_navigation or []
-    if not nav:
-        return
     from .conversation import EXTRA_INSTRUCTIONS_TAG
 
-    content = (nav[0].get("user", {}).get("content", "") or "").strip()
-    if EXTRA_INSTRUCTIONS_TAG in content:
-        content = content.split(EXTRA_INSTRUCTIONS_TAG, 1)[-1].strip()
-    content = content.replace("Request:", "").strip()
+    def _clean(raw: str) -> str:
+        text = (raw or "").strip()
+        if EXTRA_INSTRUCTIONS_TAG in text:
+            text = text.split(EXTRA_INSTRUCTIONS_TAG, 1)[-1].strip()
+        return text.replace("Request:", "").strip()
+
+    # Title from the session's own first prompt. Live navigation describes the
+    # conversation on screen, which is the wrong one when a generation finishes
+    # in a conversation the user has already navigated away from.
+    content = ""
+    for msg in sess.get("messages") or []:
+        if msg.get("role") == "user":
+            content = _clean(msg.get("content", ""))
+            if content:
+                break
+    if not content:
+        nav = app.state.conversation_navigation or []
+        if not nav:
+            return
+        content = _clean(nav[0].get("user", {}).get("content", ""))
     if content:
         sess["title"] = _truncate(content)
 
@@ -112,12 +145,15 @@ def refresh_sessions_list(app: Any) -> None:
 
     ordered = sorted(_sessions(app).values(), key=_key)
     cur = getattr(app.state, "current_session_id", "") or ""
+    busy: set[str] = getattr(app, "_generating_session_ids", set())
     app.state.sessions_list = [
         {
             "id": s["id"],
             "title": s["title"] or "New conversation",
             "pinned": s["pinned"],
             "active": s["id"] == cur,
+            "unseen": bool(s.get("unseen")) and s["id"] != cur,
+            "generating": s["id"] in busy,
         }
         for s in ordered
     ]
@@ -125,12 +161,10 @@ def refresh_sessions_list(app: Any) -> None:
 
 def _reset_live(app: Any) -> None:
     """Clear all live conversation/code state (the fresh-conversation hinge)."""
-    # Invalidate any in-flight generation so its result is not written back here.
-    app._conversation_epoch = getattr(app, "_conversation_epoch", 0) + 1
-    client = getattr(app, "prompt_client", None)
-    if client:
-        client.conversation = []
-        client.conversation_file = None
+    # Invalidate any in-flight generation for THIS conversation only.
+    from .generation import bump_conversation_token
+
+    bump_conversation_token(app, getattr(app.state, "current_session_id", "") or "")
     app._conversation_checkpoints = []
     app.state.conversation = []
     app.state.conversation_navigation = []
@@ -143,6 +177,19 @@ def _reset_live(app: Any) -> None:
     app.state.code_history = []
     app.state.code_history_labels = []
     app.state.code_history_pos = -1
+    # Busy belongs to the conversation too: a fresh one is idle even while
+    # another conversation is still generating.
+    busy: set[str] = getattr(app, "_generating_session_ids", set())
+    app.state.is_loading = (getattr(app.state, "current_session_id", "") or "") in busy
+    # The window belongs to the conversation, so every reset clears it here
+    # rather than only on the paths that remember to.
+    renderer = getattr(app, "renderer", None)
+    if renderer is not None:
+        from ..rendering import clear_scene
+
+        clear_scene(renderer, app.render_window)
+        if getattr(app.ctrl, "view_update", None):
+            app.ctrl.view_update()
 
 
 def load_session(app: Any, session_id: str, execute: bool = True) -> None:
@@ -156,18 +203,26 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
         return
     sess = sessions[session_id]
     app.state.current_session_id = session_id
-    app._conversation_epoch = getattr(app, "_conversation_epoch", 0) + 1
 
-    client = getattr(app, "prompt_client", None)
-    if client:
-        client.conversation = list(sess["messages"])
-        client.conversation_file = None
     app.state.conversation = list(sess["messages"])
     app.state.conversation_file = None
+    # The in-pane spinner reflects whether the conversation being shown is busy.
+    busy: set[str] = getattr(app, "_generating_session_ids", set())
+    app.state.is_loading = session_id in busy
+    # An error belongs to its conversation, so it surfaces on switching to it.
+    app.state.error_message = sess.get("error_message", "") or ""
+    if sess.get("unseen"):
+        sess["unseen"] = False
+        refresh_sessions_list(app)  # drop the new-result marker now it is seen
     app.state.code_history = list(sess["code_history"])
     app.state.code_history_labels = list(sess["code_history_labels"])
     app.state.code_history_pos = sess["code_history_pos"]
     app._conversation_checkpoints = list(sess["checkpoints"])
+    # Put this conversation's current version in the editor. Without it the
+    # editor and the render window keep showing the conversation just left.
+    history = app.state.code_history
+    pos = app.state.code_history_pos
+    app.state.generated_code = history[pos] if 0 <= pos < len(history) else ""
 
     from .conversation import (
         _parse_assistant_content,
@@ -196,14 +251,23 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
         last_user = (nav[-1].get("user", {}).get("content", "") or "").strip()
         if EXTRA_INSTRUCTIONS_TAG in last_user:
             last_user = last_user.split(EXTRA_INSTRUCTIONS_TAG, 1)[-1].strip()
-        app.state.current_prompt = last_user
+        # Show the prompt as typed, without the internal "Request:" marker.
+        app.state.current_prompt = last_user.replace("Request:", "").strip()
     else:
         app.state.generated_explanation = ""
         app.state.current_prompt = ""
     app.state.query_text = ""
 
-    if execute and app.state.generated_code:
-        app._execute_with_renderer(app.state.generated_code)
+    if execute:
+        if app.state.generated_code:
+            app._execute_with_renderer(app.state.generated_code)
+        else:
+            # A conversation with no code shows an empty scene, not the last one.
+            from ..rendering import clear_scene
+
+            clear_scene(app.renderer, app.render_window)
+            if app.ctrl.view_update:
+                app.ctrl.view_update()
 
 
 def switch_session(app: Any, session_id: str) -> None:

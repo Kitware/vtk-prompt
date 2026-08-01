@@ -137,6 +137,11 @@ def build_content(layout: Any, app: Any) -> None:
                             )
                         with vuetify.VCardText(style="height: calc(100% - 50px);"):
                             code.Editor(
+                                # Remount per conversation: switching swaps the
+                                # contents, and the editor would otherwise keep a
+                                # cursor pointing past the end of the new code
+                                # ("Illegal value for lineNumber").
+                                key=("current_session_id",),
                                 v_model=("generated_code", ""),
                                 language="python",
                                 theme="vs",

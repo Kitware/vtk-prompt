@@ -26,6 +26,105 @@ EXPLAIN_RENDERER = (
 )
 
 
+def _unpack_result(result: Any) -> tuple[str, str]:
+    """Reduce a query result to (explanation, code) regardless of its shape."""
+    if isinstance(result, tuple):
+        if len(result) >= 2:
+            return str(result[0]), str(result[1])
+        return str(result[0]) if result else "", ""
+    return str(result), ""
+
+
+def _deliver_to_background_session(
+    app: Any, session_id: str, messages: list, result: Any
+) -> None:
+    """Store a finished generation in a conversation the user is not viewing.
+
+    The visible conversation keeps the render window; this only updates the
+    originating session record and flags it so the drawer can show that it has a
+    new result waiting.
+    """
+    from . import sessions as sessions_mod
+
+    sess = sessions_mod.sessions_by_id(app).get(session_id)
+    if sess is None:
+        return  # conversation was deleted while the query ran
+    explanation, code = _unpack_result(result)
+    display_code = EXPLAIN_RENDERER + "\n" + code if code else ""
+
+    sess["messages"] = list(messages)
+    if display_code:
+        history = list(sess.get("code_history") or [])
+        labels = list(sess.get("code_history_labels") or [])
+        if not history or history[-1] != display_code:
+            history.append(display_code)
+            labels.append(sess.get("pending_prompt") or "Generated")
+        sess["code_history"] = history
+        sess["code_history_labels"] = labels
+        sess["code_history_pos"] = len(history) - 1
+    sess["explanation"] = explanation
+    sess.pop("error_message", None)
+    sess["unseen"] = True
+    sess.pop("pending_prompt", None)
+    sessions_mod.finish_background_session(app, sess)
+
+
+def _deliver_error(app: Any, session_id: str, message: str) -> None:
+    """Attach a failure to the conversation that caused it.
+
+    An error belongs to its conversation, so a background failure is stored on
+    that session and surfaces when the user switches to it instead of
+    interrupting whatever they are looking at now.
+    """
+    if _is_visible(app, session_id):
+        app.state.error_message = message
+        return
+    from . import sessions as sessions_mod
+
+    sess = sessions_mod.sessions_by_id(app).get(session_id)
+    if sess is None:
+        return
+    sess["error_message"] = message
+    sess["unseen"] = True
+    sess.pop("pending_prompt", None)
+    sessions_mod.finish_background_session(app, sess)
+
+
+def _generating_sessions(app: Any) -> set:
+    """Ids of conversations with a generation in flight (one per conversation)."""
+    if not hasattr(app, "_generating_session_ids"):
+        app._generating_session_ids = set()
+    return app._generating_session_ids
+
+
+def conversation_token(app: Any, session_id: str) -> int:
+    """Return the current generation token for one conversation.
+
+    A generation captures this at start and its result is delivered only if the
+    token still matches. Bumped when the conversation is reset or a new
+    generation starts in it, so an obsolete result is dropped. Crucially, merely
+    switching between conversations does NOT bump anyone's token, so returning to
+    a conversation does not orphan its own in-flight generation.
+    """
+    tokens = getattr(app, "_conversation_tokens", None)
+    if tokens is None:
+        tokens = app._conversation_tokens = {}
+    return tokens.get(session_id, 0)
+
+
+def bump_conversation_token(app: Any, session_id: str) -> None:
+    """Invalidate any in-flight generation belonging to one conversation."""
+    tokens = getattr(app, "_conversation_tokens", None)
+    if tokens is None:
+        tokens = app._conversation_tokens = {}
+    tokens[session_id] = tokens.get(session_id, 0) + 1
+
+
+def _is_visible(app: Any, session_id: str) -> bool:
+    """Whether the given conversation is the one currently on screen."""
+    return (getattr(app.state, "current_session_id", "") or "") == session_id
+
+
 def generate_code(app: Any) -> None:
     """Generate VTK code from user query.
 
@@ -34,8 +133,9 @@ def generate_code(app: Any) -> None:
     synchronous re-entry guard prevents overlapping generations from a second
     click (the button no longer freezes the UI, so double-clicks are possible).
     """
-    if getattr(app, "_generating", False):
-        return
+    session_id = getattr(app.state, "current_session_id", "") or ""
+    if session_id in _generating_sessions(app):
+        return  # this conversation is already generating; others may proceed
     # Mirror the send button's disabled condition so Ctrl+Enter (which bypasses
     # the button) cannot submit an empty prompt or run without a cloud token.
     if not (getattr(app.state, "query_text", "") or "").strip():
@@ -44,11 +144,15 @@ def generate_code(app: Any) -> None:
         getattr(app.state, "api_token", "") or ""
     ).strip():
         return
-    app._generating = True
-    asynchronous.create_task(generate_and_execute_code(app))
+    bump_conversation_token(app, session_id)
+    _generating_sessions(app).add(session_id)
+    from . import sessions as sessions_mod
+
+    sessions_mod.refresh_sessions_list(app)  # show the spinner on this conversation
+    asynchronous.create_task(generate_and_execute_code(app, session_id))
 
 
-async def generate_and_execute_code(app: Any) -> None:
+async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> None:
     """Generate VTK code using AI API and execute it.
 
     Only the blocking network call (prompt_client.query) is offloaded to a
@@ -56,8 +160,9 @@ async def generate_and_execute_code(app: Any) -> None:
     the event loop (main) thread, so all VTK execution and rendering stays
     main-thread-bound as VTK/OpenGL requires.
     """
-    app.state.is_loading = True
-    app.state.error_message = ""
+    if _is_visible(app, origin_session_id):
+        app.state.is_loading = True
+        app.state.error_message = ""
     app.state.flush()  # show the spinner immediately, before the slow request
 
     try:
@@ -76,16 +181,22 @@ async def generate_and_execute_code(app: Any) -> None:
             # the sent text does not linger (Claude-style).
             app.state.current_prompt = enhanced_query
             app.state.query_text = ""
+            # Record the prompt in the conversation immediately, so switching away
+            # mid-generation still snapshots what this conversation is about.
+            if enhanced_query:
+                app.state.conversation = list(app.state.conversation or []) + [
+                    {"role": "user", "content": enhanced_query}
+                ]
             app.state.flush()
 
             # Reinitialize client with current settings
             app._init_prompt_client()
             if hasattr(app.state, "error_message") and app.state.error_message:
                 return
-            # Tie this generation to the active conversation. A reset or session
-            # switch during the offloaded query bumps the epoch, so a stale result
-            # is discarded rather than written back over the new conversation.
-            epoch = getattr(app, "_conversation_epoch", 0)
+            # Tie this generation to its conversation by token. The result is
+            # delivered only if this conversation has not been reset or
+            # re-generated meanwhile. Switching conversations does not change it.
+            token = conversation_token(app, origin_session_id)
 
             # Refine the CURRENT editor code (including manual edits), not the
             # model's previous output, so generation mutates what is on screen.
@@ -93,9 +204,13 @@ async def generate_and_execute_code(app: Any) -> None:
 
             sync_editor_code_into_conversation(app)
 
+            # This generation works on its own copy; it is adopted as the
+            # conversation only if this is still the active one when it finishes.
+            messages = list(app.state.conversation or [])
             result = await asyncio.to_thread(
                 app.prompt_client.query,
                 enhanced_query,
+                conversation=messages,
                 api_key=app._get_api_key(),
                 model=app._get_model(),
                 base_url=app._get_base_url(),
@@ -109,10 +224,16 @@ async def generate_and_execute_code(app: Any) -> None:
                 custom_prompt=app.custom_prompt_data,
                 ui_mode=True,  # This tells the client to use UI-specific components
             )
-            if getattr(app, "_conversation_epoch", 0) != epoch:
-                return  # conversation was reset/switched while the query ran
+            if conversation_token(app, origin_session_id) != token:
+                # The originating conversation was reset or re-generated; drop this.
+                return
+            if not _is_visible(app, origin_session_id):
+                # The user moved on. Deliver into the originating conversation
+                # without touching the visible one or the render window.
+                _deliver_to_background_session(app, origin_session_id, messages, result)
+                return
             # Keep UI in sync with conversation
-            app.state.conversation = app.prompt_client.conversation
+            app.state.conversation = messages
 
             # Handle result with optional validation warnings
             validation_warnings: list[str] = []
@@ -168,8 +289,10 @@ async def generate_and_execute_code(app: Any) -> None:
         if not success and exec_error and getattr(app.state, "mcp_url", "").strip():
             logger.debug("Execution error, retrying with vtk-mcp: %s", exec_error)
             app.state.error_message = ""
+            retry_messages = list(app.state.conversation or [])
             retry_result = await asyncio.to_thread(
                 app.prompt_client.query,
+                conversation=retry_messages,
                 execution_error=exec_error,
                 api_key=app._get_api_key(),
                 model=app._get_model(),
@@ -184,7 +307,7 @@ async def generate_and_execute_code(app: Any) -> None:
                 custom_prompt=app.custom_prompt_data,
                 ui_mode=True,
             )
-            app.state.conversation = app.prompt_client.conversation
+            app.state.conversation = retry_messages
             if isinstance(retry_result, tuple) and len(retry_result) >= 2:
                 _, retry_code = retry_result[0], retry_result[1]
                 if retry_code:
@@ -202,16 +325,20 @@ async def generate_and_execute_code(app: Any) -> None:
                     execute_with_renderer(app, app.state.generated_code)
     except ValueError as e:
         if "max_tokens" in str(e):
-            app.state.error_message = (
-                f"{str(e)} Current: {app.state.max_tokens}. Try increasing max tokens."
-            )
+            msg = f"{str(e)} Current: {app.state.max_tokens}. Try increasing max tokens."
         else:
-            app.state.error_message = f"Error generating code: {str(e)}"
+            msg = f"Error generating code: {str(e)}"
+        _deliver_error(app, origin_session_id, msg)
     except Exception as e:
-        app.state.error_message = f"Error generating code: {str(e)}"
+        _deliver_error(app, origin_session_id, f"Error generating code: {str(e)}")
     finally:
-        app.state.is_loading = False
-        app._generating = False
+        _generating_sessions(app).discard(origin_session_id)
+        from . import sessions as sessions_mod
+
+        sessions_mod.refresh_sessions_list(app)  # clear this conversation's spinner
+        # Only the visible conversation owns the in-pane spinner.
+        if _is_visible(app, origin_session_id):
+            app.state.is_loading = False
         app.state.flush()  # push final state (result/error, spinner off) to client
 
 

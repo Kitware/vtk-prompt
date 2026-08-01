@@ -46,7 +46,6 @@ def on_conversation_file_data_change(
         # Extend the existing conversation with the loaded one
         app.state.conversation.extend(loaded_conversation)
         app.state.conversation_file = conversation_object["name"]
-        app.prompt_client.update_conversation(loaded_conversation, app.state.conversation_file)
 
         _process_loaded_conversation(app)
     else:
@@ -170,9 +169,6 @@ def start_new_conversation(app: Any) -> None:
     state, and the editor. The prior conversation is discarded from the UI;
     preserving multiple conversations is what the sessions model would add.
     """
-    if app.prompt_client:
-        app.prompt_client.conversation = []
-        app.prompt_client.conversation_file = None
     app._conversation_checkpoints = []
     app.state.conversation = []
     app.state.conversation_navigation = []
@@ -460,7 +456,6 @@ def _process_multiple_conversations(app: Any, conversation_files: list[dict[str,
         # Set the merged conversation
         app.state.conversation = merged_conversation
         app.state.conversation_file = ", ".join(valid_files)
-        app.prompt_client.update_conversation(merged_conversation, app.state.conversation_file)
 
         # Process the merged conversation
         _process_loaded_conversation(app)
