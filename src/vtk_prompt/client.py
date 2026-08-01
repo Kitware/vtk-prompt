@@ -67,73 +67,45 @@ def _parse_text_tool_calls(content: str | None, tool_names: set[str]) -> list[di
     return calls or None
 
 
+def load_conversation(path: str | None) -> list[dict[str, str]]:
+    """Load conversation history from a file path."""
+    if not path or not Path(path).exists():
+        return []
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                return data
+            logger.warning("Invalid conversation file format, no history loaded.")
+            return []
+    except Exception as e:
+        logger.error("Could not load conversation file: %s", e)
+        return []
+
+
+def save_conversation(path: str | None, messages: list[dict[str, str]]) -> None:
+    """Save conversation history to a file path."""
+    if not path or not messages:
+        return
+    try:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(messages, f, indent=2)
+    except Exception as e:
+        logger.error("Could not save conversation file: %s", e)
+
+
 @dataclass
 class VTKPromptClient:
-    """OpenAI client for VTK code generation."""
+    """Stateless OpenAI client for VTK code generation.
 
-    _instance: "VTKPromptClient" | None = None
-    _initialized: bool = False
+    The client holds only transport configuration. Conversation state belongs to
+    the caller (a UI session or the CLI), which passes its message list into
+    query() and owns it afterwards.
+    """
+
     verbose: bool = False
-    conversation_file: str | None = None
-    conversation: list[dict[str, str]] | None = None
     mcp_url: str | None = None
-
-    def __new__(cls, **kwargs: Any) -> "VTKPromptClient":
-        """Create singleton instance of VTKPromptClient."""
-        # Make sure that this is a singleton
-        if cls._instance is None:
-            cls._instance = super(VTKPromptClient, cls).__new__(cls)
-            cls._instance._initialized = False
-            cls._instance.conversation = []
-        return cls._instance
-
-    def __post_init__(self) -> None:
-        """Post-init hook to prevent double initialization in singleton."""
-        if hasattr(self, "_initialized") and self._initialized:
-            return
-        self._initialized = True
-
-    def load_conversation(self) -> list[dict[str, str]]:
-        """Load conversation history from file."""
-        if not self.conversation_file or not Path(self.conversation_file).exists():
-            return []
-
-        try:
-            with open(self.conversation_file, "r") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    return data
-                else:
-                    logger.warning("Invalid conversation file format, no history loaded.")
-                    return []
-        except Exception as e:
-            logger.error("Could not load conversation file: %s", e)
-            return []
-
-    def save_conversation(self) -> None:
-        """Save conversation history to file."""
-        if not self.conversation_file or not self.conversation:
-            return
-
-        try:
-            # Ensure directory exists
-            Path(self.conversation_file).parent.mkdir(parents=True, exist_ok=True)
-
-            with open(self.conversation_file, "w") as f:
-                json.dump(self.conversation, f, indent=2)
-        except Exception as e:
-            logger.error("Could not save conversation file: %s", e)
-
-    def update_conversation(
-        self, new_convo: list[dict[str, str]], new_convo_file: str | None = None
-    ) -> None:
-        """Update conversation history with new conversation."""
-        if not self.conversation:
-            self.conversation = []
-        self.conversation.extend(new_convo)
-
-        if new_convo_file:
-            self.conversation_file = new_convo_file
 
     def validate_code_syntax(self, code_string: str) -> tuple[bool, str | None]:
         """Validate Python code syntax using AST."""
@@ -332,6 +304,7 @@ class VTKPromptClient:
         execution_error: str | None = None,
         log_tool_calls: bool = False,
         agentic_retrieval: bool = False,
+        conversation: list[dict[str, str]] | None = None,
     ) -> tuple[str, str, Any] | tuple[str, str, Any, list[str]] | str:
         """Generate VTK code using vtk-mcp tools when available.
 
@@ -357,11 +330,11 @@ class VTKPromptClient:
         # Create client with current parameters
         client = openai.OpenAI(api_key=api_key, base_url=base_url)
 
-        # Load existing conversation if present
-        if self.conversation_file and not self.conversation:
-            self.conversation = self.load_conversation()
+        # The caller owns the conversation; append to it in place so the result is
+        # visible to whoever passed it in. No conversation state lives on self.
+        messages: list[dict[str, str]] = conversation if conversation is not None else []
 
-        if not message and not self.conversation:
+        if not message and not messages:
             raise ValueError("No prompt or conversation file provided")
 
         # Set up vtk-mcp client (context retrieval, tool calling, and code validation)
@@ -379,9 +352,9 @@ class VTKPromptClient:
 
         if execution_error:
             # Retry after execution failure: append error and let LLM fix it with tools
-            if not self.conversation:
+            if not messages:
                 raise ValueError("No conversation to retry")
-            self.conversation.append(
+            messages.append(
                 {
                     "role": "user",
                     "content": (
@@ -447,10 +420,10 @@ class VTKPromptClient:
                     mcp_str = " + MCP" if mcp_client else ""
                     logger.debug(f"Using component assembly ({mode_str}{mcp_str})")
 
-            if not self.conversation:
-                self.conversation = list(yaml_messages)
+            if not messages:
+                messages.extend(yaml_messages)
             elif message and yaml_messages:
-                self.conversation.append(yaml_messages[-1])
+                messages.append(yaml_messages[-1])
 
         # Fetch vtk-mcp tools for LLM tool calling
         tools = mcp_client.list_tools() if mcp_client else []
@@ -474,7 +447,7 @@ class VTKPromptClient:
             for _ in range(MAX_TOOL_ROUNDS):
                 response = client.chat.completions.create(
                     model=model,
-                    messages=self.conversation,  # type: ignore[arg-type]
+                    messages=messages,  # type: ignore[arg-type]
                     max_completion_tokens=max_tokens,
                     temperature=temperature,
                     **(  # type: ignore[call-overload]
@@ -501,7 +474,7 @@ class VTKPromptClient:
                         }
                         for tc in choice.message.tool_calls
                     ]
-                    self.conversation.append(tc_msg)
+                    messages.append(tc_msg)
 
                     # Execute each tool and append results
                     for tc in choice.message.tool_calls:
@@ -519,7 +492,7 @@ class VTKPromptClient:
                             )
                         else:
                             logger.debug("Tool %s -> %s...", tc.function.name, result[:80])
-                        self.conversation.append(
+                        messages.append(
                             {"role": "tool", "tool_call_id": tc.id, "content": result}
                         )
                     continue  # let LLM decide what to do next
@@ -540,7 +513,7 @@ class VTKPromptClient:
                         }
                         for i, c in enumerate(text_calls)
                     ]
-                    self.conversation.append(text_msg)
+                    messages.append(text_msg)
                     for i, c in enumerate(text_calls):
                         result = mcp_client.call_tool(c["name"], c["arguments"])  # type: ignore
                         if log_tool_calls:
@@ -552,7 +525,7 @@ class VTKPromptClient:
                             )
                         else:
                             logger.debug("Tool %s (text) -> %s...", c["name"], result[:80])
-                        self.conversation.append(
+                        messages.append(
                             {"role": "tool", "tool_call_id": f"call_{i}", "content": result}
                         )
                     continue
@@ -588,8 +561,8 @@ class VTKPromptClient:
 
             if not expl_matches or not code_matches:
                 if attempt < retry_attempts - 1:
-                    self.conversation.append({"role": "assistant", "content": content})
-                    self.conversation.append(
+                    messages.append({"role": "assistant", "content": content})
+                    messages.append(
                         {
                             "role": "user",
                             "content": (
@@ -614,8 +587,8 @@ class VTKPromptClient:
                     if vtk_diagnostics:
                         if attempt < retry_attempts - 1:
                             logger.debug("vtk-mcp validation issues found, retrying")
-                            self.conversation.append({"role": "assistant", "content": content})
-                            self.conversation.append(
+                            messages.append({"role": "assistant", "content": content})
+                            messages.append(
                                 {
                                     "role": "user",
                                     "content": (
@@ -631,8 +604,7 @@ class VTKPromptClient:
                                 f"VTK API issues found:\n{vtk_diagnostics}"
                             )
                 if message:
-                    self.conversation.append({"role": "assistant", "content": content})
-                    self.save_conversation()
+                    messages.append({"role": "assistant", "content": content})
                 if validation_warnings:
                     return (
                         generated_explanation,
@@ -645,8 +617,8 @@ class VTKPromptClient:
             elif attempt < retry_attempts - 1:
                 if self.verbose:
                     logger.warning("AST validation failed: %s. Retrying...", error_msg)
-                self.conversation.append({"role": "assistant", "content": content})
-                self.conversation.append(
+                messages.append({"role": "assistant", "content": content})
+                messages.append(
                     {
                         "role": "user",
                         "content": (
@@ -659,8 +631,7 @@ class VTKPromptClient:
                 if self.verbose:
                     logger.error("Final attempt failed AST validation: %s", error_msg)
                 if message:
-                    self.conversation.append({"role": "assistant", "content": content})
-                    self.save_conversation()
+                    messages.append({"role": "assistant", "content": content})
                 if validation_warnings:
                     return (
                         generated_explanation,

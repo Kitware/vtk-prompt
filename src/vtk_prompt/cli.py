@@ -13,7 +13,7 @@ import sys
 import click
 
 from . import get_logger
-from .client import VTKPromptClient
+from .client import VTKPromptClient, load_conversation, save_conversation
 from .provider_utils import DEFAULT_MODEL, DEFAULT_PROVIDER, get_default_model, supports_temperature
 
 logger = get_logger(__name__)
@@ -138,13 +138,12 @@ def main(
         temperature = 1.0
 
     try:
-        client = VTKPromptClient(
-            verbose=verbose,
-            conversation_file=conversation,
-            mcp_url=mcp_url,
-        )
+        client = VTKPromptClient(verbose=verbose, mcp_url=mcp_url)
+        # The caller owns the conversation: load it, hand it to query, save it back.
+        messages = load_conversation(conversation)
         result = client.query(
             input_string,
+            conversation=messages,
             api_key=token,
             model=model,
             base_url=base_url,
@@ -155,6 +154,7 @@ def main(
             provider=provider,
             custom_prompt=custom_prompt_data,
         )
+        save_conversation(conversation, messages)
 
         # Handle result with optional validation warnings
         if isinstance(result, tuple):
