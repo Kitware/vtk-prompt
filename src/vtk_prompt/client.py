@@ -33,6 +33,40 @@ from .utils.helpers import ensure_vtk_importable
 logger = get_logger(__name__)
 
 
+def _parse_text_tool_calls(content: str | None, tool_names: set[str]) -> list[dict] | None:
+    """Extract tool calls a backend emitted as text instead of structured tool_calls.
+
+    Some local OpenAI-compatible backends (e.g. Ollama with a quantized model) return
+    a tool call as plain content rather than populating ``tool_calls``. Handle both a
+    ``<tool_call>{...}</tool_call>`` block and a bare JSON object with ``name`` and
+    ``arguments``. Only objects whose name matches a known tool are treated as calls,
+    so normal tagged answers are never misread. Returns a list of {name, arguments}.
+    """
+    if not content:
+        return None
+    candidates = re.findall(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", content, re.DOTALL)
+    if not candidates:
+        stripped = content.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            candidates = [stripped]
+    calls: list[dict] = []
+    for raw in candidates:
+        try:
+            obj = json.loads(raw)
+        except (ValueError, TypeError):
+            continue
+        name = obj.get("name")
+        args = obj.get("arguments", {})
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except (ValueError, TypeError):
+                args = {}
+        if name in tool_names and isinstance(args, dict):
+            calls.append({"name": name, "arguments": args})
+    return calls or None
+
+
 @dataclass
 class VTKPromptClient:
     """OpenAI client for VTK code generation."""
@@ -296,6 +330,8 @@ class VTKPromptClient:
         custom_prompt: dict | None = None,
         ui_mode: bool = False,
         execution_error: str | None = None,
+        log_tool_calls: bool = False,
+        agentic_retrieval: bool = False,
     ) -> tuple[str, str, Any] | tuple[str, str, Any, list[str]] | str:
         """Generate VTK code using vtk-mcp tools when available.
 
@@ -359,7 +395,8 @@ class VTKPromptClient:
         else:
             # Normal path: build context and prompt
             context_snippets = None
-            if mcp_client:
+            # Agentic mode: skip pre-injected context so the model must use tools.
+            if mcp_client and not agentic_retrieval:
                 mcp_context = mcp_client.get_enriched_context(message, top_k=top_k)
                 if mcp_context:
                     context_snippets = mcp_context
@@ -417,6 +454,11 @@ class VTKPromptClient:
 
         # Fetch vtk-mcp tools for LLM tool calling
         tools = mcp_client.list_tools() if mcp_client else []
+        tool_names: set[str] = {
+            str(name)
+            for t in tools
+            if (name := (t.get("function") or {}).get("name")) is not None
+        }
 
         # Retry loop for AST validation
         for attempt in range(retry_attempts):
@@ -468,11 +510,52 @@ class VTKPromptClient:
                         except Exception:
                             args = {}
                         result = mcp_client.call_tool(tc.function.name, args)  # type: ignore
-                        logger.debug("Tool %s -> %s...", tc.function.name, result[:80])
+                        if log_tool_calls:
+                            logger.info(
+                                "vtk-mcp: %s(%s) -> %s",
+                                tc.function.name,
+                                tc.function.arguments,
+                                result[:120],
+                            )
+                        else:
+                            logger.debug("Tool %s -> %s...", tc.function.name, result[:80])
                         self.conversation.append(
                             {"role": "tool", "tool_call_id": tc.id, "content": result}
                         )
                     continue  # let LLM decide what to do next
+
+                # Fallback: the backend returned a tool call as plain text rather than
+                # in tool_calls (common with quantized local models). Run it anyway.
+                text_calls = _parse_text_tool_calls(choice.message.content, tool_names)
+                if tools and text_calls:
+                    text_msg: dict = {"role": "assistant", "content": ""}
+                    text_msg["tool_calls"] = [
+                        {
+                            "id": f"call_{i}",
+                            "type": "function",
+                            "function": {
+                                "name": c["name"],
+                                "arguments": json.dumps(c["arguments"]),
+                            },
+                        }
+                        for i, c in enumerate(text_calls)
+                    ]
+                    self.conversation.append(text_msg)
+                    for i, c in enumerate(text_calls):
+                        result = mcp_client.call_tool(c["name"], c["arguments"])  # type: ignore
+                        if log_tool_calls:
+                            logger.info(
+                                "vtk-mcp (text): %s(%s) -> %s",
+                                c["name"],
+                                json.dumps(c["arguments"]),
+                                result[:120],
+                            )
+                        else:
+                            logger.debug("Tool %s (text) -> %s...", c["name"], result[:80])
+                        self.conversation.append(
+                            {"role": "tool", "tool_call_id": f"call_{i}", "content": result}
+                        )
+                    continue
 
                 # LLM generated a response (not a tool call)
                 content = choice.message.content or "No content in response"
@@ -480,6 +563,11 @@ class VTKPromptClient:
 
             if content is None:
                 # Tool loop exhausted without a text response
+                if log_tool_calls:
+                    logger.info(
+                        "vtk-mcp: tool loop hit the %d-round cap without a final response",
+                        MAX_TOOL_ROUNDS,
+                    )
                 if attempt == retry_attempts - 1:
                     return ("No response generated", "", getattr(response, "usage", None) or {})
                 continue
