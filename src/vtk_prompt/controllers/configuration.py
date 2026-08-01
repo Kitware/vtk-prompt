@@ -46,6 +46,8 @@ def save_config(app: Any) -> str:
     mcp_url = getattr(app.state, "mcp_url", "").strip()
     data_root = getattr(app.state, "data_root", "").strip()
     top_k = int(getattr(app.state, "top_k", 5))
+    log_tool_calls = bool(getattr(app.state, "log_tool_calls", False))
+    agentic_retrieval = bool(getattr(app.state, "agentic_retrieval", False))
     base_url = getattr(app.state, "local_base_url", "").strip() if not use_cloud else ""
 
     content = {
@@ -56,6 +58,8 @@ def save_config(app: Any) -> str:
         "mcp_url": mcp_url,
         "data_root": data_root,
         "top_k": top_k,
+        "log_tool_calls": log_tool_calls,
+        "agentic_retrieval": agentic_retrieval,
         "retries": retries,
         "modelParameters": {
             "temperature": temperature,

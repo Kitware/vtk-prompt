@@ -103,6 +103,8 @@ async def generate_and_execute_code(app: Any) -> None:
                 temperature=float(app.state.temperature),
                 top_k=int(app.state.top_k),
                 retry_attempts=int(app.state.retry_attempts),
+                log_tool_calls=bool(app.state.log_tool_calls),
+                agentic_retrieval=bool(app.state.agentic_retrieval),
                 provider=app.state.provider,
                 custom_prompt=app.custom_prompt_data,
                 ui_mode=True,  # This tells the client to use UI-specific components
@@ -176,6 +178,8 @@ async def generate_and_execute_code(app: Any) -> None:
                 temperature=float(app.state.temperature),
                 top_k=int(app.state.top_k),
                 retry_attempts=1,
+                log_tool_calls=bool(app.state.log_tool_calls),
+                agentic_retrieval=bool(app.state.agentic_retrieval),
                 provider=app.state.provider,
                 custom_prompt=app.custom_prompt_data,
                 ui_mode=True,
