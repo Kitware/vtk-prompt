@@ -47,6 +47,29 @@ def register_runtime_objects(**objects) -> None:
     _NS.update(objects)
 
 
+def warm_up() -> None:
+    """Prime jedi's analysis of the vtk module in a background thread.
+
+    The first completion against ``vtk.`` triggers jedi to analyse the whole
+    module, which takes several seconds; subsequent calls are ~10x faster
+    because jedi caches that work. Doing it once at startup means the user's
+    first real completion is fast enough that Monaco does not time out and
+    close the popup. Never raises.
+    """
+    if not _JEDI_OK:
+        return
+
+    def _run() -> None:
+        try:
+            jedi.Interpreter("import vtk\nvtk.", [_NS]).complete(2, 4)
+        except Exception as exc:  # warm-up is best-effort
+            logger.debug("jedi warm-up error: %s", exc)
+
+    import threading
+
+    threading.Thread(target=_run, name="jedi-warmup", daemon=True).start()
+
+
 def complete_python(code: str, line: int, column: int, limit: int = 500) -> list[dict]:
     """Return completion candidates for ``code`` at 1-based ``line`` / 0-based ``column``.
 
