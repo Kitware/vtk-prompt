@@ -169,17 +169,12 @@ def build_content(layout: Any, app: Any) -> None:
                             )
                         with vuetify.VCardText(style="height: calc(100% - 50px);"):
                             code.Editor(
-                                # Remount whenever the editor's contents are
-                                # swapped out from under it: either switching
-                                # conversation or moving to a different code
-                                # version (generate/undo/redo). Otherwise the
-                                # editor keeps a cursor pointing past the end of
-                                # shorter content ("Illegal value for
-                                # lineNumber").
-                                key=(
-                                    "current_session_id + '-' + code_history.length"
-                                    " + '-' + code_history_pos",
-                                ),
+                                # Remount only when the conversation changes.
+                                # Keying on code version too would remount on
+                                # generate/undo/redo, which disposes an open
+                                # autocomplete popup mid-flight and crashes
+                                # trame-code (null read in dispose).
+                                key=("current_session_id",),
                                 v_model=("generated_code", ""),
                                 language="python",
                                 theme="vs",

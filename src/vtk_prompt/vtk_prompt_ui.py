@@ -113,11 +113,14 @@ class VTKPromptApp(TrameApp):
         # Expose the live renderer/render_window to editor completion + hover, so
         # the editor can complete e.g. renderer.AddActor and show their docstrings
         # (same names the generated code's exec scope sees).
-        from .completion import register_runtime_objects
+        from .completion import register_runtime_objects, warm_up
 
         register_runtime_objects(
             renderer=self.renderer, render_window=self.render_window
         )
+        # Prime jedi's vtk analysis in the background so the first editor
+        # completion is fast and Monaco does not time out and close the popup.
+        warm_up()
 
         # Initialize application state
         self._initialize_state()
