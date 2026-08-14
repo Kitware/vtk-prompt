@@ -305,6 +305,55 @@ class VTKPromptClient:
         log_tool_calls: bool = False,
         agentic_retrieval: bool = False,
         conversation: list[dict[str, str]] | None = None,
+        dsl_translation: bool = True,
+        debug: bool = False,
+    ) -> tuple[str, str, Any] | tuple[str, str, Any, list[str]] | str:
+        """Generate VTK code, then dump the full conversation to stdout if debug is set.
+
+        See _generate() for parameter docs. debug dumps the complete message
+        history sent to/from the LLM, including injected context snippets and
+        vtk-mcp tool calls/results, since those all live in the conversation list.
+        """
+        result = self._generate(
+            message,
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            retry_attempts=retry_attempts,
+            provider=provider,
+            custom_prompt=custom_prompt,
+            ui_mode=ui_mode,
+            execution_error=execution_error,
+            log_tool_calls=log_tool_calls,
+            agentic_retrieval=agentic_retrieval,
+            conversation=conversation,
+            dsl_translation=dsl_translation,
+        )
+        if debug:
+            print(json.dumps(conversation, indent=2, default=str))
+        return result
+
+    def _generate(
+        self,
+        message: str = "",
+        api_key: str | None = None,
+        model: str = DEFAULT_MODEL,
+        base_url: str | None = None,
+        max_tokens: int = 1000,
+        temperature: float = 0.1,
+        top_k: int = 5,
+        retry_attempts: int = 1,
+        provider: str | None = None,
+        custom_prompt: dict | None = None,
+        ui_mode: bool = False,
+        execution_error: str | None = None,
+        log_tool_calls: bool = False,
+        agentic_retrieval: bool = False,
+        conversation: list[dict[str, str]] | None = None,
+        dsl_translation: bool = True,
     ) -> tuple[str, str, Any] | tuple[str, str, Any, list[str]] | str:
         """Generate VTK code using vtk-mcp tools when available.
 
@@ -320,6 +369,8 @@ class VTKPromptClient:
             provider: LLM provider to use (overrides instance provider if provided)
             custom_prompt: Custom YAML prompt data (overrides built-in prompts)
             ui_mode: Whether the request is coming from UI (affects prompt selection)
+            dsl_translation: Whether to auto-translate natural language prompts to
+                the VTK pipeline DSL via vtk-mcp before code generation
         """
         if not api_key:
             api_key = os.environ.get("OPENAI_API_KEY")
@@ -366,7 +417,16 @@ class VTKPromptClient:
                 }
             )
         else:
-            # Normal path: build context and prompt
+            # Normal path: translate to DSL if needed, then build context and prompt
+            if mcp_client and dsl_translation:
+                is_dsl = mcp_client._call_tool("is_dsl_prompt", {"text": message})
+                if is_dsl not in ("true", "True", True):
+                    translated = mcp_client.translate_prompt(message)
+                    if translated:
+                        if self.verbose:
+                            logger.debug("DSL translation:\n%s", translated)
+                        message = translated
+
             context_snippets = None
             # Agentic mode: skip pre-injected context so the model must use tools.
             if mcp_client and not agentic_retrieval:
@@ -411,6 +471,7 @@ class VTKPromptClient:
                     context_snippets=context_snippets,
                     mcp_active=bool(mcp_client),
                     uploaded_files=uploaded_names(),
+                    dsl_translation=dsl_translation,
                     VTK_VERSION=VTK_VERSION,
                     PYTHON_VERSION=PYTHON_VERSION,
                 )

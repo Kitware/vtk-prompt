@@ -180,6 +180,36 @@ class VTKMCPClient:
         except Exception:
             return None
 
+    def translate_prompt(
+        self,
+        query: str,
+        model: str | None = None,
+        base_url: str | None = None,
+        api_key: str | None = None,
+    ) -> str | None:
+        """Translate a natural language query into the VTK pipeline DSL.
+
+        Args:
+            query: Natural language prompt.
+            model: LiteLLM model override (e.g. ``ollama/llama3``).
+            base_url: Base URL for OpenAI-compatible endpoints (e.g. Ollama).
+            api_key: API key for the endpoint.
+
+        Returns the DSL string, or None if the tool call fails.
+        """
+        args: dict = {"query": query}
+        if model:
+            args["model"] = model
+        if base_url:
+            args["base_url"] = base_url
+        if api_key:
+            args["api_key"] = api_key
+        result = self._call_tool("translate_prompt_to_dsl", args)
+        if not result or result.startswith("Error:"):
+            logger.warning("DSL translation failed: %s", result)
+            return None
+        return result
+
     def get_enriched_context(self, query: str, top_k: int = 5) -> str:
         """Build context for the LLM combining code examples, docs, and VTK class hints."""
         parts = []

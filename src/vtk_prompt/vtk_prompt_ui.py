@@ -77,12 +77,20 @@ _RESIZE_OBSERVER_SILENCER = """
 class VTKPromptApp(TrameApp):
     """VTK Prompt interactive application with 3D visualization and AI chat interface."""
 
-    def __init__(self, server: Any | None = None, custom_prompt_file: str | None = None) -> None:
+    def __init__(
+        self,
+        server: Any | None = None,
+        custom_prompt_file: str | None = None,
+        debug: bool = False,
+    ) -> None:
         """Initialize VTK Prompt application.
 
         Args:
             server: Trame server instance
             custom_prompt_file: Path to custom YAML prompt file
+            debug: Dump the full LLM conversation (context and vtk-mcp tool
+                calls included) to stdout on every generation. Reuses wslink's
+                existing --debug flag rather than defining a new one.
         """
         super().__init__(server=server, client_type="vue3")
         self.state.trame__title = "VTK Prompt"
@@ -90,6 +98,7 @@ class VTKPromptApp(TrameApp):
         # Store custom prompt file path and data
         self.custom_prompt_file = custom_prompt_file
         self.custom_prompt_data = None
+        self.debug = debug
 
         # Add CLI argument for custom prompt file
         self.server.cli.add_argument(
@@ -108,6 +117,7 @@ class VTKPromptApp(TrameApp):
         self.renderer, self.render_window, self.render_window_interactor = setup_vtk_renderer()
         self._conversation_loading = False
         self._snapshot_task: asyncio.Task | None = None
+        self._mcp_check_task: asyncio.Task | None = None
         add_default_scene(self.renderer)
 
         # Expose the live renderer/render_window to editor completion + hover, so
@@ -452,6 +462,42 @@ class VTKPromptApp(TrameApp):
             with self.state:
                 generation.push_code_snapshot(self, self.state.generated_code, label="Manual edit")
 
+    @change("mcp_url")
+    def _on_mcp_url_change(self, **_: Any) -> None:
+        """Debounce-check vtk-mcp server reachability after a typing pause."""
+        if self._mcp_check_task is not None and not self._mcp_check_task.done():
+            self._mcp_check_task.cancel()
+        try:
+            self._mcp_check_task = asyncio.ensure_future(self._debounced_mcp_check())
+        except RuntimeError:
+            # No running event loop yet (e.g. during construction); nothing to do.
+            self._mcp_check_task = None
+
+    async def _debounced_mcp_check(self) -> None:
+        """Probe the vtk-mcp server URL and reflect reachability in mcp_status."""
+        try:
+            await asyncio.sleep(0.5)
+        except asyncio.CancelledError:
+            return
+
+        url = (self.state.mcp_url or "").strip()
+        if not url:
+            self.state.mcp_status = "idle"
+            self.state.flush()
+            return
+
+        self.state.mcp_status = "checking"
+        self.state.flush()
+
+        from .vtk_mcp_client import check_mcp_available
+
+        reachable = await asyncio.to_thread(check_mcp_available, url)
+        # The field may have changed again while the check was in flight.
+        if (self.state.mcp_url or "").strip() != url:
+            return
+        self.state.mcp_status = "ok" if reachable else "error"
+        self.state.flush()
+
     def _build_ui(self) -> None:
         """Build a simplified Vuetify UI."""
         # Show the Recents drawer by default; user can toggle it closed.
@@ -510,8 +556,12 @@ def main() -> None:
         if custom_prompt_file:
             print(f"Using config: {custom_prompt_file}")
 
+    # wslink already defines --debug (its own debug logging); reuse it here to
+    # also dump the LLM conversation instead of registering a conflicting flag.
+    debug = "--debug" in sys.argv
+
     # Create and start the app
-    app = VTKPromptApp(custom_prompt_file=custom_prompt_file)
+    app = VTKPromptApp(custom_prompt_file=custom_prompt_file, debug=debug)
     app.start()
 
 

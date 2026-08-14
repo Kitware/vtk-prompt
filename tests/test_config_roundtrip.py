@@ -37,7 +37,7 @@ def test_loader_restores_local_ollama_and_mcp():
 
 
 def test_loader_sets_mcp_url_for_cloud_model():
-    cfg = {"model": "anthropic/claude-sonnet-4-6", "mcp_url": "http://localhost:8000"}
+    cfg = {"model": "anthropic/claude-sonnet-5", "mcp_url": "http://localhost:8000"}
     app = _fake_app(cfg)
     prompt_loader._process_model_configuration(app)
     prompt_loader._process_rag_and_generation_settings(app)
