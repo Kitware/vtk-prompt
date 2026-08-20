@@ -9,6 +9,21 @@ from typing import Any
 
 from ..provider_utils import DEFAULT_MODEL
 
+# Conventional environment variable per cloud provider, used when the active
+# conversation carries no token of its own. GEMINI_API_KEY and GOOGLE_API_KEY
+# are both in circulation for Gemini, so the first is tried and the second is
+# handled as a fallback below.
+_PROVIDER_ENV_VARS = {
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "nim": "NVIDIA_API_KEY",
+}
+_PROVIDER_ENV_FALLBACKS = {
+    "gemini": "GOOGLE_API_KEY",
+    "nim": "NIM_API_KEY",
+}
+
 
 def get_api_key(app: Any) -> str | None:
     """Get API key from state.
@@ -17,12 +32,30 @@ def get_api_key(app: Any) -> str | None:
     endpoint (Ollama, LM Studio, ...) that ignores auth, but the OpenAI client
     still refuses to construct with an empty key, so in local mode we fall back
     to a placeholder. A real key typed into the field overrides it.
+
+    The token is per-conversation, so a conversation that has none falls back to
+    the provider's environment variable. Startup only seeds ``OPENAI_API_KEY``
+    into state, which left the other providers with no path at all short of
+    typing the key in by hand.
     """
     api_token = getattr(app.state, "api_token", "")
     if api_token and api_token.strip():
         return api_token.strip()
     if not app.state.use_cloud_models:
         return "sk-no-key-required"
+
+    import os
+
+    provider = getattr(app.state, "provider", "")
+    for var in (
+        _PROVIDER_ENV_VARS.get(provider),
+        _PROVIDER_ENV_FALLBACKS.get(provider),
+    ):
+        if not var:
+            continue
+        from_env = os.environ.get(var, "").strip()
+        if from_env:
+            return from_env
     return None
 
 

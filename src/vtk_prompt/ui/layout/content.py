@@ -14,6 +14,9 @@ from trame_vtk.widgets import vtk as vtk_widgets
 
 from ..langs import PYTHON_TEXTMATE
 
+# Section heading inside the model-settings menu.
+_MENU_LABEL = "text-caption text-medium-emphasis text-uppercase mb-2"
+
 
 def build_content(layout: Any, app: Any) -> None:
     """Build the main content area with code panels and VTK viewer."""
@@ -205,31 +208,202 @@ def build_content(layout: Any, app: Any) -> None:
                     with vuetify.VCard(classes="h-25 mt-2"):
                         with vuetify.VCardText(classes="h-100"):
                             with html.Div(classes="d-flex"):
-                                # Cloud models chip
-                                vuetify.VChip(
-                                    "☁️ {{ provider }}/{{ model }}",
-                                    small=True,
-                                    color="blue",
-                                    text_color="white",
-                                    label=True,
-                                    classes="mb-2",
-                                    v_show="use_cloud_models",
-                                )
-                                # Local models chip
-                                vuetify.VChip(
-                                    (
-                                        "🏠 "
-                                        "{{ local_base_url.replace('http://', '')"
-                                        ".replace('https://', '') }}/"
-                                        "{{ local_model }}"
-                                    ),
-                                    small=True,
-                                    color="green",
-                                    text_color="white",
-                                    label=True,
-                                    classes="mb-2",
-                                    v_show="!use_cloud_models",
-                                )
+                                # Per-conversation model picker (Claude-style):
+                                # the current model shows as a clickable chip
+                                # and the menu lists selectable models. Its
+                                # settings live behind the adjacent "..."
+                                # button rather than inline here, so the list
+                                # stays a list. Both are stored on the
+                                # conversation, and new conversations inherit
+                                # the last-used values.
+                                with vuetify.VMenu():
+                                    with vuetify.Template(
+                                        v_slot_activator="{ props }"
+                                    ):
+                                        # Cloud models chip (activator)
+                                        vuetify.VChip(
+                                            "☁️ {{ provider }}/{{ model }}",
+                                            v_bind="props",
+                                            small=True,
+                                            color="blue",
+                                            text_color="white",
+                                            label=True,
+                                            classes="mb-2",
+                                            append_icon="mdi-menu-down",
+                                            v_show="use_cloud_models",
+                                        )
+                                        # Local models chip (activator)
+                                        vuetify.VChip(
+                                            (
+                                                "🏠 "
+                                                "{{ local_base_url"
+                                                ".replace('http://', '')"
+                                                ".replace('https://', '') }}/"
+                                                "{{ local_model }}"
+                                            ),
+                                            v_bind="props",
+                                            small=True,
+                                            color="green",
+                                            text_color="white",
+                                            label=True,
+                                            classes="mb-2",
+                                            append_icon="mdi-menu-down",
+                                            v_show="!use_cloud_models",
+                                        )
+                                    with vuetify.VCard():
+                                        # Cap the list so a long provider roster
+                                        # scrolls in its own box rather than
+                                        # running off the viewport.
+                                        with vuetify.VList(
+                                            density="compact",
+                                            style=(
+                                                "max-height: 40vh;"
+                                                " overflow-y: auto;"
+                                            ),
+                                        ):
+                                            with vuetify.VListItem(
+                                                v_for="opt in model_options",
+                                                key="opt.key",
+                                                click=(
+                                                    app.ctrl.select_model,
+                                                    "[opt.key]",
+                                                ),
+                                                title=("opt.label",),
+                                            ):
+                                                pass
+                                # This conversation's model settings, behind a
+                                # "..." beside the picker. Separate menu on
+                                # purpose: the picker stays a plain list, and
+                                # these fields need a menu that does not close
+                                # on every click inside it.
+                                with vuetify.VMenu(
+                                    v_model=("model_settings_open", False),
+                                    close_on_content_click=False,
+                                    min_width="320",
+                                ):
+                                    with vuetify.Template(
+                                        v_slot_activator="{ props }"
+                                    ):
+                                        with vuetify.VBtn(
+                                            v_bind="props",
+                                            icon=True,
+                                            variant="text",
+                                            size="small",
+                                            classes="mb-2 ml-1",
+                                            title="Model settings",
+                                        ):
+                                            # Sliders, not a cog: the toolbar
+                                            # cog is global settings and
+                                            # mdi-dots-vertical already means
+                                            # "overflow menu" in the history
+                                            # list, so both would read as
+                                            # something this button is not.
+                                            vuetify.VIcon("mdi-tune-variant")
+                                    with vuetify.VCard():
+                                        # Endpoint and credentials for the
+                                        # selected model. Cloud needs only a
+                                        # token; local needs the URL and the
+                                        # model name its server exposes.
+                                        with html.Div(classes="px-4 py-3"):
+                                            html.Div(
+                                                "Connection",
+                                                classes=_MENU_LABEL,
+                                            )
+                                            vuetify.VTextField(
+                                                label="API token",
+                                                v_model="api_token",
+                                                type="password",
+                                                placeholder="Enter your API token",
+                                                density="compact",
+                                                variant="outlined",
+                                                hide_details=True,
+                                                error=("!api_token", False),
+                                                v_show="use_cloud_models",
+                                            )
+                                            with html.Div(
+                                                v_show="!use_cloud_models"
+                                            ):
+                                                vuetify.VTextField(
+                                                    label="Base URL",
+                                                    v_model="local_base_url",
+                                                    density="compact",
+                                                    variant="outlined",
+                                                    hide_details=True,
+                                                    classes="mb-3",
+                                                )
+                                                vuetify.VTextField(
+                                                    label="Model name",
+                                                    v_model="local_model",
+                                                    density="compact",
+                                                    variant="outlined",
+                                                    hide_details=True,
+                                                    classes="mb-3",
+                                                )
+                                                vuetify.VTextField(
+                                                    label="API token",
+                                                    v_model="api_token",
+                                                    type="password",
+                                                    density="compact",
+                                                    variant="outlined",
+                                                    hide_details=True,
+                                                )
+                                        vuetify.VDivider()
+                                        # Generation knobs: per-conversation for
+                                        # the same reason the model is.
+                                        with html.Div(classes="px-4 py-3"):
+                                            html.Div(
+                                                "Generation",
+                                                classes=_MENU_LABEL,
+                                            )
+                                            with html.Div(
+                                                classes=(
+                                                    "d-flex align-center"
+                                                    " justify-space-between"
+                                                )
+                                            ):
+                                                html.Span(
+                                                    "Temperature",
+                                                    classes="text-body-2",
+                                                )
+                                                html.Span(
+                                                    "{{ temperature }}",
+                                                    classes=(
+                                                        "text-body-2"
+                                                        " text-medium-emphasis"
+                                                    ),
+                                                )
+                                            vuetify.VSlider(
+                                                v_model="temperature",
+                                                min=0.0,
+                                                max=1.0,
+                                                step=0.1,
+                                                color="primary",
+                                                hide_details=True,
+                                                density="compact",
+                                                disabled=(
+                                                    "!temperature_supported",
+                                                ),
+                                                classes="mb-3",
+                                            )
+                                            vuetify.VTextField(
+                                                label="Max tokens",
+                                                v_model="max_tokens",
+                                                type="number",
+                                                density="compact",
+                                                variant="outlined",
+                                                hide_details=True,
+                                                classes="mb-3",
+                                            )
+                                            vuetify.VTextField(
+                                                label="Retry attempts",
+                                                v_model="retry_attempts",
+                                                type="number",
+                                                min=1,
+                                                max=5,
+                                                density="compact",
+                                                variant="outlined",
+                                                hide_details=True,
+                                            )
                                 vuetify.VSpacer()
                                 # API token warning chip
                                 vuetify.VChip(

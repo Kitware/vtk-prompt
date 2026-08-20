@@ -50,6 +50,101 @@ def _header(app: Any) -> None:
                 )
 
 
+def _selection_bar(app: Any) -> None:
+    """Bulk actions for the current selection, shown once anything is checked.
+
+    Pin and Unpin are separate rather than one toggle: a mixed selection has no
+    sensible thing to toggle to. Rename is absent by nature - there is no useful
+    way to give many conversations one name.
+    """
+    with html.Div(
+        v_show="selected_session_ids.length > 0",
+        classes="d-flex align-center flex-wrap px-4 pb-2",
+    ):
+        html.Span(
+            "{{ selected_session_ids.length }} selected",
+            classes="text-caption text-medium-emphasis mr-2",
+        )
+        vuetify.VBtn(
+            "All",
+            click=app.ctrl.select_all_sessions,
+            variant="text",
+            size="x-small",
+            disabled=(
+                "selected_session_ids.length === sessions_list.length",
+                False,
+            ),
+        )
+        vuetify.VBtn(
+            "None",
+            click="selected_session_ids = []",
+            variant="text",
+            size="x-small",
+            disabled=("selected_session_ids.length === 0", True),
+        )
+        vuetify.VSpacer()
+        # Each is enabled only when it would actually change something: Pin when
+        # some selected row is unpinned, Unpin when some selected row is pinned.
+        # `some` over an empty selection is false, so these also cover the
+        # nothing-selected case without a separate length check.
+        with vuetify.VTooltip(text="Pin selected", location="bottom"):
+            with vuetify.Template(v_slot_activator="{ props }"):
+                vuetify.VBtn(
+                    icon="mdi-pin",
+                    click=(app.ctrl.set_selection_pinned, "[true]"),
+                    variant="text",
+                    density="compact",
+                    size="small",
+                    disabled=(
+                        "!sessions_list.some("
+                        "s => selected_session_ids.includes(s.id) && !s.pinned)",
+                        True,
+                    ),
+                    v_bind="props",
+                )
+        with vuetify.VTooltip(text="Unpin selected", location="bottom"):
+            with vuetify.Template(v_slot_activator="{ props }"):
+                vuetify.VBtn(
+                    icon="mdi-pin-off",
+                    click=(app.ctrl.set_selection_pinned, "[false]"),
+                    variant="text",
+                    density="compact",
+                    size="small",
+                    disabled=(
+                        "!sessions_list.some("
+                        "s => selected_session_ids.includes(s.id) && s.pinned)",
+                        True,
+                    ),
+                    v_bind="props",
+                )
+        with vuetify.VTooltip(text="Export selected", location="bottom"):
+            with vuetify.Template(v_slot_activator="{ props }"):
+                vuetify.VBtn(
+                    icon="mdi-tray-arrow-down",
+                    click=(
+                        "window.trame.utils.vtk_prompt.exportSessions("
+                        "selected_session_ids, sessions_list)"
+                    ),
+                    variant="text",
+                    density="compact",
+                    size="small",
+                    disabled=("selected_session_ids.length === 0", True),
+                    v_bind="props",
+                )
+        with vuetify.VTooltip(text="Delete selected", location="bottom"):
+            with vuetify.Template(v_slot_activator="{ props }"):
+                vuetify.VBtn(
+                    icon="mdi-delete",
+                    click="bulk_delete_dialog = true",
+                    variant="text",
+                    density="compact",
+                    size="small",
+                    color="error",
+                    disabled=("selected_session_ids.length === 0", True),
+                    v_bind="props",
+                )
+
+
 def _row_menu(app: Any) -> None:
     with vuetify.VMenu(location="bottom end"):
         with vuetify.Template(v_slot_activator="{ props }"):
@@ -137,10 +232,33 @@ def _dialogs(app: Any) -> None:
                 )
 
 
+def _bulk_delete_dialog(app: Any) -> None:
+    with vuetify.VDialog(v_model=("bulk_delete_dialog", False), max_width="420"):
+        with vuetify.VCard():
+            vuetify.VCardTitle("Delete conversations")
+            vuetify.VCardText(
+                "Delete {{ selected_session_ids.length }} conversation"
+                "{{ selected_session_ids.length === 1 ? '' : 's' }}?"
+                " This cannot be undone."
+            )
+            with vuetify.VCardActions():
+                vuetify.VSpacer()
+                vuetify.VBtn(
+                    "Cancel", click="bulk_delete_dialog = false", variant="text"
+                )
+                vuetify.VBtn(
+                    "Delete",
+                    click=app.ctrl.confirm_delete_selection,
+                    color="error",
+                    variant="text",
+                )
+
+
 def build_conversation_history(app: Any) -> None:
     """Build the Recents drawer: conversations, plus the active one's prompts."""
     with vuetify.VCard(classes="w-100", flat=True):
         _header(app)
+        _selection_bar(app)
         with vuetify.VCardText(style="overflow-y: auto;"):
             vuetify.VAlert(
                 text="No conversations yet. Start by generating some VTK code!",
@@ -156,6 +274,37 @@ def build_conversation_history(app: Any) -> None:
                     color="primary",
                 ):
                     with html.Div(classes="d-flex align-center w-100"):
+                        # Always visible rather than revealed on hover: hiding it
+                        # cost discoverability, and `visibility: hidden` drops the
+                        # control out of the tab order entirely, making bulk
+                        # selection keyboard-inaccessible. Sizing is left to
+                        # Vuetify - constraining the width collapses the control;
+                        # the title's min-width:0 is what prevents overlap.
+                        vuetify.VCheckbox(
+                            v_model=("selected_session_ids", []),
+                            value=("s.id",),
+                            density="compact",
+                            hide_details=True,
+                            color="primary",
+                            # Round rather than square: purely the icon, so this
+                            # stays a real checkbox input with role="checkbox" -
+                            # screen readers and keyboard behaviour are
+                            # unchanged, despite round conventionally meaning
+                            # "radio, pick one".
+                            false_icon="mdi-circle-outline",
+                            true_icon="mdi-check-circle",
+                            # font-size sizes the glyph; --v-selection-control-size
+                            # sizes the box (and so the row height). Independent:
+                            # the title is a sibling, so neither touches it.
+                            # Vuetify's default control size is 40px - 32 keeps
+                            # rows close to their original height while the
+                            # smaller glyph does the visual work.
+                            style=(
+                                "font-size: 9px;"
+                                " --v-selection-control-size: 32px;"
+                            ),
+                            classes="mr-1 flex-shrink-0",
+                        )
                         vuetify.VIcon(
                             "mdi-pin",
                             size="x-small",
@@ -167,7 +316,11 @@ def build_conversation_history(app: Any) -> None:
                             "{{ s.title }}",
                             click=(app.ctrl.switch_session, "[s.id]"),
                             classes="flex-grow-1 text-truncate",
-                            style="cursor: pointer;",
+                            # min-width:0 is what makes text-truncate actually
+                            # clip inside a flex row; without it the span keeps
+                            # its full intrinsic width and pushes into whatever
+                            # sits beside it.
+                            style="cursor: pointer; min-width: 0;",
                         )
                         # This conversation is generating, wherever you are.
                         vuetify.VProgressCircular(
@@ -190,3 +343,4 @@ def build_conversation_history(app: Any) -> None:
                                 )
                         _row_menu(app)
         _dialogs(app)
+        _bulk_delete_dialog(app)
