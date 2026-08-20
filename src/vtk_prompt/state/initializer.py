@@ -87,6 +87,10 @@ def initialize_state(app: Any) -> None:
     # Sessions: multiple conversations the user can switch between.
     app.state.current_session_id = ""  # active session id
     app.state.sessions_list = []  # drawer-visible [{id,title,pinned,active}]
+    # Multi-select in the Recents drawer, for bulk pin/export/delete. The bulk
+    # action bar appears once anything is checked, so no explicit mode is needed.
+    app.state.selected_session_ids = []
+    app.state.bulk_delete_dialog = False
     app.state.rename_dialog = False
     app.state.rename_text = ""
     app.state.rename_target_id = ""
@@ -111,9 +115,19 @@ def initialize_state(app: Any) -> None:
     app.state.provider = DEFAULT_PROVIDER
     app.state.model = DEFAULT_MODEL
     app.state.temperature_supported = True
+    # Holds the user's temperature while a model that ignores temperature is
+    # selected, so switching back restores it instead of leaving the clamped
+    # value behind. Empty string means "nothing stashed" - not None, which
+    # apply_model_config skips, which would leak one conversation's stash into
+    # another.
+    app.state.temperature_pref = ""
     # Initialize with supported providers and fallback models
     app.state.available_providers = get_supported_providers()
     app.state.available_models = get_available_models()
+    # Flat, display-ready model list for the per-conversation toolbar picker.
+    from ..controllers.model_config import build_model_options
+
+    app.state.model_options = build_model_options(app)
 
     # Load component defaults and sync UI state
     _load_component_defaults(app)

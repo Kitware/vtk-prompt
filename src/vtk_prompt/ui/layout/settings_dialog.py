@@ -10,8 +10,6 @@ from typing import Any
 from trame.widgets import html
 from trame.widgets import vuetify3 as vuetify
 
-from ...provider_utils import DEFAULT_MODEL, DEFAULT_PROVIDER
-
 vuetify.enable_lab()
 
 _LABEL = "text-overline text-medium-emphasis d-block mb-1"
@@ -34,13 +32,11 @@ def build_settings_dialog(layout: Any, app: Any) -> None:
                 ):
                     vuetify.VTab("Config", value="files")
                     vuetify.VTab("Data", value="data")
-                    vuetify.VTab("Model", value="model")
                     vuetify.VTab("Advanced", value="advanced")
                 vuetify.VDivider()
                 with vuetify.VTabsWindow(v_model=("active_settings_tab", "files")):
                     _config_tab()
                     _data_tab()
-                    _model_tab()
                     _advanced_tab()
 
 
@@ -83,79 +79,6 @@ def _config_tab() -> None:
                 color="primary",
                 hide_details=True,
             )
-
-
-def _model_tab() -> None:
-    with vuetify.VTabsWindowItem(value="model"):
-        with vuetify.VCardText(classes="pa-4"):
-            with vuetify.VTabs(
-                v_model=("tab_index", 0),
-                color="primary",
-                density="compact",
-                classes="mb-4",
-            ):
-                vuetify.VTab("Cloud", prepend_icon="mdi-cloud-outline")
-                vuetify.VTab("Local", prepend_icon="mdi-laptop")
-            with vuetify.VTabsWindow(v_model="tab_index", classes="pt-3"):
-                with vuetify.VTabsWindowItem():
-                    vuetify.VSelect(
-                        label="Provider",
-                        v_model=("provider", DEFAULT_PROVIDER),
-                        items=("available_providers", []),
-                        density="compact",
-                        variant="outlined",
-                        classes="mb-3",
-                    )
-                    vuetify.VSelect(
-                        label="Model",
-                        v_model=("model", DEFAULT_MODEL),
-                        items=("available_models[provider] || []",),
-                        density="compact",
-                        variant="outlined",
-                        classes="mb-3",
-                    )
-                    vuetify.VTextField(
-                        label="API token",
-                        v_model=("api_token", ""),
-                        placeholder="Enter your API token",
-                        type="password",
-                        density="compact",
-                        variant="outlined",
-                        hint="Required for cloud providers",
-                        persistent_hint=True,
-                        error=("!api_token", False),
-                    )
-                with vuetify.VTabsWindowItem():
-                    vuetify.VTextField(
-                        label="Base URL",
-                        v_model=("local_base_url", "http://localhost:11434/v1"),
-                        placeholder="http://localhost:11434/v1",
-                        density="compact",
-                        variant="outlined",
-                        hint="Ollama, LM Studio, and other OpenAI-compatible servers",
-                        persistent_hint=True,
-                        classes="mb-3",
-                    )
-                    vuetify.VTextField(
-                        label="Model name",
-                        v_model=("local_model", "devstral"),
-                        placeholder="devstral",
-                        density="compact",
-                        variant="outlined",
-                        hint="Model identifier as served by your endpoint",
-                        persistent_hint=True,
-                        classes="mb-3",
-                    )
-                    vuetify.VTextField(
-                        label="API token",
-                        v_model=("api_token", "ollama"),
-                        placeholder="ollama",
-                        type="password",
-                        density="compact",
-                        variant="outlined",
-                        hint="Optional for local servers",
-                        persistent_hint=True,
-                    )
 
 
 def _advanced_tab() -> None:
@@ -229,41 +152,6 @@ def _advanced_tab() -> None:
                 hide_details=True,
             )
 
-            vuetify.VDivider(classes="my-5")
-            _section("Generation")
-            with html.Div(classes="d-flex align-center justify-space-between mt-2 mb-1"):
-                html.Span("Temperature", classes="text-body-2")
-                html.Span(
-                    "{{ temperature }}", classes="text-body-2 text-medium-emphasis"
-                )
-            vuetify.VSlider(
-                v_model=("temperature", 0.1),
-                min=0.0,
-                max=1.0,
-                step=0.1,
-                thumb_label=True,
-                color="primary",
-                hide_details=True,
-                disabled=("!temperature_supported",),
-                classes="mb-4",
-            )
-            vuetify.VTextField(
-                label="Max tokens",
-                v_model=("max_tokens", 1000),
-                type="number",
-                density="compact",
-                variant="outlined",
-                classes="mb-3",
-            )
-            vuetify.VTextField(
-                label="Retry attempts",
-                v_model=("retry_attempts", 3),
-                type="number",
-                min=1,
-                max=5,
-                density="compact",
-                variant="outlined",
-            )
 
 
 def _data_tab() -> None:
