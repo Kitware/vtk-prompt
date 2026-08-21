@@ -145,9 +145,9 @@ def execute_vtk_code(
         ]
         renderer_factory = _InjectedRendererFactory(renderer)
         for mod in patched_modules:
-            mod.vtkRenderWindow = _NoOpRenderWindow  # type: ignore[assignment,misc]
-            mod.vtkRenderWindowInteractor = _NoOpInteractor  # type: ignore[assignment,misc]
-            mod.vtkRenderer = renderer_factory  # type: ignore[assignment,misc]
+            mod.vtkRenderWindow = _NoOpRenderWindow  # type: ignore[assignment,misc,union-attr]
+            mod.vtkRenderWindowInteractor = _NoOpInteractor  # type: ignore[assignment,misc,union-attr]
+            mod.vtkRenderer = renderer_factory  # type: ignore[assignment,misc,union-attr]
         out_buf, err_buf = io.StringIO(), io.StringIO()
         try:
             with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(
@@ -163,9 +163,9 @@ def execute_vtk_code(
                     logger.warning("Render error: %s", render_error)
         finally:
             for mod, real_window_cls, real_interactor_cls, real_renderer_cls in originals:
-                mod.vtkRenderWindow = real_window_cls  # type: ignore[assignment,misc]
-                mod.vtkRenderWindowInteractor = real_interactor_cls  # type: ignore[assignment,misc]
-                mod.vtkRenderer = real_renderer_cls  # type: ignore[assignment,misc]
+                mod.vtkRenderWindow = real_window_cls  # type: ignore[assignment,misc,union-attr]
+                mod.vtkRenderWindowInteractor = real_interactor_cls  # type: ignore[assignment,misc,union-attr]
+                mod.vtkRenderer = real_renderer_cls  # type: ignore[assignment,misc,union-attr]
         _last_stdout, _last_stderr = out_buf.getvalue(), err_buf.getvalue()
 
         return True, None, None
