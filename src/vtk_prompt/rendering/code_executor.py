@@ -3,6 +3,7 @@
 import contextlib
 import io
 import traceback
+from typing import Any
 
 import vtk
 import vtkmodules.all as vtkmodules_all
@@ -145,14 +146,17 @@ def execute_vtk_code(
         ]
         renderer_factory = _InjectedRendererFactory(renderer)
         for mod in patched_modules:
-            mod.vtkRenderWindow = _NoOpRenderWindow  # type: ignore[assignment,misc,union-attr]
-            mod.vtkRenderWindowInteractor = _NoOpInteractor  # type: ignore[assignment,misc,union-attr]
-            mod.vtkRenderer = renderer_factory  # type: ignore[assignment,misc,union-attr]
+            # patched_modules mixes an Any-typed vtk import with real module
+            # types, so mypy widens mod to "Any | Module" and rejects every
+            # attribute write. Rebinding through Any keeps the monkeypatch
+            # untyped, which setattr would also do but bugbear forbids (B010).
+            target: Any = mod
+            target.vtkRenderWindow = _NoOpRenderWindow
+            target.vtkRenderWindowInteractor = _NoOpInteractor
+            target.vtkRenderer = renderer_factory
         out_buf, err_buf = io.StringIO(), io.StringIO()
         try:
-            with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(
-                err_buf
-            ):
+            with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
                 exec(code_segment, exec_globals)
 
                 # Reset camera and render
@@ -163,9 +167,10 @@ def execute_vtk_code(
                     logger.warning("Render error: %s", render_error)
         finally:
             for mod, real_window_cls, real_interactor_cls, real_renderer_cls in originals:
-                mod.vtkRenderWindow = real_window_cls  # type: ignore[assignment,misc,union-attr]
-                mod.vtkRenderWindowInteractor = real_interactor_cls  # type: ignore[assignment,misc,union-attr]
-                mod.vtkRenderer = real_renderer_cls  # type: ignore[assignment,misc,union-attr]
+                restore: Any = mod
+                restore.vtkRenderWindow = real_window_cls
+                restore.vtkRenderWindowInteractor = real_interactor_cls
+                restore.vtkRenderer = real_renderer_cls
         _last_stdout, _last_stderr = out_buf.getvalue(), err_buf.getvalue()
 
         return True, None, None

@@ -153,14 +153,12 @@ def _advanced_tab() -> None:
             )
 
 
-
 def _data_tab() -> None:
     with vuetify.VTabsWindowItem(value="data"):
         with vuetify.VCardText(classes="pa-4"):
             _section("Sample data location")
             html.Div(
-                "Local VTK data tree used to resolve example datasets by name "
-                "(e.g. cow.g).",
+                "Local VTK data tree used to resolve example datasets by name " "(e.g. cow.g).",
                 classes=_DESC,
             )
             vuetify.VTextField(
