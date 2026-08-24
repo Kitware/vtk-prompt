@@ -151,9 +151,7 @@ _RETURN_ANNOTATION = re.compile(r"->\s*\(?\s*'?([A-Za-z_][\w.]*)'?")
 # Trailing `name.Method().Method()` chain immediately left of the cursor. The
 # final identifier is optional: completion fires straight after the "." with
 # nothing typed, while hover sits inside a name that is already there.
-_CHAIN = re.compile(
-    r"([A-Za-z_]\w*)\s*((?:\.\s*[A-Za-z_]\w*\s*\([^()]*\)\s*)+)\.\s*\w*$"
-)
+_CHAIN = re.compile(r"([A-Za-z_]\w*)\s*((?:\.\s*[A-Za-z_]\w*\s*\([^()]*\)\s*)+)\.\s*\w*$")
 _CHAIN_STEP = re.compile(r"\.\s*([A-Za-z_]\w*)\s*\([^()]*\)")
 # `name.token` with no intervening call - the direct-attribute case.
 _DIRECT = re.compile(r"([A-Za-z_]\w*)\s*\.\s*\w*$")
@@ -218,9 +216,7 @@ def _vtk_class(name: str) -> type | None:
     return obj if isinstance(obj, type) else None
 
 
-def _root_class(
-    code: str, line: int, column: int, root: str, allow_jedi: bool
-) -> type | None:
+def _root_class(code: str, line: int, column: int, root: str, allow_jedi: bool) -> type | None:
     """Class of the chain's root variable, cheapest source first.
 
     Injected runtime objects and literal ``x = vtk.vtkFoo()`` assignments are
@@ -240,9 +236,7 @@ def _root_class(
     return None
 
 
-def _resolve_receiver(
-    code: str, line: int, column: int, allow_jedi: bool = True
-) -> type | None:
+def _resolve_receiver(code: str, line: int, column: int, allow_jedi: bool = True) -> type | None:
     """Class of the expression immediately left of the cursor, or None.
 
     Handles both ``tetra.GetPointIds().SetId`` (walking the chain by docstring
@@ -265,9 +259,7 @@ def _resolve_receiver(
             return None
     root = m.group(1)
     # Column of the root token, so jedi infers the variable and not the chain.
-    cls = _root_class(
-        code, line, prefix.index(root) + len(root), root, allow_jedi
-    )
+    cls = _root_class(code, line, prefix.index(root) + len(root), root, allow_jedi)
     if cls is None:
         return None
     for step in _CHAIN_STEP.findall(steps_text):
@@ -304,9 +296,7 @@ def _hover_from_class(cls: type, name: str) -> dict | None:
     doc = getattr(attr, "__doc__", "") or ""
     if not doc:
         return None
-    signatures = [
-        ln.strip() for ln in doc.splitlines() if ln.strip().startswith(name + "(")
-    ]
+    signatures = [ln.strip() for ln in doc.splitlines() if ln.strip().startswith(name + "(")]
     return {
         "name": name,
         "type": "function" if callable(attr) else "instance",
@@ -316,7 +306,7 @@ def _hover_from_class(cls: type, name: str) -> dict | None:
 
 
 def _token_at(code: str, line: int, column: int) -> str:
-    """The identifier the cursor sits in or next to."""
+    """Return the identifier the cursor sits in or next to."""
     lines = code.splitlines()
     if line < 1 or line > len(lines):
         return ""
