@@ -77,6 +77,12 @@ type-minimal = [
     "importlib_resources>=5.0.0",
 ]
 
+# Embedded vtk-mcp support (see --embed-mcp). Not yet on PyPI; install from
+# source, e.g. pip install "git+https://github.com/Kitware/vtk-mcp".
+embedded-mcp = [
+    "vtk-mcp>=1.0.0",
+]
+
 # All optional dependencies
 all = [
     "vtk-prompt[dev,test]",

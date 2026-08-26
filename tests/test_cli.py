@@ -155,3 +155,54 @@ class TestCLI:
             result = self.runner.invoke(main, ["create sphere", "--token", "test-token"])
 
             assert result.exit_code == 4
+
+    def test_embed_mcp_and_mcp_url_mutually_exclusive(self):
+        """--embed-mcp and --mcp-url cannot be used together."""
+        result = self.runner.invoke(
+            main,
+            [
+                "create sphere",
+                "--token",
+                "test-token",
+                "--embed-mcp",
+                "--mcp-url",
+                "http://localhost:8000",
+            ],
+        )
+        assert result.exit_code == 2
+        assert "mutually exclusive" in result.output
+
+    def test_embed_mcp_launches_embedded_server(self):
+        """--embed-mcp launches the embedded server and forwards its URL."""
+        with (
+            patch("vtk_prompt.cli.embedded_mcp_server") as mock_embed,
+            patch.object(VTKPromptClient, "__new__") as mock_new,
+        ):
+            mock_embed.return_value.__enter__ = Mock(return_value="http://127.0.0.1:12345")
+            mock_embed.return_value.__exit__ = Mock(return_value=False)
+
+            mock_client = Mock()
+            mock_new.return_value = mock_client
+            mock_client.query.return_value = ("explanation", "code", None)
+            mock_client.run_code.return_value = None
+
+            result = self.runner.invoke(
+                main, ["create sphere", "--token", "test-token", "--embed-mcp"]
+            )
+
+            assert result.exit_code == 0
+            mock_embed.assert_called_once()
+            assert mock_new.call_args[1]["mcp_url"] == "http://127.0.0.1:12345"
+
+    def test_embed_mcp_startup_failure(self):
+        """A RuntimeError from the embedded server surfaces as exit code 4."""
+        with patch("vtk_prompt.cli.embedded_mcp_server") as mock_embed:
+            mock_embed.return_value.__enter__ = Mock(
+                side_effect=RuntimeError("vtk-mcp is not installed")
+            )
+
+            result = self.runner.invoke(
+                main, ["create sphere", "--token", "test-token", "--embed-mcp"]
+            )
+
+            assert result.exit_code == 4
