@@ -140,7 +140,11 @@ vtk-prompt "Create a vtkSphereSource with texture mapping" --embed-mcp -t $API_K
 `--embed-mcp` launches a local vtk-mcp server as a subprocess for the duration
 of the command and tears it down on exit — no docker compose, no manually
 started server, no `--mcp-url` to manage. It is mutually exclusive with
-`--mcp-url`.
+`--mcp-url`. The web UI supports it too:
+
+```bash
+vtk-prompt-ui --embed-mcp
+```
 
 **Option B: External server**
 

@@ -1,7 +1,9 @@
 #!/bin/sh
 # Starts the local Qdrant process (available on :6333 for anyone who wants to
 # index or inspect it), waits for it to accept connections, then runs
-# vtk-prompt with --embed-mcp (which in turn spawns vtk-mcp itself).
+# vtk-prompt with --embed-mcp (which in turn spawns vtk-mcp itself). Pass
+# "ui" as the first argument to launch vtk-prompt-ui (also embedded) instead,
+# e.g. `docker run -p 8080:8080 <image> ui`.
 #
 # vtk-mcp is intentionally NOT pointed at this Qdrant instance: it starts
 # empty, and the on-disk format vtk-index's embedded (client-local-mode)
@@ -30,5 +32,10 @@ for _ in range(60):
 else:
     raise SystemExit("Qdrant did not become ready in time")
 PYEOF
+
+if [ "$1" = "ui" ]; then
+    shift
+    exec vtk-prompt-ui --embed-mcp --host 0.0.0.0 --server "$@"
+fi
 
 exec vtk-prompt --embed-mcp "$@"

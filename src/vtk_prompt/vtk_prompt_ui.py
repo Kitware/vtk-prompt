@@ -29,6 +29,7 @@ from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
 from .controllers import configuration, conversation, generation, sessions
+from .mcp_launcher import embedded_mcp_server
 from .rendering import (
     add_default_scene,
     setup_vtk_renderer,
@@ -107,6 +108,16 @@ class VTKPromptApp(TrameApp):
             dest="prompt_file",
         )
 
+        # Registered so wslink's arg parser accepts it; main() reads it from
+        # sys.argv directly (same pattern as --debug) since it must be known
+        # before the embedded vtk-mcp server is started, ahead of app creation.
+        self.server.cli.add_argument(
+            "--embed-mcp",
+            action="store_true",
+            help="Launch a local vtk-mcp server automatically (requires vtk-mcp to be installed)",
+            dest="embed_mcp",
+        )
+
         # Make sure JS is loaded
         file_handlers.load_js(self.server)
 
@@ -125,9 +136,7 @@ class VTKPromptApp(TrameApp):
         # (same names the generated code's exec scope sees).
         from .completion import register_runtime_objects, warm_up
 
-        register_runtime_objects(
-            renderer=self.renderer, render_window=self.render_window
-        )
+        register_runtime_objects(renderer=self.renderer, render_window=self.render_window)
         # Prime jedi's vtk analysis in the background so the first editor
         # completion is fast and Monaco does not time out and close the popup.
         warm_up()
@@ -559,10 +568,21 @@ def main() -> None:
     # wslink already defines --debug (its own debug logging); reuse it here to
     # also dump the LLM conversation instead of registering a conflicting flag.
     debug = "--debug" in sys.argv
+    embed_mcp = "--embed-mcp" in sys.argv
 
     # Create and start the app
-    app = VTKPromptApp(custom_prompt_file=custom_prompt_file, debug=debug)
-    app.start()
+    if embed_mcp:
+        try:
+            with embedded_mcp_server() as mcp_url:
+                app = VTKPromptApp(custom_prompt_file=custom_prompt_file, debug=debug)
+                app.state.mcp_url = mcp_url
+                app.start()
+        except RuntimeError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
+    else:
+        app = VTKPromptApp(custom_prompt_file=custom_prompt_file, debug=debug)
+        app.start()
 
 
 if __name__ == "__main__":

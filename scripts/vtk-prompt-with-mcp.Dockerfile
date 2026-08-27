@@ -11,6 +11,9 @@
 #                --ignorefile vtk-prompt/scripts/vtk-prompt-with-mcp.dockerignore \
 #                -t vtk-prompt-with-mcp .
 #   docker run --rm -it vtk-prompt-with-mcp "Create a red sphere" -t $ANTHROPIC_API_KEY
+#
+#   # Or the web UI instead of the CLI:
+#   docker run --rm -it -p 8080:8080 vtk-prompt-with-mcp ui
 
 FROM qdrant/qdrant:latest AS qdrant
 
@@ -63,11 +66,20 @@ RUN python /app/vtk-mcp/scripts/prefetch_artifacts.py
 
 ENV VTK_MCP_ENABLE_VALIDATION=true
 
+# No display in this container. VTK's default GLX/X11 render window still
+# tries to open an X server even with OffScreenRenderingOn() (see
+# rendering/scene_manager.py), which segfaults here. Force the OSMesa
+# software-rasterizer backend that ships in the same "vtk" wheel instead, so
+# both vtk-prompt-ui and any rendering the generated code does work headless.
+ENV VTK_DEFAULT_OPENGL_WINDOW=vtkOSOpenGLRenderWindow
+
 COPY vtk-prompt/scripts/vtk-prompt-with-mcp-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh /qdrant/qdrant
 
 # Qdrant is started for optional external indexing/inspection; see
 # docker-entrypoint.sh for why vtk-mcp doesn't use it for retrieval.
 EXPOSE 6333
+# vtk-prompt-ui, when launched via `docker run <image> ui`.
+EXPOSE 8080
 
 ENTRYPOINT ["docker-entrypoint.sh"]
