@@ -173,12 +173,13 @@ class TestCLI:
         assert "mutually exclusive" in result.output
 
     def test_embed_mcp_launches_embedded_server(self):
-        """--embed-mcp launches the embedded server and forwards its URL."""
+        """--embed-mcp launches the embedded server and forwards its stdio client."""
         with (
             patch("vtk_prompt.cli.embedded_mcp_server") as mock_embed,
             patch.object(VTKPromptClient, "__new__") as mock_new,
         ):
-            mock_embed.return_value.__enter__ = Mock(return_value="http://127.0.0.1:12345")
+            mock_mcp_client = Mock()
+            mock_embed.return_value.__enter__ = Mock(return_value=mock_mcp_client)
             mock_embed.return_value.__exit__ = Mock(return_value=False)
 
             mock_client = Mock()
@@ -192,7 +193,8 @@ class TestCLI:
 
             assert result.exit_code == 0
             mock_embed.assert_called_once()
-            assert mock_new.call_args[1]["mcp_url"] == "http://127.0.0.1:12345"
+            assert mock_new.call_args[1]["mcp_client"] is mock_mcp_client
+            assert mock_new.call_args[1]["mcp_url"] is None
 
     def test_embed_mcp_startup_failure(self):
         """A RuntimeError from the embedded server surfaces as exit code 4."""

@@ -1,6 +1,9 @@
-"""VTK MCP HTTP client for vtk-prompt integration.
+"""VTK MCP client for vtk-prompt integration.
 
-Provides a thin wrapper around the vtk-mcp HTTP server for:
+Provides a thin wrapper around a vtk-mcp server, reached either over HTTP
+(an already-running server: docker compose, manual ``vtk-mcp --transport
+http``) or over stdio (a subprocess vtk-prompt spawned itself via
+``--embed-mcp``, see ``mcp_launcher.py``). Provides:
 - Vector search over VTK code examples and documentation
 - VTK class API documentation lookup (query enrichment)
 - Full VTK code validation via vtk-mcp
@@ -9,6 +12,7 @@ Provides a thin wrapper around the vtk-mcp HTTP server for:
 from __future__ import annotations
 
 import json
+import subprocess
 
 import requests
 
@@ -16,24 +20,38 @@ from . import get_logger
 
 logger = get_logger(__name__)
 
+DEFAULT_READ_TIMEOUT = 10.0
+
 
 class VTKMCPClient:
-    """HTTP client for vtk-mcp server."""
+    """Client for vtk-mcp server, over HTTP or stdio."""
 
-    def __init__(self, base_url: str = "http://localhost:8000") -> None:
-        """Initialize the client and perform the MCP handshake."""
+    def __init__(
+        self,
+        base_url: str | None = "http://localhost:8000",
+        process: subprocess.Popen | None = None,
+        startup_timeout: float = DEFAULT_READ_TIMEOUT,
+    ) -> None:
+        """Initialize the client and perform the MCP handshake.
+
+        Exactly one of ``base_url`` (HTTP transport) or ``process`` (a live
+        vtk-mcp subprocess talked to over its stdin/stdout, stdio transport)
+        should be meaningful; passing a ``process`` takes precedence.
+        """
         self.base_url = base_url
+        self._process = process
         self._session_id: str | None = None
         self._req_id = 0
-        self._initialize_session()
+        self.ready = False
+        self._initialize_session(read_timeout=startup_timeout)
 
     def _next_id(self) -> str:
         self._req_id += 1
         return str(self._req_id)
 
-    def _initialize_session(self) -> None:
+    def _initialize_session(self, read_timeout: float) -> None:
         """Perform MCP JSON-RPC handshake."""
-        resp = self._post(
+        data = self._request(
             {
                 "jsonrpc": "2.0",
                 "id": self._next_id(),
@@ -43,13 +61,20 @@ class VTKMCPClient:
                     "capabilities": {"tools": {}},
                     "clientInfo": {"name": "vtk-prompt", "version": "1.0.0"},
                 },
-            }
+            },
+            read_timeout=read_timeout,
         )
-        if resp:
-            self._session_id = resp.headers.get("Mcp-Session-Id")
-            self._post({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
+        if data is not None:
+            self.ready = True
+            self._request({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
 
-    def _post(self, payload: dict) -> requests.Response | None:
+    def _request(self, payload: dict, read_timeout: float = DEFAULT_READ_TIMEOUT) -> dict | None:
+        """Send a JSON-RPC request/notification; return the parsed response (or None)."""
+        if self._process is not None:
+            return self._stdio_request(payload, read_timeout)
+        return self._http_request(payload)
+
+    def _http_request(self, payload: dict) -> dict | None:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
@@ -57,16 +82,50 @@ class VTKMCPClient:
         if self._session_id:
             headers["Mcp-Session-Id"] = self._session_id
         try:
-            return requests.post(
-                f"{self.base_url}/mcp/", json=payload, headers=headers, timeout=10
-            )
+            resp = requests.post(f"{self.base_url}/mcp/", json=payload, headers=headers, timeout=10)
         except Exception as e:
             logger.debug("MCP request failed: %s", e)
+            return None
+        if not self._session_id:
+            self._session_id = resp.headers.get("Mcp-Session-Id")
+        try:
+            for line in resp.text.strip().split("\n"):
+                if line.startswith("data: "):
+                    return json.loads(line[6:])
+        except Exception as e:
+            logger.debug("MCP response parse error: %s", e)
+        return None
+
+    def _stdio_request(self, payload: dict, read_timeout: float) -> dict | None:
+        """Write one JSON-RPC message to the subprocess and read its reply line."""
+        assert self._process is not None
+        try:
+            self._process.stdin.write(json.dumps(payload) + "\n")  # type: ignore[union-attr]
+            self._process.stdin.flush()  # type: ignore[union-attr]
+        except Exception as e:
+            logger.debug("MCP stdio write failed: %s", e)
+            return None
+        if "id" not in payload:
+            return None  # notification: no reply expected
+        try:
+            import selectors
+
+            sel = selectors.DefaultSelector()
+            sel.register(self._process.stdout, selectors.EVENT_READ)  # type: ignore[arg-type]
+            if not sel.select(timeout=read_timeout):
+                logger.debug("MCP stdio read timed out after %ss", read_timeout)
+                return None
+            line = self._process.stdout.readline()  # type: ignore[union-attr]
+            if not line:
+                return None
+            return json.loads(line)
+        except Exception as e:
+            logger.debug("MCP stdio response parse error: %s", e)
             return None
 
     def _call_tool(self, name: str, arguments: dict) -> str | None:
         """Call a tool on the MCP server and return the text result."""
-        resp = self._post(
+        data = self._request(
             {
                 "jsonrpc": "2.0",
                 "id": self._next_id(),
@@ -74,17 +133,11 @@ class VTKMCPClient:
                 "params": {"name": name, "arguments": arguments},
             }
         )
-        if not resp:
+        if not data:
             return None
-        try:
-            for line in resp.text.strip().split("\n"):
-                if line.startswith("data: "):
-                    data = json.loads(line[6:])
-                    content = data.get("result", {}).get("content", [])
-                    if content:
-                        return content[0].get("text")
-        except Exception as e:
-            logger.debug("MCP response parse error: %s", e)
+        content = data.get("result", {}).get("content", [])
+        if content:
+            return content[0].get("text")
         return None
 
     def vector_search(self, query: str, top_k: int = 5) -> str | None:
@@ -135,30 +188,21 @@ class VTKMCPClient:
 
     def list_tools(self) -> list[dict]:
         """Return all MCP tools as OpenAI-compatible function definitions."""
-        resp = self._post({"jsonrpc": "2.0", "id": self._next_id(), "method": "tools/list"})
-        if not resp:
+        data = self._request({"jsonrpc": "2.0", "id": self._next_id(), "method": "tools/list"})
+        if not data:
             return []
-        try:
-            for line in resp.text.strip().split("\n"):
-                if line.startswith("data: "):
-                    data = json.loads(line[6:])
-                    tools = data.get("result", {}).get("tools", [])
-                    return [
-                        {
-                            "type": "function",
-                            "function": {
-                                "name": t["name"],
-                                "description": t.get("description", ""),
-                                "parameters": t.get(
-                                    "inputSchema", {"type": "object", "properties": {}}
-                                ),
-                            },
-                        }
-                        for t in tools
-                    ]
-        except Exception as e:
-            logger.debug("Failed to list MCP tools: %s", e)
-        return []
+        tools = data.get("result", {}).get("tools", [])
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t.get("description", ""),
+                    "parameters": t.get("inputSchema", {"type": "object", "properties": {}}),
+                },
+            }
+            for t in tools
+        ]
 
     def call_tool(self, name: str, arguments: dict) -> str:
         """Call any MCP tool by name and return its text result."""

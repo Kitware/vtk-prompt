@@ -44,7 +44,17 @@ logger = get_logger(__name__)
 @click.option(
     "--embed-mcp",
     is_flag=True,
-    help="Launch a local vtk-mcp server automatically (requires vtk-mcp to be installed)",
+    help="Launch a local vtk-mcp server automatically (requires vtk-prompt[bundle-mcp])",
+)
+@click.option(
+    "--mcp-knowledge-artifact",
+    default=None,
+    help="Path to a local vtk-knowledge JSONL artifact for --embed-mcp (skips auto-download)",
+)
+@click.option(
+    "--mcp-vtk-version",
+    default=None,
+    help="VTK version for --embed-mcp to fetch from ghcr.io when no local artifact is given",
 )
 @click.option("--top-k", type=int, default=5, help="Number of examples to retrieve from vtk-mcp")
 @click.option(
@@ -82,6 +92,8 @@ def main(
     verbose: bool,
     mcp_url: str | None,
     embed_mcp: bool,
+    mcp_knowledge_artifact: str | None,
+    mcp_vtk_version: str | None,
     top_k: int,
     retry_attempts: int,
     conversation: str | None,
@@ -96,6 +108,8 @@ def main(
     """
     if embed_mcp and mcp_url:
         raise click.UsageError("--embed-mcp and --mcp-url are mutually exclusive")
+    if (mcp_knowledge_artifact or mcp_vtk_version) and not embed_mcp:
+        raise click.UsageError("--mcp-knowledge-artifact and --mcp-vtk-version require --embed-mcp")
 
     # Set default base URLs
     if base_url is None:
@@ -160,11 +174,17 @@ def main(
         )
         temperature = 1.0
 
-    mcp_context = embedded_mcp_server() if embed_mcp else contextlib.nullcontext(mcp_url)
+    mcp_context = (
+        embedded_mcp_server(knowledge_artifact=mcp_knowledge_artifact, vtk_version=mcp_vtk_version)
+        if embed_mcp
+        else contextlib.nullcontext(None)
+    )
 
     try:
-        with mcp_context as effective_mcp_url:
-            client = VTKPromptClient(verbose=verbose, mcp_url=effective_mcp_url)
+        with mcp_context as embedded_mcp_client:
+            client = VTKPromptClient(
+                verbose=verbose, mcp_url=mcp_url, mcp_client=embedded_mcp_client
+            )
             # The caller owns the conversation: load it, hand it to query, save it back.
             messages = load_conversation(conversation)
             result = client.query(

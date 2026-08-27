@@ -18,7 +18,7 @@ Example:
 
 import asyncio
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import vtk
 from trame.app import TrameApp
@@ -42,6 +42,9 @@ from .ui.layout import (
     build_toolbar,
 )
 from .utils import file_handlers, prompt_loader
+
+if TYPE_CHECKING:
+    from .vtk_mcp_client import VTKMCPClient
 
 logger = get_logger(__name__)
 
@@ -114,7 +117,7 @@ class VTKPromptApp(TrameApp):
         self.server.cli.add_argument(
             "--embed-mcp",
             action="store_true",
-            help="Launch a local vtk-mcp server automatically (requires vtk-mcp to be installed)",
+            help="Launch a local vtk-mcp server automatically (requires vtk-prompt[bundle-mcp])",
             dest="embed_mcp",
         )
 
@@ -129,6 +132,9 @@ class VTKPromptApp(TrameApp):
         self._conversation_loading = False
         self._snapshot_task: asyncio.Task | None = None
         self._mcp_check_task: asyncio.Task | None = None
+        # Set by main() before app.start() when launched with --embed-mcp; a
+        # live stdio-connected VTKMCPClient, not JSON-serializable trame state.
+        self.embedded_mcp_client: "VTKMCPClient | None" = None
         add_default_scene(self.renderer)
 
         # Expose the live renderer/render_window to editor completion + hover, so
@@ -573,9 +579,10 @@ def main() -> None:
     # Create and start the app
     if embed_mcp:
         try:
-            with embedded_mcp_server() as mcp_url:
+            with embedded_mcp_server() as mcp_client:
                 app = VTKPromptApp(custom_prompt_file=custom_prompt_file, debug=debug)
-                app.state.mcp_url = mcp_url
+                app.embedded_mcp_client = mcp_client
+                app.state.mcp_embedded = True
                 app.start()
         except RuntimeError as e:
             print(f"Error: {e}")

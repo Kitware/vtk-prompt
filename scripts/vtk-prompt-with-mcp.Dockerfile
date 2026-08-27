@@ -2,13 +2,12 @@
 # server, vtk-mcp, and vtk-prompt (launched via its --embed-mcp flag). No
 # docker compose, no separate vtk-mcp container, no manual startup step.
 #
-# The build context must be a directory containing both sibling repos as
-# vtk-prompt/ and vtk-mcp/ (this is how CI checks them out; see
-# .github/workflows/ci.yml's docker-deploy job). For local development,
-# run from the parent directory of both checkouts:
+# vtk-mcp is cloned from GitHub at build time (see ARG VTK_MCP_REF below), so
+# the build context only needs to be this vtk-prompt checkout itself. Run
+# from the repo root:
 #
-#   docker build -f vtk-prompt/scripts/vtk-prompt-with-mcp.Dockerfile \
-#                --ignorefile vtk-prompt/scripts/vtk-prompt-with-mcp.dockerignore \
+#   docker build -f scripts/vtk-prompt-with-mcp.Dockerfile \
+#                --ignorefile scripts/vtk-prompt-with-mcp.dockerignore \
 #                -t vtk-prompt-with-mcp .
 #   docker run --rm -it vtk-prompt-with-mcp "Create a red sphere" -t $ANTHROPIC_API_KEY
 #
@@ -32,6 +31,9 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 ARG VTK_VERSION=9.6.1
 ENV VTK_MCP_VTK_VERSION=${VTK_VERSION}
 
+# vtk-mcp branch/tag/commit to clone
+ARG VTK_MCP_REF=master
+
 # libunwind8 satisfies the Qdrant binary's runtime linker deps (it's built
 # against glibc/libunwind on a fuller Debian base than python:3.12-slim).
 RUN apt-get update && \
@@ -54,8 +56,10 @@ RUN uv pip install --system \
     "vtk-validate[translate] @ git+https://github.com/vicentebolea/vtk-validate" \
     "git+https://github.com/vicentebolea/vtk-index"
 
-COPY vtk-mcp/ /app/vtk-mcp/
-COPY vtk-prompt/ /app/vtk-prompt/
+RUN git clone --branch "${VTK_MCP_REF}" --depth 1 \
+    https://github.com/Kitware/vtk-mcp.git /app/vtk-mcp
+
+COPY . /app/vtk-prompt/
 
 RUN uv pip install --system -e "/app/vtk-mcp[retrieval]"
 RUN uv pip install --system -e "/app/vtk-prompt"
@@ -73,7 +77,7 @@ ENV VTK_MCP_ENABLE_VALIDATION=true
 # both vtk-prompt-ui and any rendering the generated code does work headless.
 ENV VTK_DEFAULT_OPENGL_WINDOW=vtkOSOpenGLRenderWindow
 
-COPY vtk-prompt/scripts/vtk-prompt-with-mcp-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY scripts/vtk-prompt-with-mcp-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh /qdrant/qdrant
 
 # Qdrant is started for optional external indexing/inspection; see

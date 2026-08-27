@@ -51,6 +51,7 @@ def initialize_state(app: Any) -> None:
     app.state.code_history_pos = -1
     app.state.is_loading = False
     app.state.mcp_url = ""
+    app.state.mcp_embedded = False  # set by main() when launched with --embed-mcp
     app.state.log_tool_calls = False  # log vtk-mcp tool calls to the console
     app.state.agentic_retrieval = False  # skip pre-injected context; use tools
     app.state.mcp_status = "idle"  # "idle" | "checking" | "ok" | "error"
@@ -176,6 +177,7 @@ def init_prompt_client(app: Any) -> None:
             return
 
         mcp_url = getattr(app.state, "mcp_url", "").strip() or None
-        app.prompt_client = VTKPromptClient(verbose=False, mcp_url=mcp_url)
+        mcp_client = getattr(app, "embedded_mcp_client", None)
+        app.prompt_client = VTKPromptClient(verbose=False, mcp_url=mcp_url, mcp_client=mcp_client)
     except ValueError as e:
         app.state.error_message = str(e)

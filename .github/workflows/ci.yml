@@ -185,16 +185,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - name: Checkout vtk-prompt
-        uses: actions/checkout@v4
-        with:
-          path: vtk-prompt
-
-      - name: Checkout vtk-mcp
-        uses: actions/checkout@v4
-        with:
-          repository: Kitware/vtk-mcp
-          path: vtk-mcp
+      - uses: actions/checkout@v4
 
       - name: Install Podman
         run: |
@@ -212,8 +203,8 @@ jobs:
       - name: Build and push vtk-prompt-with-mcp image
         run: |
           GITHUB_REPOSITORY="$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')"
-          podman build -f vtk-prompt/scripts/vtk-prompt-with-mcp.Dockerfile \
-                       --ignorefile vtk-prompt/scripts/vtk-prompt-with-mcp.dockerignore \
+          podman build -f scripts/vtk-prompt-with-mcp.Dockerfile \
+                       --ignorefile scripts/vtk-prompt-with-mcp.dockerignore \
                        -t "ghcr.io/${GITHUB_REPOSITORY}/vtk-prompt-with-mcp:latest" \
                        -t "ghcr.io/${GITHUB_REPOSITORY}/vtk-prompt-with-mcp:${{ github.sha }}" \
                        -t "ghcr.io/${GITHUB_REPOSITORY}/vtk-prompt-with-mcp:${{ steps.slug.outputs.SHORT_SHA }}" \
