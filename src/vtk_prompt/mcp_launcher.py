@@ -40,7 +40,8 @@ def embedded_mcp_server(startup_timeout: float = DEFAULT_STARTUP_TIMEOUT) -> Ite
     """
     if importlib.util.find_spec("vtk_mcp") is None:
         raise RuntimeError(
-            "vtk-mcp is not installed. Install it with: pip install 'vtk-prompt[embedded-mcp]'"
+            "vtk-mcp is not installed. Install it with: "
+            "pip install 'git+https://github.com/Kitware/vtk-mcp'"
         )
 
     port = _free_port()

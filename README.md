@@ -130,7 +130,10 @@ MCP server that exposes VTK knowledge tools to the LLM.
 **Option A: Embedded (no separate server to manage)**
 
 ```bash
-pip install "vtk-prompt[embedded-mcp]"
+# vtk-mcp isn't on PyPI yet, so install it (and its sibling libraries) from source
+pip install "git+https://github.com/vicentebolea/vtk-knowledge" \
+            "git+https://github.com/vicentebolea/vtk-validate" \
+            "git+https://github.com/Kitware/vtk-mcp"
 vtk-prompt "Create a vtkSphereSource with texture mapping" --embed-mcp -t $API_KEY
 ```
 
@@ -274,7 +277,7 @@ Options:
   --base-url TEXT                 Base URL for API (auto-detected or custom)
   -v, --verbose                   Show generated source code
   --mcp-url TEXT                  vtk-mcp server URL (enables context retrieval and code validation)
-  --embed-mcp                     Launch a local vtk-mcp server automatically (requires vtk-prompt[embedded-mcp])
+  --embed-mcp                     Launch a local vtk-mcp server automatically (requires vtk-mcp to be installed)
   --top-k INTEGER                 Number of examples to retrieve from vtk-mcp
   --retry-attempts INTEGER        Number of times to retry if validation fails
   --conversation TEXT             Path to conversation file for chat history

@@ -44,7 +44,7 @@ logger = get_logger(__name__)
 @click.option(
     "--embed-mcp",
     is_flag=True,
-    help="Launch a local vtk-mcp server automatically (requires vtk-prompt[embedded-mcp])",
+    help="Launch a local vtk-mcp server automatically (requires vtk-mcp to be installed)",
 )
 @click.option("--top-k", type=int, default=5, help="Number of examples to retrieve from vtk-mcp")
 @click.option(
