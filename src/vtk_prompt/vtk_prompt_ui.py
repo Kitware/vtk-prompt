@@ -184,6 +184,12 @@ class VTKPromptApp(TrameApp):
     def _on_model_change(self, **_: Any) -> None:
         """Handle model change to update temperature support."""
         configuration.on_model_change(self, **_)
+        # The local entry's label carries the local model name, so editing that
+        # name in the picker menu has to refresh the list or the chip and the
+        # menu entry go on showing the old one.
+        from .controllers import model_config
+
+        self.state.model_options = model_config.build_model_options(self)
 
     @controller.set("generate_code")
     def generate_code(self) -> None:
@@ -209,6 +215,15 @@ class VTKPromptApp(TrameApp):
     def apply_data_suggestion(self, missing: str, suggestion: str) -> None:
         """Swap an unresolved data-file reference for a chosen one and re-run."""
         generation.apply_data_suggestion(self, missing, suggestion)
+
+    @controller.set("select_model")
+    def select_model(self, key: str) -> None:
+        """Apply a per-conversation model choice from the toolbar picker."""
+        from .controllers import model_config
+
+        model_config.select_model_option(self, key)
+        # Refresh the picker labels (the local entry shows the current model).
+        self.state.model_options = model_config.build_model_options(self)
 
     @controller.set("undo_code")
     def undo_code(self) -> None:
@@ -303,12 +318,47 @@ class VTKPromptApp(TrameApp):
 
     @change("advanced_settings_open")
     def _on_settings_open(self, advanced_settings_open, **kwargs):
-        """Refresh the data lists whenever the settings dialog opens."""
+        """Refresh data lists on open; persist install-wide settings on close."""
         if advanced_settings_open:
             from .data import cached_names, uploaded_names
 
             self.state.uploaded_data_files = uploaded_names()
             self.state.cached_data_files = cached_names()
+        else:
+            # The dialog now holds only global settings (the per-conversation
+            # ones moved to the model menu), so closing it is the point to write
+            # them back to the config file that supplied them at startup.
+            configuration.persist_global_settings(self)
+
+    @change("model_settings_open")
+    def _on_model_settings_toggle(self, model_settings_open, **kwargs):
+        """Fold model-settings edits into the active conversation on close.
+
+        Closing the menu is the moment those edits become final. Capturing here
+        rather than on every field change keeps one JSON write per adjustment
+        session, and - unlike a @change on the fields themselves - it cannot
+        fire mid-restore, since trame flushes those callbacks after
+        ``load_session`` has already returned.
+
+        The session is pinned on open because trame flushes this callback late:
+        clicking another conversation while the menu is open closes the menu and
+        switches sessions in the same cycle, so an unguarded capture would write
+        this conversation's edits onto the one just switched to.
+        """
+        if model_settings_open:
+            self._model_settings_session_id = (
+                getattr(self.state, "current_session_id", "") or ""
+            )
+            return
+        opened_for = getattr(self, "_model_settings_session_id", None)
+        current = getattr(self.state, "current_session_id", "") or ""
+        if opened_for is not None and opened_for != current:
+            # Switched away with the menu open; switch_session already captured
+            # that conversation, so writing now would land on the wrong one.
+            return
+        from .controllers import sessions
+
+        sessions.capture_current_session(self)
 
     @trigger("clear_data_cache")
     def clear_data_cache(self):
@@ -392,6 +442,23 @@ class VTKPromptApp(TrameApp):
         """Apply the delete from the confirm dialog."""
         sessions.delete_session(self, self.state.delete_target_id)
         self.state.delete_dialog = False
+
+    @controller.set("set_selection_pinned")
+    def set_selection_pinned(self, pinned: bool) -> None:
+        """Pin or unpin every selected conversation."""
+        sessions.set_sessions_pinned(self, list(self.state.selected_session_ids or []), pinned)
+
+    @controller.set("confirm_delete_selection")
+    def confirm_delete_selection(self) -> None:
+        """Delete every selected conversation and clear the selection."""
+        sessions.delete_sessions(self, list(self.state.selected_session_ids or []))
+        self.state.selected_session_ids = []
+        self.state.bulk_delete_dialog = False
+
+    @controller.set("select_all_sessions")
+    def select_all_sessions(self) -> None:
+        """Select every conversation currently listed in the drawer."""
+        self.state.selected_session_ids = [s["id"] for s in (self.state.sessions_list or [])]
 
     @trigger("save_conversation")
     def save_conversation(self) -> str:

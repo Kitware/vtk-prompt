@@ -24,6 +24,7 @@ _PERSIST_KEYS = (
     "id", "title", "created", "updated", "pinned", "messages",
     "code_history", "code_history_labels", "code_history_pos", "checkpoints",
     "console_log", "console_lines", "console_level",
+    "model_config",
 )
 
 
@@ -50,6 +51,7 @@ def _new_session() -> dict:
         "console_log": [],
         "console_lines": [],
         "console_level": "out",
+        "model_config": {},
     }
 
 
@@ -137,6 +139,9 @@ def capture_current_session(app: Any) -> None:
     sess["console_log"] = list(app.state.console_log or [])
     sess["console_lines"] = list(app.state.console_lines or [])
     sess["console_level"] = getattr(app.state, "console_level", "out")
+    from .model_config import snapshot_model_config
+
+    sess["model_config"] = snapshot_model_config(app)
     _maybe_title(app, sess)
     _persist_session(sess)
 
@@ -235,6 +240,13 @@ def load_session(app: Any, session_id: str, execute: bool = True) -> None:
     app.state.console_log = list(sess.get("console_log") or [])
     app.state.console_lines = list(sess.get("console_lines") or [])
     app.state.console_level = sess.get("console_level", "out")
+    # Restore this conversation's model choice. An empty config (new session or
+    # a file saved before this feature) is a no-op, so the conversation keeps
+    # whatever model is currently active - i.e. new conversations default to the
+    # last-used model.
+    from .model_config import apply_model_config
+
+    apply_model_config(app, sess.get("model_config") or {})
     # A background error belongs to this conversation: surface it in the console
     # now (after the restore above, so it is not overwritten), then clear it.
     _stored_error = sess.get("error_message", "") or ""
@@ -421,12 +433,27 @@ def rename_session(app: Any, session_id: str, title: str) -> None:
 
 def delete_session(app: Any, session_id: str) -> None:
     """Delete a conversation; if it was active, open the next most recent."""
+    delete_sessions(app, [session_id])
+
+
+def delete_sessions(app: Any, session_ids: Any) -> None:
+    """Delete conversations in one pass.
+
+    Deleting one at a time would make the active-session handoff fire per
+    conversation, potentially loading a session that is itself about to be
+    deleted. Everything is removed first, then the active session is resolved
+    once at the end.
+    """
     sessions = _sessions(app)
-    if session_id not in sessions:
+    ids = [sid for sid in (session_ids or []) if sid in sessions]
+    if not ids:
         return
-    was_current = session_id == (getattr(app.state, "current_session_id", "") or "")
-    del sessions[session_id]
-    _delete_session_file(session_id)
+    current = getattr(app.state, "current_session_id", "") or ""
+    was_current = current in ids
+
+    for sid in ids:
+        del sessions[sid]
+        _delete_session_file(sid)
 
     if was_current:
         if sessions:
@@ -441,3 +468,21 @@ def delete_session(app: Any, session_id: str) -> None:
 
             _update_navigation_state(app)
     refresh_sessions_list(app)
+
+
+def set_sessions_pinned(app: Any, session_ids: Any, pinned: bool) -> None:
+    """Pin or unpin conversations explicitly.
+
+    Not a toggle: toggling a mixed selection has no coherent meaning, so the
+    caller states the target instead.
+    """
+    sessions = _sessions(app)
+    changed = False
+    for sid in session_ids or []:
+        sess = sessions.get(sid)
+        if sess is not None and bool(sess.get("pinned")) != bool(pinned):
+            sess["pinned"] = bool(pinned)
+            _persist_session(sess)
+            changed = True
+    if changed:
+        refresh_sessions_list(app)

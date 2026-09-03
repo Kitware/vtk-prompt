@@ -34,6 +34,20 @@ window.trame.utils.vtk_prompt = {
     }
   },
 
+  // One file per conversation, so the result re-imports through the existing
+  // multi-file import path. Sequential with a small gap: firing N downloads at
+  // once gets some of them dropped, and Chrome will ask permission for the set.
+  async exportSessions(ids, sessions) {
+    const titles = {};
+    (sessions || []).forEach((s) => {
+      titles[s.id] = s.title;
+    });
+    for (const id of ids || []) {
+      await this.exportSession(id, titles[id] || id);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  },
+
   async exportConfig() {
     const text = await window.trame.trigger("save_config");
     if (text) this.download("vtk-prompt-config.yaml", text, "text/yaml");
