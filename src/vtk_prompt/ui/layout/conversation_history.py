@@ -202,14 +202,24 @@ def _dialogs(app: Any) -> None:
         with vuetify.VCard():
             vuetify.VCardTitle("Import conversation")
             with vuetify.VCardText():
-                vuetify.VFileUpload(
+                # VFileInput, not VFileUpload: the latter is a Vuetify lab
+                # component, and trame-vuetify's lab bundle calls h.onUnmount
+                # while trame-client only exposes onUnmounted, so loading it
+                # throws during plugin install and the app never starts. Both
+                # packages are at their latest release, so this is not fixable
+                # by upgrading. VFileInput is stable and the config import in
+                # the settings dialog already uses it against this same state
+                # key and handler.
+                vuetify.VFileInput(
                     label="Choose a .json conversation file",
                     v_model=("uploaded_files", None),
                     accept=".json",
                     multiple=True,
+                    prepend_icon="",
+                    prepend_inner_icon="mdi-upload",
                     hide_details="auto",
                     density="compact",
-                    color="teal-lighten-5",
+                    variant="outlined",
                 )
             with vuetify.VCardActions():
                 vuetify.VSpacer()
@@ -243,9 +253,7 @@ def _bulk_delete_dialog(app: Any) -> None:
             )
             with vuetify.VCardActions():
                 vuetify.VSpacer()
-                vuetify.VBtn(
-                    "Cancel", click="bulk_delete_dialog = false", variant="text"
-                )
+                vuetify.VBtn("Cancel", click="bulk_delete_dialog = false", variant="text")
                 vuetify.VBtn(
                     "Delete",
                     click=app.ctrl.confirm_delete_selection,
@@ -299,10 +307,7 @@ def build_conversation_history(app: Any) -> None:
                             # Vuetify's default control size is 40px - 32 keeps
                             # rows close to their original height while the
                             # smaller glyph does the visual work.
-                            style=(
-                                "font-size: 9px;"
-                                " --v-selection-control-size: 32px;"
-                            ),
+                            style=("font-size: 9px;" " --v-selection-control-size: 32px;"),
                             classes="mr-1 flex-shrink-0",
                         )
                         vuetify.VIcon(

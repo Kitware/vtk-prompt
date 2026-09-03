@@ -10,7 +10,11 @@ from typing import Any
 from trame.widgets import html
 from trame.widgets import vuetify3 as vuetify
 
-vuetify.enable_lab()
+# No enable_lab(): it loads trame-vuetify's lab bundle, which calls
+# h.onUnmount while trame-client only exposes onUnmounted, so Vue throws
+# during plugin install and the app never mounts. Both packages are at their
+# newest release, so upgrading does not fix it. Nothing here needs lab now
+# that the conversation import uses VFileInput.
 
 _LABEL = "text-overline text-medium-emphasis d-block mb-1"
 _DESC = "text-caption text-medium-emphasis d-block mb-3"

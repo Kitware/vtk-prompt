@@ -35,9 +35,7 @@ def _unpack_result(result: Any) -> tuple[str, str]:
     return str(result), ""
 
 
-def _deliver_to_background_session(
-    app: Any, session_id: str, messages: list, result: Any
-) -> None:
+def _deliver_to_background_session(app: Any, session_id: str, messages: list, result: Any) -> None:
     """Store a finished generation in a conversation the user is not viewing.
 
     The visible conversation keeps the render window; this only updates the
@@ -141,9 +139,10 @@ def generate_code(app: Any) -> None:
     # the button) cannot submit an empty prompt or run without a cloud token.
     if not (getattr(app.state, "query_text", "") or "").strip():
         return
-    if getattr(app.state, "use_cloud_models", True) and not (
-        getattr(app.state, "api_token", "") or ""
-    ).strip():
+    if (
+        getattr(app.state, "use_cloud_models", True)
+        and not (getattr(app.state, "api_token", "") or "").strip()
+    ):
         return
     bump_conversation_token(app, session_id)
     _generating_sessions(app).add(session_id)
@@ -219,10 +218,10 @@ async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> No
                 api_key=app._get_api_key(),
                 model=app._get_model(),
                 base_url=app._get_base_url(),
-                max_tokens=int(app.state.max_tokens),
-                temperature=float(app.state.temperature),
-                top_k=int(app.state.top_k),
-                retry_attempts=int(app.state.retry_attempts),
+                max_tokens=_num(app.state.max_tokens, 10000),
+                temperature=_num(app.state.temperature, 0.5, float),
+                top_k=_num(app.state.top_k, 5),
+                retry_attempts=_num(app.state.retry_attempts, 3),
                 log_tool_calls=bool(app.state.log_tool_calls),
                 agentic_retrieval=bool(app.state.agentic_retrieval),
                 provider=app.state.provider,
@@ -304,9 +303,9 @@ async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> No
                 api_key=app._get_api_key(),
                 model=app._get_model(),
                 base_url=app._get_base_url(),
-                max_tokens=int(app.state.max_tokens),
-                temperature=float(app.state.temperature),
-                top_k=int(app.state.top_k),
+                max_tokens=_num(app.state.max_tokens, 10000),
+                temperature=_num(app.state.temperature, 0.5, float),
+                top_k=_num(app.state.top_k, 5),
                 retry_attempts=1,
                 log_tool_calls=bool(app.state.log_tool_calls),
                 agentic_retrieval=bool(app.state.agentic_retrieval),
@@ -333,9 +332,7 @@ async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> No
                     execute_with_renderer(app, app.state.generated_code)
     except ValueError as e:
         if "max_tokens" in str(e):
-            msg = (
-                f"{str(e)} Current: {app.state.max_tokens}. Try increasing max tokens."
-            )
+            msg = f"{str(e)} Current: {app.state.max_tokens}. Try increasing max tokens."
         else:
             msg = f"Error generating code: {str(e)}"
         _deliver_error(app, origin_session_id, msg)
@@ -449,9 +446,7 @@ def _append_console(
     stamp = time.strftime("%H:%M:%S")
     level = "err" if n_err else ("warn" if n_warn else "out")
     runs = list(getattr(app.state, "console_log", []) or [])
-    runs.append(
-        {"stamp": stamp, "lines": entries, "summary": ", ".join(parts), "level": level}
-    )
+    runs.append({"stamp": stamp, "lines": entries, "summary": ", ".join(parts), "level": level})
     app.state.console_log = runs[-100:]
     # Severity of the latest run, for the Console tab badge.
     app.state.console_level = level
@@ -500,9 +495,7 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
 
     # The formatted run error goes to the console (below), not a floating alert.
     if not success and error_message:
-        error_message = _format_exec_error(
-            code_string, error_message, error_line_text
-        )
+        error_message = _format_exec_error(code_string, error_message, error_line_text)
 
     # Offer one-click fixes for data references that could not be resolved
     # (e.g. can.ex -> can.ex2). Checked regardless of Python-level success,
@@ -561,6 +554,21 @@ def run_current_code(app: Any) -> None:
         execute_with_renderer(app, app.state.generated_code)
     finally:
         app.state.is_loading = False
+
+
+def _num(value, default, cast=int):
+    """Coerce a state value to a number, falling back when unset or blank.
+
+    State fields are declared across the initializer and the widgets that bind
+    them, so a field can arrive as None or "" if a widget moves and its default
+    goes with it. int(None) then fails with a message that names no field.
+    """
+    if value is None or value == "":
+        return default
+    try:
+        return cast(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def push_code_snapshot(app: Any, code_string: str, label: str = "") -> None:
