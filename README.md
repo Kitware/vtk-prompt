@@ -114,6 +114,9 @@ vtk-prompt "Create a textured cone with 32 resolution" \
   --verbose \
   -t $API_KEY
 
+# Or with an embedded vtk-mcp (no separate server needed)
+vtk-prompt "Create a textured cone with 32 resolution" --embed-mcp -t $API_KEY
+
 # Using different providers
 vtk-prompt "Create a blue cube" --provider openai --model gpt-4.1 -t $OPENAI_API_KEY
 vtk-prompt "Create a cylinder" --provider nim --model meta/llama-3.3-70b-instruct -t $NIM_KEY
@@ -123,6 +126,26 @@ vtk-prompt "Create a cylinder" --provider nim --model meta/llama-3.3-70b-instruc
 
 Context-enhanced generation is powered by [vtk-mcp](https://github.com/Kitware/vtk-mcp), a local
 MCP server that exposes VTK knowledge tools to the LLM.
+
+**Option A: Embedded (no separate server to manage)**
+
+```bash
+# vtk-mcp isn't on PyPI yet; the bundle-mcp extra installs it (and its sibling
+# libraries) from source
+pip install "vtk-prompt[bundle-mcp]"
+vtk-prompt "Create a vtkSphereSource with texture mapping" --embed-mcp -t $API_KEY
+```
+
+`--embed-mcp` launches a local vtk-mcp server as a subprocess for the duration
+of the command and tears it down on exit — no docker compose, no manually
+started server, no `--mcp-url` to manage. It is mutually exclusive with
+`--mcp-url`. The web UI supports it too:
+
+```bash
+vtk-prompt-ui --embed-mcp
+```
+
+**Option B: External server**
 
 1. **Start vtk-mcp** (see its README for setup):
 
@@ -136,9 +159,10 @@ docker compose up   # or: uvicorn vtk_mcp.transport.http:app --port 8000
 vtk-prompt "Create a vtkSphereSource with texture mapping" --mcp-url http://localhost:8000 -t $API_KEY
 ```
 
-When `--mcp-url` is set the LLM has access to all vtk-mcp tools during generation
-(class lookup, method signatures, import validation, semantic search) and the generated code
-is validated against the VTK API with `validate_vtk_code` before being returned.
+Either way, the LLM has access to all vtk-mcp tools during generation (class
+lookup, method signatures, import validation, semantic search) and the
+generated code is validated against the VTK API with `validate_vtk_code`
+before being returned.
 
 ### Python API
 
@@ -256,6 +280,7 @@ Options:
   --base-url TEXT                 Base URL for API (auto-detected or custom)
   -v, --verbose                   Show generated source code
   --mcp-url TEXT                  vtk-mcp server URL (enables context retrieval and code validation)
+  --embed-mcp                     Launch a local vtk-mcp server automatically (requires vtk-prompt[bundle-mcp])
   --top-k INTEGER                 Number of examples to retrieve from vtk-mcp
   --retry-attempts INTEGER        Number of times to retry if validation fails
   --conversation TEXT             Path to conversation file for chat history

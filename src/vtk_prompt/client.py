@@ -21,7 +21,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import openai
 
@@ -29,6 +29,9 @@ from . import get_logger
 from .prompts import assemble_vtk_prompt
 from .provider_utils import DEFAULT_MODEL
 from .utils.helpers import ensure_vtk_importable
+
+if TYPE_CHECKING:
+    from .vtk_mcp_client import VTKMCPClient
 
 logger = get_logger(__name__)
 
@@ -106,6 +109,7 @@ class VTKPromptClient:
 
     verbose: bool = False
     mcp_url: str | None = None
+    mcp_client: "VTKMCPClient | None" = None  # pre-connected embedded (stdio) client
 
     def validate_code_syntax(self, code_string: str) -> tuple[bool, str | None]:
         """Validate Python code syntax using AST."""
@@ -388,9 +392,11 @@ class VTKPromptClient:
         if not message and not messages:
             raise ValueError("No prompt or conversation file provided")
 
-        # Set up vtk-mcp client (context retrieval, tool calling, and code validation)
-        mcp_client = None
-        if self.mcp_url:
+        # Set up vtk-mcp client (context retrieval, tool calling, and code validation).
+        # An embedded (stdio) client is already connected and reused as-is; otherwise
+        # reconnect to the configured HTTP server for this query.
+        mcp_client = self.mcp_client
+        if mcp_client is None and self.mcp_url:
             from .vtk_mcp_client import VTKMCPClient, check_mcp_available
 
             if check_mcp_available(self.mcp_url):

@@ -8,12 +8,14 @@ Example:
     >>> vtk-prompt "create sphere" --mcp-url http://localhost:8000 --model claude-sonnet-5
 """
 
+import contextlib
 import sys
 
 import click
 
 from . import get_logger
 from .client import VTKPromptClient, load_conversation, save_conversation
+from .mcp_launcher import embedded_mcp_server
 from .provider_utils import DEFAULT_MODEL, DEFAULT_PROVIDER, get_default_model, supports_temperature
 
 logger = get_logger(__name__)
@@ -39,6 +41,21 @@ logger = get_logger(__name__)
 @click.option("--base-url", help="Base URL for API (auto-detected or custom)")
 @click.option("-v", "--verbose", is_flag=True, help="Show generated source code")
 @click.option("--mcp-url", default=None, help="vtk-mcp server URL")
+@click.option(
+    "--embed-mcp",
+    is_flag=True,
+    help="Launch a local vtk-mcp server automatically (requires vtk-prompt[bundle-mcp])",
+)
+@click.option(
+    "--mcp-knowledge-artifact",
+    default=None,
+    help="Path to a local vtk-knowledge JSONL artifact for --embed-mcp (skips auto-download)",
+)
+@click.option(
+    "--mcp-vtk-version",
+    default=None,
+    help="VTK version for --embed-mcp to fetch from ghcr.io when no local artifact is given",
+)
 @click.option("--top-k", type=int, default=5, help="Number of examples to retrieve from vtk-mcp")
 @click.option(
     "--retry-attempts",
@@ -74,6 +91,9 @@ def main(
     base_url: str | None,
     verbose: bool,
     mcp_url: str | None,
+    embed_mcp: bool,
+    mcp_knowledge_artifact: str | None,
+    mcp_vtk_version: str | None,
     top_k: int,
     retry_attempts: int,
     conversation: str | None,
@@ -86,6 +106,11 @@ def main(
 
     INPUT_STRING: The code description to generate VTK code for
     """
+    if embed_mcp and mcp_url:
+        raise click.UsageError("--embed-mcp and --mcp-url are mutually exclusive")
+    if (mcp_knowledge_artifact or mcp_vtk_version) and not embed_mcp:
+        raise click.UsageError("--mcp-knowledge-artifact and --mcp-vtk-version require --embed-mcp")
+
     # Set default base URLs
     if base_url is None:
         base_urls = {
@@ -149,51 +174,60 @@ def main(
         )
         temperature = 1.0
 
+    mcp_context = (
+        embedded_mcp_server(knowledge_artifact=mcp_knowledge_artifact, vtk_version=mcp_vtk_version)
+        if embed_mcp
+        else contextlib.nullcontext(None)
+    )
+
     try:
-        client = VTKPromptClient(verbose=verbose, mcp_url=mcp_url)
-        # The caller owns the conversation: load it, hand it to query, save it back.
-        messages = load_conversation(conversation)
-        result = client.query(
-            input_string,
-            conversation=messages,
-            api_key=token,
-            model=model,
-            base_url=base_url,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            top_k=top_k,
-            retry_attempts=retry_attempts,
-            provider=provider,
-            custom_prompt=custom_prompt_data,
-            dsl_translation=dsl_translation,
-            debug=debug,
-        )
-        save_conversation(conversation, messages)
+        with mcp_context as embedded_mcp_client:
+            client = VTKPromptClient(
+                verbose=verbose, mcp_url=mcp_url, mcp_client=embedded_mcp_client
+            )
+            # The caller owns the conversation: load it, hand it to query, save it back.
+            messages = load_conversation(conversation)
+            result = client.query(
+                input_string,
+                conversation=messages,
+                api_key=token,
+                model=model,
+                base_url=base_url,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                retry_attempts=retry_attempts,
+                provider=provider,
+                custom_prompt=custom_prompt_data,
+                dsl_translation=dsl_translation,
+                debug=debug,
+            )
+            save_conversation(conversation, messages)
 
-        # Handle result with optional validation warnings
-        if isinstance(result, tuple):
-            if len(result) == 4:
-                # Result includes validation warnings
-                explanation, generated_code, usage, validation_warnings = result
-                # Display validation warnings
-                for warning in validation_warnings:
-                    logger.warning("Custom prompt validation: %s", warning)
-            elif len(result) == 3:
-                explanation, generated_code, usage = result
+            # Handle result with optional validation warnings
+            if isinstance(result, tuple):
+                if len(result) == 4:
+                    # Result includes validation warnings
+                    explanation, generated_code, usage, validation_warnings = result
+                    # Display validation warnings
+                    for warning in validation_warnings:
+                        logger.warning("Custom prompt validation: %s", warning)
+                elif len(result) == 3:
+                    explanation, generated_code, usage = result
+                else:
+                    logger.info("Result: %s", result)
+                    return
+
+                if verbose and usage:
+                    logger.info(
+                        "Used tokens: input=%d output=%d",
+                        usage.prompt_tokens,
+                        usage.completion_tokens,
+                    )
+                client.run_code(generated_code)
             else:
+                # Handle string result
                 logger.info("Result: %s", result)
-                return
-
-            if verbose and usage:
-                logger.info(
-                    "Used tokens: input=%d output=%d",
-                    usage.prompt_tokens,
-                    usage.completion_tokens,
-                )
-            client.run_code(generated_code)
-        else:
-            # Handle string result
-            logger.info("Result: %s", result)
 
     except ValueError as e:
         if "max_tokens" in str(e):
@@ -204,6 +238,9 @@ def main(
         else:
             logger.error("Error: %s", e)
             sys.exit(4)
+    except RuntimeError as e:
+        logger.error("Error: %s", e)
+        sys.exit(4)
 
 
 if __name__ == "__main__":
