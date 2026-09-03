@@ -7,8 +7,7 @@ The content area contains code panels, VTK viewer, and prompt input.
 
 from typing import Any
 
-from trame.widgets import code
-from trame.widgets import html
+from trame.widgets import code, html
 from trame.widgets import vuetify3 as vuetify
 from trame_vtk.widgets import vtk as vtk_widgets
 
@@ -34,9 +33,7 @@ def build_content(layout: Any, app: Any) -> None:
                 with vuetify.VCol(cols=6, style="min-width: 0;"):
                     # Generated code panel (editable + re-runnable)
                     with vuetify.VCard(classes="h-75"):
-                        with vuetify.VCardTitle(
-                            "Generated Code", classes="d-flex align-center"
-                        ):
+                        with vuetify.VCardTitle("Generated Code", classes="d-flex align-center"):
                             # Data files this code references, with where they live.
                             with html.Div(
                                 classes="d-flex align-center ml-3",
@@ -125,9 +122,7 @@ def build_content(layout: Any, app: Any) -> None:
                                         color="secondary",
                                         classes="mr-2",
                                         v_bind="props",
-                                        disabled=(
-                                            "code_history_pos >= code_history.length - 1",
-                                        ),
+                                        disabled=("code_history_pos >= code_history.length - 1",),
                                     ):
                                         vuetify.VIcon("mdi-redo")
                             # One-click fixes for unresolved data-file references,
@@ -217,9 +212,7 @@ def build_content(layout: Any, app: Any) -> None:
                                 # conversation, and new conversations inherit
                                 # the last-used values.
                                 with vuetify.VMenu():
-                                    with vuetify.Template(
-                                        v_slot_activator="{ props }"
-                                    ):
+                                    with vuetify.Template(v_slot_activator="{ props }"):
                                         # Cloud models chip (activator)
                                         vuetify.VChip(
                                             "☁️ {{ provider }}/{{ model }}",
@@ -256,10 +249,7 @@ def build_content(layout: Any, app: Any) -> None:
                                         # running off the viewport.
                                         with vuetify.VList(
                                             density="compact",
-                                            style=(
-                                                "max-height: 40vh;"
-                                                " overflow-y: auto;"
-                                            ),
+                                            style=("max-height: 40vh;" " overflow-y: auto;"),
                                         ):
                                             with vuetify.VListItem(
                                                 v_for="opt in model_options",
@@ -279,11 +269,10 @@ def build_content(layout: Any, app: Any) -> None:
                                 with vuetify.VMenu(
                                     v_model=("model_settings_open", False),
                                     close_on_content_click=False,
-                                    min_width="320",
+                                    width="360",
+                                    min_width="360",
                                 ):
-                                    with vuetify.Template(
-                                        v_slot_activator="{ props }"
-                                    ):
+                                    with vuetify.Template(v_slot_activator="{ props }"):
                                         with vuetify.VBtn(
                                             v_bind="props",
                                             icon=True,
@@ -320,9 +309,7 @@ def build_content(layout: Any, app: Any) -> None:
                                                 error=("!api_token", False),
                                                 v_show="use_cloud_models",
                                             )
-                                            with html.Div(
-                                                v_show="!use_cloud_models"
-                                            ):
+                                            with html.Div(v_show="!use_cloud_models"):
                                                 vuetify.VTextField(
                                                     label="Base URL",
                                                     v_model="local_base_url",
@@ -357,8 +344,7 @@ def build_content(layout: Any, app: Any) -> None:
                                             )
                                             with html.Div(
                                                 classes=(
-                                                    "d-flex align-center"
-                                                    " justify-space-between"
+                                                    "d-flex align-center" " justify-space-between"
                                                 )
                                             ):
                                                 html.Span(
@@ -367,10 +353,7 @@ def build_content(layout: Any, app: Any) -> None:
                                                 )
                                                 html.Span(
                                                     "{{ temperature }}",
-                                                    classes=(
-                                                        "text-body-2"
-                                                        " text-medium-emphasis"
-                                                    ),
+                                                    classes=("text-body-2" " text-medium-emphasis"),
                                                 )
                                             vuetify.VSlider(
                                                 v_model="temperature",
@@ -380,9 +363,7 @@ def build_content(layout: Any, app: Any) -> None:
                                                 color="primary",
                                                 hide_details=True,
                                                 density="compact",
-                                                disabled=(
-                                                    "!temperature_supported",
-                                                ),
+                                                disabled=("!temperature_supported",),
                                                 classes="mb-3",
                                             )
                                             vuetify.VTextField(
@@ -576,9 +557,7 @@ def build_content(layout: Any, app: Any) -> None:
                         ):
                             html.Div(
                                 "Your conversation will appear here...",
-                                v_show=(
-                                    "conversation_navigation.length === 0 && !is_loading"
-                                ),
+                                v_show=("conversation_navigation.length === 0 && !is_loading"),
                                 classes="text-medium-emphasis text-body-2",
                             )
                             with html.Div(
