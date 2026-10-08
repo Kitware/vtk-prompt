@@ -292,7 +292,10 @@ async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> No
         success, exec_error = execute_with_renderer(app, app.state.generated_code)
 
         # If execution failed and vtk-mcp is configured, retry with the error fed back
-        if not success and exec_error and getattr(app.state, "mcp_url", "").strip():
+        mcp_configured = getattr(app.state, "mcp_url", "").strip() or getattr(
+            app.state, "mcp_embedded", False
+        )
+        if not success and exec_error and mcp_configured:
             logger.debug("Execution error, retrying with vtk-mcp: %s", exec_error)
             app.state.error_message = ""
             retry_messages = list(app.state.conversation or [])

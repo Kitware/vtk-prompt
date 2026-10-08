@@ -18,6 +18,7 @@ from trame.widgets import vuetify3 as vuetify
 
 _LABEL = "text-overline text-medium-emphasis d-block mb-1"
 _DESC = "text-caption text-medium-emphasis d-block mb-3"
+_NO_MCP = "!mcp_url && !mcp_embedded"  # JS expr: no vtk-mcp server available
 
 
 def _section(title: str) -> None:
@@ -97,7 +98,10 @@ def _advanced_tab() -> None:
             vuetify.VTextField(
                 label="Server URL",
                 v_model=("mcp_url", ""),
-                placeholder="http://localhost:8000",
+                placeholder=(
+                    "mcp_embedded ? 'Embedded vtk-mcp (stdio)' : 'http://localhost:8000'",
+                ),
+                disabled=("mcp_embedded",),
                 clearable=True,
                 density="compact",
                 variant="outlined",
@@ -110,7 +114,10 @@ def _advanced_tab() -> None:
                     "mcp_status === 'ok' ? 'success' : "
                     "mcp_status === 'error' ? 'error' : undefined",
                 ),
-                hint="Leave blank for baseline generation without tools",
+                hint=(
+                    "mcp_embedded ? 'Using the embedded vtk-mcp server (stdio)' : "
+                    "'Leave blank for baseline generation without tools'",
+                ),
                 persistent_hint=True,
                 classes="mb-3",
             )
@@ -122,7 +129,7 @@ def _advanced_tab() -> None:
                 max=15,
                 density="compact",
                 variant="outlined",
-                disabled=("!mcp_url",),
+                disabled=(_NO_MCP,),
                 hint="Context snippets retrieved per request",
                 persistent_hint=True,
                 classes="mb-3",
@@ -132,7 +139,7 @@ def _advanced_tab() -> None:
                 v_model=("dsl_translation", True),
                 density="compact",
                 color="primary",
-                disabled=("!mcp_url",),
+                disabled=(_NO_MCP,),
                 hide_details="auto",
                 hint="Convert natural language prompts to the VTK "
                 "pipeline DSL before code generation",
@@ -143,7 +150,7 @@ def _advanced_tab() -> None:
                 v_model=("log_tool_calls", False),
                 density="compact",
                 color="primary",
-                disabled=("!mcp_url",),
+                disabled=(_NO_MCP,),
                 hide_details=True,
                 classes="mt-2",
             )
@@ -152,7 +159,7 @@ def _advanced_tab() -> None:
                 v_model=("agentic_retrieval", False),
                 density="compact",
                 color="primary",
-                disabled=("!mcp_url",),
+                disabled=(_NO_MCP,),
                 hide_details=True,
             )
 

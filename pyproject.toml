@@ -77,6 +77,18 @@ type-minimal = [
     "importlib_resources>=5.0.0",
 ]
 
+# Embedded vtk-mcp support (see --embed-mcp). vtk-mcp and its retrieval
+# backend aren't on PyPI, so these are installed straight from GitHub. This
+# extra is intentionally excluded from `all`: it is a heavy, opt-in pull
+# (torch, qdrant-client, litellm, ...) and requires git/network access to
+# resolve, unlike every other extra here.
+bundle-mcp = [
+    "vtk-knowledge @ git+https://github.com/vicentebolea/vtk-knowledge",
+    "vtk-validate[translate] @ git+https://github.com/vicentebolea/vtk-validate",
+    "vtk-index @ git+https://github.com/vicentebolea/vtk-index",
+    "vtk-mcp[retrieval] @ git+https://github.com/Kitware/vtk-mcp",
+]
+
 # All optional dependencies
 all = [
     "vtk-prompt[dev,test]",

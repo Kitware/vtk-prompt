@@ -18,7 +18,7 @@ Example:
 
 import asyncio
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import vtk
 from trame.app import TrameApp
@@ -29,6 +29,7 @@ from vtkmodules.vtkInteractionStyle import vtkInteractorStyleSwitch  # noqa
 
 from . import get_logger
 from .controllers import configuration, conversation, generation, sessions
+from .mcp_launcher import embedded_mcp_server
 from .rendering import (
     add_default_scene,
     setup_vtk_renderer,
@@ -42,7 +43,12 @@ from .ui.layout import (
 )
 from .utils import file_handlers, prompt_loader
 
+if TYPE_CHECKING:
+    from .vtk_mcp_client import VTKMCPClient
+
 logger = get_logger(__name__)
+
+_VALUE_FLAGS = ("--prompt-file", "--mcp-knowledge-artifact", "--mcp-vtk-version")
 
 # Chrome surfaces a benign "ResizeObserver loop completed with undelivered
 # notifications" message whenever a ResizeObserver callback (the render view or
@@ -107,6 +113,26 @@ class VTKPromptApp(TrameApp):
             dest="prompt_file",
         )
 
+        # Registered so wslink's arg parser accepts it; main() reads it from
+        # sys.argv directly (same pattern as --debug) since it must be known
+        # before the embedded vtk-mcp server is started, ahead of app creation.
+        self.server.cli.add_argument(
+            "--embed-mcp",
+            action="store_true",
+            help="Launch a local vtk-mcp server automatically (requires vtk-prompt[bundle-mcp])",
+            dest="embed_mcp",
+        )
+        self.server.cli.add_argument(
+            "--mcp-knowledge-artifact",
+            help="Path to a local vtk-knowledge JSONL artifact for --embed-mcp",
+            dest="mcp_knowledge_artifact",
+        )
+        self.server.cli.add_argument(
+            "--mcp-vtk-version",
+            help="VTK version for --embed-mcp to fetch when no local artifact is given",
+            dest="mcp_vtk_version",
+        )
+
         # Make sure JS is loaded
         file_handlers.load_js(self.server)
 
@@ -118,6 +144,9 @@ class VTKPromptApp(TrameApp):
         self._conversation_loading = False
         self._snapshot_task: asyncio.Task | None = None
         self._mcp_check_task: asyncio.Task | None = None
+        # Set by main() before app.start() when launched with --embed-mcp; a
+        # live stdio-connected VTKMCPClient, not JSON-serializable trame state.
+        self.embedded_mcp_client: "VTKMCPClient | None" = None
         add_default_scene(self.renderer)
 
         # Expose the live renderer/render_window to editor completion + hover, so
@@ -125,9 +154,7 @@ class VTKPromptApp(TrameApp):
         # (same names the generated code's exec scope sees).
         from .completion import register_runtime_objects, warm_up
 
-        register_runtime_objects(
-            renderer=self.renderer, render_window=self.render_window
-        )
+        register_runtime_objects(renderer=self.renderer, render_window=self.render_window)
         # Prime jedi's vtk analysis in the background so the first editor
         # completion is fast and Monaco does not time out and close the popup.
         warm_up()
@@ -609,13 +636,13 @@ def main() -> None:
     print("For local Ollama, use custom base URL and model configuration.")
 
     # Check for custom prompt file in CLI arguments
-    custom_prompt_file = None
 
-    # Extract --prompt-file before Trame processes args
+    # Extract --prompt-file and the --embed-mcp options before Trame processes args
+    argv_values: dict[str, str] = {}
     for i, arg in enumerate(sys.argv):
-        if arg == "--prompt-file" and i + 1 < len(sys.argv):
-            custom_prompt_file = sys.argv[i + 1]
-            break
+        if arg in _VALUE_FLAGS and i + 1 < len(sys.argv):
+            argv_values[arg] = sys.argv[i + 1]
+    custom_prompt_file = argv_values.get("--prompt-file")
 
     # Fall back to an auto-discovered default config when not given explicitly
     if custom_prompt_file is None:
@@ -626,10 +653,25 @@ def main() -> None:
     # wslink already defines --debug (its own debug logging); reuse it here to
     # also dump the LLM conversation instead of registering a conflicting flag.
     debug = "--debug" in sys.argv
+    embed_mcp = "--embed-mcp" in sys.argv
 
     # Create and start the app
-    app = VTKPromptApp(custom_prompt_file=custom_prompt_file, debug=debug)
-    app.start()
+    if embed_mcp:
+        try:
+            with embedded_mcp_server(
+                knowledge_artifact=argv_values.get("--mcp-knowledge-artifact"),
+                vtk_version=argv_values.get("--mcp-vtk-version"),
+            ) as mcp_client:
+                app = VTKPromptApp(custom_prompt_file=custom_prompt_file, debug=debug)
+                app.embedded_mcp_client = mcp_client
+                app.state.mcp_embedded = True
+                app.start()
+        except RuntimeError as e:
+            logger.error("Error: %s", e)
+            sys.exit(4)
+    else:
+        app = VTKPromptApp(custom_prompt_file=custom_prompt_file, debug=debug)
+        app.start()
 
 
 if __name__ == "__main__":
