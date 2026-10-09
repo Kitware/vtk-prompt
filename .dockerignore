@@ -1,0 +1,41 @@
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/*.so
+**/build/
+**/dist/
+**/*.egg-info/
+
+# Virtual environments
+**/.venv/
+**/venv/
+**/env/
+**/ENV/
+
+# Testing
+**/.pytest_cache/
+**/.coverage
+**/htmlcov/
+**/.tox/
+**/.ruff_cache/
+
+# IDE
+**/.vscode/
+**/.idea/
+**/*.swp
+
+# Git
+**/.git/
+**/.gitignore
+
+# CI/CD
+**/.github/
+
+# Local development
+**/.env
+**/*.log
+**/tmp/
+
+# OS
+**/.DS_Store

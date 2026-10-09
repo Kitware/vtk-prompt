@@ -1,0 +1,5 @@
+# Default settings for the vtk-prompt service in docker-compose.yml
+# (selected through VTK_PROMPT_CONFIG): use the vtk-mcp service. The UI
+# rewrites this file inside the container when settings are saved.
+model: anthropic/claude-sonnet-5
+mcp_url: http://vtk-mcp:8000
