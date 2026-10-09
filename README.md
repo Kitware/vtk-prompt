@@ -119,6 +119,18 @@ vtk-prompt "Create a blue cube" --provider openai --model gpt-4.1 -t $OPENAI_API
 vtk-prompt "Create a cylinder" --provider nim --model meta/llama-3.3-70b-instruct -t $NIM_KEY
 ```
 
+### Docker Compose
+
+`docker-compose.yml` runs the pre-built vtk-mcp image together with the
+vtk-prompt web UI, already pointed at each other:
+
+```bash
+export ANTHROPIC_API_KEY=...   # or OPENAI_API_KEY
+docker compose up --build      # UI at http://localhost:8080
+```
+
+A `ghcr.io/kitware/vtk-prompt` image is also built from every commit on master.
+
 ### vtk-mcp Integration
 
 Context-enhanced generation is powered by [vtk-mcp](https://github.com/Kitware/vtk-mcp), a local
