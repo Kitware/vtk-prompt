@@ -1,0 +1,50 @@
+# vtk-mcp server + vtk-prompt web UI.
+#
+#   export ANTHROPIC_API_KEY=...   # or OPENAI_API_KEY
+#   docker compose up --build
+#   # then open http://localhost:8080
+#
+# The vtk-mcp service is the pre-built Kitware image (VTK knowledge and
+# embeddings are baked in), served over HTTP.
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  vtk-mcp:
+    image: ghcr.io/kitware/vtk-mcp:latest
+    environment:
+      VTK_MCP_TRANSPORT: http
+      VTK_MCP_HTTP_PORT: "8000"
+      VTK_MCP_ENABLE_RETRIEVAL: "true"
+      # Uncomment to retrieve from the qdrant service. It starts empty, so
+      # index it with vtk-index first; otherwise retrieval returns nothing.
+      # Left unset, vtk-mcp uses the embedded storage baked into its image.
+      # VTK_MCP_QDRANT_URL: http://qdrant:6333
+      # litellm, used by the DSL translation tool, reads the key from here
+      ANTHROPIC_API_KEY:
+      OPENAI_API_KEY:
+    ports:
+      - "8000:8000"
+    depends_on:
+      - qdrant
+
+  vtk-prompt:
+    build:
+      context: .
+      dockerfile: scripts/vtk-prompt.Dockerfile
+    image: ghcr.io/kitware/vtk-prompt:latest
+    environment:
+      VTK_PROMPT_CONFIG: /app/scripts/vtk-prompt-compose.yml
+      ANTHROPIC_API_KEY:
+      OPENAI_API_KEY:
+    ports:
+      - "8080:8080"
+    depends_on:
+      - vtk-mcp
+
+volumes:
+  qdrant_data:
