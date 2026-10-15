@@ -28,5 +28,4 @@ COPY . /app/
 RUN pip install -e .
 
 EXPOSE 8080
-ENTRYPOINT ["vtk-prompt-ui"]
-CMD ["--host", "0.0.0.0", "--port", "8080", "--server"]
+ENTRYPOINT ["/app/scripts/vtk-prompt-entrypoint.sh"]

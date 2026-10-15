@@ -2,6 +2,7 @@
 #
 #   export ANTHROPIC_API_KEY=...   # or OPENAI_API_KEY
 #   docker compose up --build
+#   # with Google sign-in: see docker-compose.auth.yml
 #   # then open http://localhost:8080
 #
 # The vtk-mcp service is the pre-built Kitware image (VTK knowledge and
@@ -37,6 +38,7 @@ services:
       context: .
       dockerfile: scripts/vtk-prompt.Dockerfile
     image: ghcr.io/kitware/vtk-prompt/vtk-prompt:latest
+    restart: unless-stopped
     environment:
       VTK_PROMPT_CONFIG: /app/scripts/vtk-prompt-compose.yml
       ANTHROPIC_API_KEY:

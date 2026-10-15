@@ -98,7 +98,9 @@ def _advanced_tab() -> None:
                 label="Server URL",
                 v_model=("mcp_url", ""),
                 placeholder="http://localhost:8000",
-                clearable=True,
+                readonly=("mcp_locked",),
+                prepend_inner_icon=("mcp_locked ? 'mdi-lock' : ''",),
+                clearable=("!mcp_locked",),
                 density="compact",
                 variant="outlined",
                 append_inner_icon=(
@@ -110,7 +112,10 @@ def _advanced_tab() -> None:
                     "mcp_status === 'ok' ? 'success' : "
                     "mcp_status === 'error' ? 'error' : undefined",
                 ),
-                hint="Leave blank for baseline generation without tools",
+                hint=(
+                    "mcp_locked ? 'Set by your administrator and cannot be changed' : "
+                    "'Leave blank for baseline generation without tools'",
+                ),
                 persistent_hint=True,
                 classes="mb-3",
             )

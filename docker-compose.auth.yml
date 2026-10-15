@@ -1,0 +1,23 @@
+# Adds Google sign-in, with one data folder per user, to docker-compose.yml:
+#
+#   cp .env.example .env   # then fill in the Google OAuth client
+#   docker compose -f docker-compose.yml -f docker-compose.auth.yml up --build
+#
+# The Google OAuth client needs the redirect URI <public url>/auth/callback,
+# for example http://localhost:8080/auth/callback.
+services:
+  vtk-prompt:
+    environment:
+      VTK_PROMPT_AUTH: "true"
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID (see .env.example)}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?set GOOGLE_CLIENT_SECRET (see .env.example)}
+      # Signs the login cookie; without a fixed value everyone is logged out on restart.
+      VTK_PROMPT_SECRET_KEY: ${VTK_PROMPT_SECRET_KEY:?set VTK_PROMPT_SECRET_KEY (see .env.example)}
+      # Public URL, when behind a proxy or TLS (used for the redirect URI).
+      VTK_PROMPT_BASE_URL: ${VTK_PROMPT_BASE_URL:-}
+      VTK_PROMPT_USERS_DIR: /data/users
+    volumes:
+      - users_data:/data/users
+
+volumes:
+  users_data:

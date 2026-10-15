@@ -17,6 +17,7 @@ Example:
 """
 
 import asyncio
+import os
 import sys
 from typing import Any
 
@@ -41,6 +42,7 @@ from .ui.layout import (
     build_toolbar,
 )
 from .utils import file_handlers, prompt_loader
+from .utils.env_config import MCP_URL_ENV_VAR
 
 logger = get_logger(__name__)
 
@@ -82,6 +84,7 @@ class VTKPromptApp(TrameApp):
         server: Any | None = None,
         custom_prompt_file: str | None = None,
         debug: bool = False,
+        mcp_url: str | None = None,
     ) -> None:
         """Initialize VTK Prompt application.
 
@@ -91,6 +94,9 @@ class VTKPromptApp(TrameApp):
             debug: Dump the full LLM conversation (context and vtk-mcp tool
                 calls included) to stdout on every generation. Reuses wslink's
                 existing --debug flag rather than defining a new one.
+            mcp_url: vtk-mcp server set by the administrator (falls back to
+                $VTK_PROMPT_MCP_URL). When set it is shown in the settings
+                dialog but cannot be changed by the user.
         """
         super().__init__(server=server, client_type="vue3")
         self.state.trame__title = "VTK Prompt"
@@ -99,12 +105,19 @@ class VTKPromptApp(TrameApp):
         self.custom_prompt_file = custom_prompt_file
         self.custom_prompt_data = None
         self.debug = debug
+        self.admin_mcp_url = (mcp_url or os.environ.get(MCP_URL_ENV_VAR) or "").strip()
 
         # Add CLI argument for custom prompt file
         self.server.cli.add_argument(
             "--prompt-file",
             help="Path to custom YAML prompt file (overrides built-in prompts and defaults)",
             dest="prompt_file",
+        )
+
+        self.server.cli.add_argument(
+            "--mcp-url",
+            help="vtk-mcp server URL, fixed for all users (settings dialog shows it read-only)",
+            dest="mcp_url",
         )
 
         # Make sure JS is loaded
@@ -142,6 +155,11 @@ class VTKPromptApp(TrameApp):
         # Load custom prompt file after VTK initialization
         if custom_prompt_file:
             self._load_custom_prompt_file()
+
+        # The administrator's vtk-mcp server wins over any config file value.
+        if self.admin_mcp_url:
+            self.state.mcp_url = self.admin_mcp_url
+            self.state.mcp_locked = True
 
     def _load_custom_prompt_file(self) -> None:
         """Load custom YAML prompt file and extract model parameters."""
@@ -532,6 +550,11 @@ class VTKPromptApp(TrameApp):
     @change("mcp_url")
     def _on_mcp_url_change(self, **_: Any) -> None:
         """Debounce-check vtk-mcp server reachability after a typing pause."""
+        # The field is read-only in the UI, but state can also be set by a
+        # loaded config file or a crafted client message.
+        if self.admin_mcp_url and self.state.mcp_url != self.admin_mcp_url:
+            self.state.mcp_url = self.admin_mcp_url
+            return
         if self._mcp_check_task is not None and not self._mcp_check_task.done():
             self._mcp_check_task.cancel()
         try:
@@ -610,12 +633,14 @@ def main() -> None:
 
     # Check for custom prompt file in CLI arguments
     custom_prompt_file = None
+    mcp_url = None
 
-    # Extract --prompt-file before Trame processes args
+    # Extract --prompt-file and --mcp-url before Trame processes args
     for i, arg in enumerate(sys.argv):
         if arg == "--prompt-file" and i + 1 < len(sys.argv):
             custom_prompt_file = sys.argv[i + 1]
-            break
+        elif arg == "--mcp-url" and i + 1 < len(sys.argv):
+            mcp_url = sys.argv[i + 1]
 
     # Fall back to an auto-discovered default config when not given explicitly
     if custom_prompt_file is None:
@@ -628,7 +653,7 @@ def main() -> None:
     debug = "--debug" in sys.argv
 
     # Create and start the app
-    app = VTKPromptApp(custom_prompt_file=custom_prompt_file, debug=debug)
+    app = VTKPromptApp(custom_prompt_file=custom_prompt_file, debug=debug, mcp_url=mcp_url)
     app.start()
 
 

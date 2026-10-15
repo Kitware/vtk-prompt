@@ -64,6 +64,8 @@ def persist_global_settings(app: Any) -> None:
         for key in _GLOBAL_SETTING_KEYS:
             if not hasattr(app.state, key):
                 continue
+            if key == "mcp_url" and getattr(app.state, "mcp_locked", False):
+                continue  # set by the administrator, not by this user
             value = getattr(app.state, key)
             if key == "top_k":
                 value = int(value)

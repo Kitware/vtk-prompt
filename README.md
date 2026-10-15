@@ -121,15 +121,77 @@ vtk-prompt "Create a cylinder" --provider nim --model meta/llama-3.3-70b-instruc
 
 ### Docker Compose
 
-`docker-compose.yml` runs the pre-built vtk-mcp image together with the
-vtk-prompt web UI, already pointed at each other:
+The compose files run the vtk-prompt web UI (port 8080) and, optionally, a vtk-mcp server.
+Pick the case that matches your setup; every command runs from the repo root and puts the
+UI at http://localhost:8080. Set your LLM key first (`ANTHROPIC_API_KEY` or
+`OPENAI_API_KEY`, in your shell or in `.env`, see `.env.example`).
 
-```bash
-export ANTHROPIC_API_KEY=...   # or OPENAI_API_KEY
-docker compose up --build      # UI at http://localhost:8080
-```
+| Case | Command |
+| --- | --- |
+| 1. UI + bundled vtk-mcp, no sign-in | `docker compose up --build` |
+| 2. UI + bundled vtk-mcp, Google sign-in | `docker compose -f docker-compose.yml -f docker-compose.auth.yml up --build` |
+| 3. UI + your own vtk-mcp, no sign-in | `docker compose -f docker-compose.yml -f docker-compose.external-mcp.yml up --build --no-deps vtk-prompt` |
+| 4. UI + your own vtk-mcp, Google sign-in | `docker compose -f docker-compose.yml -f docker-compose.auth.yml -f docker-compose.external-mcp.yml up --build --no-deps vtk-prompt` |
 
-A `ghcr.io/kitware/vtk-prompt/vtk-prompt` image is also built from every commit on master.
+Add `-d` to run in the background. To stop, run the same command with `down` instead of
+`up ...` (add `-v` only if you also want to delete the saved data volumes). The service
+restarts automatically if it exits.
+
+- `--no-deps vtk-prompt` (cases 3 and 4) starts only the UI. Without it compose also starts
+  the bundled vtk-mcp and Qdrant, which fails if your own vtk-mcp already uses port 8000.
+- With Podman, `podman compose` rejects `-f` on older versions; set the files in
+  `COMPOSE_FILE` instead, for example
+  `COMPOSE_FILE=docker-compose.yml:docker-compose.auth.yml podman compose up --build`.
+- A `ghcr.io/kitware/vtk-prompt/vtk-prompt` image is also built from every commit on master.
+
+#### Using your own vtk-mcp (cases 3 and 4)
+
+Set `VTK_PROMPT_MCP_URL` to your server (HTTP transport; the container must be able to reach
+it), in your shell or in `.env`. Compose stops with a message if it is missing.
+
+The URL is fixed for everyone: the settings dialog shows it prefilled, read-only and marked
+as set by the administrator, and it overrides any `mcp_url` in a user's config file. The same
+lock works outside Docker: set `VTK_PROMPT_MCP_URL`, or pass `--mcp-url` to `vtk-prompt-ui`
+or `vtk-prompt-gateway`. Without it, each user types their own URL in the settings.
+
+#### Google sign-in (cases 2 and 4)
+
+Sign-in is off unless you add `docker-compose.auth.yml`. Any Google account can sign in
+(or only your organization, see below). Each user gets a folder
+`<users dir>/<google id>/` (`/data/users`, a volume) holding their settings and
+conversations, and runs in their own `vtk-prompt-ui` process, so users never see each
+other's data. It needs three values in `.env` (copy `.env.example`); compose stops with a
+message if one is missing:
+
+1. **`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`**, from the
+   [Google Cloud Console](https://console.cloud.google.com):
+   - Create or pick a project.
+   - APIs & Services > OAuth consent screen: choose External, or Internal to allow only
+     your Google Workspace organization (no test users or verification needed), and set an
+     app name and support email. With External in Testing mode, add the accounts that may
+     sign in as test users.
+   - APIs & Services > Credentials > Create credentials > OAuth client ID, type
+     "Web application", with the authorized redirect URI `<public url>/auth/callback`.
+   - Copy the client ID and secret shown.
+2. **`VTK_PROMPT_SECRET_KEY`**, which signs the login cookie. It does not come from Google;
+   generate it with `openssl rand -hex 32`.
+3. **`VTK_PROMPT_BASE_URL`**, the public URL, only when the site is not opened at
+   `http://localhost:8080`.
+
+Google only accepts redirect URIs on `http://localhost` or on `https://` with a real domain
+name (not a bare hostname such as `http://myserver:8080`, and not an IP address); otherwise
+sign-in fails with `Error 400: invalid_request`. So:
+
+- **Just you, or testing:** open `http://localhost:8080` (from another machine, with
+  `ssh -L 8080:localhost:8080 <server>`) and register
+  `http://localhost:8080/auth/callback`.
+- **Other users:** serve the UI under a domain such as `prompt.example.com` behind an HTTPS
+  proxy, set `VTK_PROMPT_BASE_URL=https://prompt.example.com` and register
+  `https://prompt.example.com/auth/callback`.
+
+Outside Docker, run `vtk-prompt-gateway --port 8080` instead of `vtk-prompt-ui` with the
+same environment variables (`VTK_PROMPT_USERS_DIR` sets the parent folder). Per-user
+processes are not stopped while idle.
 
 ### vtk-mcp Integration
 

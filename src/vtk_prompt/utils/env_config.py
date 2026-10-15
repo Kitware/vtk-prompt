@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 CONFIG_ENV_VAR = "VTK_PROMPT_CONFIG"
+MCP_URL_ENV_VAR = "VTK_PROMPT_MCP_URL"
 APP_DIR_NAME = "vtk-prompt"
 
 

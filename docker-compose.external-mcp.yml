@@ -1,0 +1,12 @@
+# Use a vtk-mcp server you deployed yourself instead of the bundled one.
+#
+#   export VTK_PROMPT_MCP_URL=https://mcp.example.com   # or set it in .env
+#   docker compose -f docker-compose.yml [-f docker-compose.auth.yml] \
+#       -f docker-compose.external-mcp.yml up --build --no-deps vtk-prompt
+#
+# --no-deps skips the bundled vtk-mcp and qdrant services. The URL is shown in
+# every user's settings dialog, read-only, as set by the administrator.
+services:
+  vtk-prompt:
+    environment:
+      VTK_PROMPT_MCP_URL: ${VTK_PROMPT_MCP_URL:?set VTK_PROMPT_MCP_URL (see .env.example)}
