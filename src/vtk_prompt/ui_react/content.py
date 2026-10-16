@@ -26,8 +26,8 @@ EDITOR_OPTIONS = {
 }
 
 PANEL = {
-    "background": "var(--vp-surface)",
-    "border": "1px solid var(--vp-line)",
+    "background": "var(--mui-palette-background-paper)",
+    "border": "1px solid var(--mui-palette-divider)",
     "borderRadius": "6px",
     "display": "flex",
     "flexDirection": "column",
@@ -40,7 +40,7 @@ BAR = {
     "alignItems": "center",
     "gap": "4px",
     "padding": "6px 8px",
-    "borderBottom": "1px solid var(--vp-line)",
+    "borderBottom": "1px solid var(--mui-palette-divider)",
     "flex": "0 0 auto",
 }
 
@@ -124,7 +124,11 @@ def _editor_panel(app: Any) -> None:
             with react.If("is_loading"):
                 html.Span(
                     "generating\u2026",
-                    style={"fontSize": "0.78rem", "color": "var(--vp-muted)", "marginLeft": "8px"},
+                    style={
+                        "fontSize": "0.78rem",
+                        "color": "var(--mui-palette-text-secondary)",
+                        "marginLeft": "8px",
+                    },
                 )
             html.Div(
                 style={
@@ -183,7 +187,7 @@ def _prompt_panel(app: Any) -> None:
                     "gap": "10px",
                     "padding": "10px 12px",
                     "background": "#E3F2F4",
-                    "borderBottom": "1px solid var(--vp-line)",
+                    "borderBottom": "1px solid var(--mui-palette-divider)",
                 }
             ):
                 mui.CircularProgress(size=18)
@@ -234,7 +238,7 @@ def _render_panel(app: Any) -> None:
                     B("`Tokens: In ${input_tokens} | Out ${output_tokens}`"),
                     style={
                         "fontSize": "0.72rem",
-                        "color": "var(--vp-muted)",
+                        "color": "var(--mui-palette-text-secondary)",
                         "marginRight": "6px",
                     },
                 )
@@ -266,7 +270,7 @@ def _transcript_panel(app: Any) -> None:
             style={
                 "display": "flex",
                 "alignItems": "center",
-                "borderBottom": "1px solid var(--vp-line)",
+                "borderBottom": "1px solid var(--mui-palette-divider)",
                 "paddingRight": "8px",
             }
         ):
@@ -304,7 +308,7 @@ def _transcript_panel(app: Any) -> None:
                 with react.If("conversation_navigation.length === 0"):
                     html.Div(
                         "No prompts yet.",
-                        style={"color": "var(--vp-muted)", "fontSize": "0.8rem"},
+                        style={"color": "var(--mui-palette-text-secondary)", "fontSize": "0.8rem"},
                     )
                 with react.For(items="conversation_navigation", name="turn"):
                     with html.Div(
@@ -386,7 +390,7 @@ def _transcript_panel(app: Any) -> None:
                 with react.If("console_lines.length === 0"):
                     html.Div(
                         "No output yet.",
-                        style={"color": "var(--vp-muted)", "fontSize": "0.75rem"},
+                        style={"color": "var(--mui-palette-text-secondary)", "fontSize": "0.75rem"},
                     )
                 with react.If("console_lines.length > 0"):
                     with html.Div(style={"display": "flex", "justifyContent": "flex-end"}):

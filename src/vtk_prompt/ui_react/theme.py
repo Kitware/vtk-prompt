@@ -24,16 +24,20 @@ FONTS = (
 ICON_FONT = "https://fonts.googleapis.com/icon?family=Material+Icons"
 
 THEME = {
+    # cssVariables exposes --mui-palette-*, which styleOverrides can reference
+    # as plain strings; the theme crosses from Python as a dict, so MUI's
+    # ({theme}) => ({...}) override form is not available.
+    #
+    # colorSchemes is deliberately not used: MUI emits its dark values behind a
+    # data-mui-color-scheme selector that trame's ThemeProvider mode prop does
+    # not set, so the light scheme would win and dark mode would not switch.
+    "cssVariables": True,
     "palette": {
-        "mode": "light",
         "primary": {"main": ACCENT},
         "secondary": {"main": "#6E56CF"},
         "success": {"main": "#1F883D"},
         "error": {"main": "#C4314B"},
         "warning": {"main": "#B35900"},
-        "background": {"default": CANVAS, "paper": SURFACE},
-        "text": {"primary": INK, "secondary": MUTED},
-        "divider": LINE,
     },
     "typography": {
         "fontFamily": SANS,
@@ -44,7 +48,7 @@ THEME = {
     "components": {
         "MuiButton": {"defaultProps": {"disableElevation": True}},
         "MuiButtonGroup": {"defaultProps": {"disableElevation": True}},
-        "MuiPaper": {"styleOverrides": {"outlined": {"borderColor": LINE}}},
+        "MuiPaper": {"styleOverrides": {"outlined": {"borderColor": "var(--mui-palette-divider)"}}},
         "MuiChip": {
             "styleOverrides": {
                 "root": {"borderRadius": "6px", "fontWeight": 500},
@@ -53,21 +57,15 @@ THEME = {
         },
         "MuiOutlinedInput": {
             "styleOverrides": {
-                "root": {"backgroundColor": SURFACE},
-                "notchedOutline": {"borderColor": LINE},
+                "root": {"backgroundColor": "var(--mui-palette-background-paper)"},
+                "notchedOutline": {"borderColor": "var(--mui-palette-divider)"},
             }
         },
         "MuiListItemButton": {
             "styleOverrides": {
                 "root": {
                     "borderRadius": "6px",
-                    "&.Mui-selected": {
-                        "backgroundColor": "var(--vp-selected)",
-                        "color": "var(--vp-ink)",
-                    },
-                    "&.Mui-selected:hover": {
-                        "backgroundColor": "var(--vp-selected-hover)",
-                    },
+                    "&.Mui-selected": {"backgroundColor": "var(--mui-palette-action-selected)"},
                 }
             }
         },

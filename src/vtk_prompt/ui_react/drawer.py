@@ -66,7 +66,11 @@ def _selection_bar(app: Any) -> None:
         ):
             html.Span(
                 B("`${selected_session_ids.length} selected`"),
-                style={"fontSize": "0.75rem", "color": "var(--vp-muted)", "marginRight": "4px"},
+                style={
+                    "fontSize": "0.75rem",
+                    "color": "var(--mui-palette-text-secondary)",
+                    "marginRight": "4px",
+                },
             )
             mui.Button(
                 "All",
@@ -300,7 +304,9 @@ def build_conversation_history(app: Any) -> None:
 
     _header(app)
     _selection_bar(app)
-    html.Hr(style={"border": "none", "borderTop": "1px solid var(--vp-line)", "margin": 0})
+    html.Hr(
+        style={"border": "none", "borderTop": "1px solid var(--mui-palette-divider)", "margin": 0}
+    )
     _list(app)
     _row_menu_popup(app)
     _dialogs(app)

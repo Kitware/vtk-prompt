@@ -8,19 +8,7 @@ from trame.widgets import html, mui, react
 from .content import build_content
 from .drawer import build_conversation_history
 from .settings import build_settings_dialog
-from .theme import (
-    CANVAS,
-    ERR,
-    FONTS,
-    ICON_FONT,
-    INK,
-    LINE,
-    MONO,
-    MUTED,
-    SURFACE,
-    THEME,
-    WARN,
-)
+from .theme import CANVAS, ERR, FONTS, ICON_FONT, MONO, THEME, WARN
 from .toolbar import build_toolbar
 
 DRAWER_WIDTH = 320
@@ -38,43 +26,39 @@ def build_ui(app: Any) -> None:
             styles=(
                 f"@import url('{FONTS}');"
                 f"@import url('{ICON_FONT}');"
-                ".vp-light {"
-                f" --vp-canvas: {CANVAS}; --vp-surface: {SURFACE};"
-                f" --vp-line: {LINE}; --vp-muted: {MUTED}; --vp-ink: {INK};"
-                " --vp-selected: #E3F2F4;"
-                " --vp-selected-hover: #D2E9ED; }"
-                ".vp-dark {"
-                " --vp-canvas: #11161F; --vp-surface: #182230;"
-                " --vp-line: #2A3647; --vp-muted: #93A0B4; --vp-ink: #E6EAF2;"
-                " --vp-selected: #0E3A42;"
-                " --vp-selected-hover: #124A54; }"
+                # The one brand deviation from the MUI palette: a tinted canvas
+                # in light mode so panels read as raised. Dark mode takes MUI's
+                # background.default, which already separates from paper.
+                f".vp-light-canvas {{ background: {CANVAS}; }}"
                 ".vp-console-out, .vp-console-err, .vp-console-warn,"
                 " .vp-console-run { margin: 0; white-space: pre;"
                 f" width: max-content; font-family: {MONO}; font-size: 12px; }}"
                 f".vp-console-err {{ color: {ERR}; }}"
                 f".vp-console-warn {{ color: {WARN}; }}"
-                ".vp-console-run { color: var(--vp-muted); font-weight: 500; }"
+                ".vp-console-run { color: var(--mui-palette-text-secondary);"
+                " font-weight: 500; }"
                 ".vp-turn { border-left: 3px solid transparent;"
                 " padding: 2px 0 2px 6px; margin-bottom: 6px; }"
-                ".vp-turn-active { border-left-color: var(--vp-accent, #0A7C8C); }"
+                ".vp-turn-active {"
+                " border-left-color: var(--mui-palette-primary-main); }"
                 ".vp-turn-prompt { font-size: 0.82rem; cursor: pointer;"
                 " padding: 2px 8px; }"
                 ".vp-turn-explanation { font-size: 0.8rem;"
-                " color: var(--vp-muted); white-space: pre-wrap;"
-                " padding: 0 8px 0 20px; }"
+                " color: var(--mui-palette-text-secondary);"
+                " white-space: pre-wrap; padding: 0 8px 0 20px; }"
                 ".vp-step-name { font-size: 0.72rem; font-weight: 500; }"
-                ".vp-step-result { font-size: 0.72rem; color: var(--vp-muted);"
+                ".vp-step-result { font-size: 0.72rem;"
+                " color: var(--mui-palette-text-secondary);"
                 " white-space: pre-wrap; margin-bottom: 6px; }"
             )
         )
         with html.Div(
-            classes=react.Bind("theme_mode === 'dark' ? 'vp-dark' : 'vp-light'"),
+            classes=react.Bind("theme_mode === 'light' ? 'vp-light-canvas' : ''"),
             style={
                 "display": "flex",
                 "flexDirection": "column",
                 "height": "100vh",
-                "background": "var(--vp-canvas)",
-                "color": "var(--vp-ink)",
+                "color": "var(--mui-palette-text-primary)",
             },
         ):
             build_toolbar(app)
@@ -90,8 +74,8 @@ def build_ui(app: Any) -> None:
                             "width": f"{DRAWER_WIDTH}px",
                             "flex": "0 0 auto",
                             "overflow": "hidden",
-                            "borderRight": "1px solid var(--vp-line)",
-                            "background": "var(--vp-surface)",
+                            "borderRight": "1px solid var(--mui-palette-divider)",
+                            "background": "var(--mui-palette-background-paper)",
                             "display": "flex",
                             "flexDirection": "column",
                             "minHeight": 0,
