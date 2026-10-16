@@ -7,7 +7,7 @@ from trame_rca.widgets import rca  # type: ignore[import-not-found]
 
 from ..ui.langs import PYTHON_TEXTMATE
 from .model_picker import build_model_picker
-from .theme import MONO, MUTED
+from .theme import MONO
 
 C = react.Callback
 B = react.Bind
@@ -344,7 +344,10 @@ def _transcript_panel(app: Any) -> None:
                                 ):
                                     html.Span(
                                         B("`Show work (${turn.trace.length})`"),
-                                        style={"fontSize": "0.72rem", "color": MUTED},
+                                        style={
+                                            "fontSize": "0.72rem",
+                                            "color": "var(--mui-palette-text-secondary)",
+                                        },
                                     )
                                 with mui.AccordionDetails(style={"padding": "0 8px 8px 20px"}):
                                     with react.For(items="turn.trace", name="step"):
@@ -374,7 +377,10 @@ def _transcript_panel(app: Any) -> None:
                             mui.CircularProgress(size=14)
                             html.Span(
                                 "thinking\u2026",
-                                style={"fontSize": "0.78rem", "color": MUTED},
+                                style={
+                                    "fontSize": "0.78rem",
+                                    "color": "var(--mui-palette-text-secondary)",
+                                },
                             )
 
         with react.If("info_tab === 'console'"):
