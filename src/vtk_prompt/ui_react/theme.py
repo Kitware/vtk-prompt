@@ -10,6 +10,8 @@ MUTED = "#5A6474"
 LINE = "#DCE1E8"
 ACCENT = "#0A7C8C"
 ACCENT_TINT = "#E3F2F4"
+ERR = "#C4314B"
+WARN = "#B35900"
 
 SANS = "'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif"
 MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"

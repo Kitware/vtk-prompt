@@ -60,7 +60,11 @@ def build_model_picker(app: Any) -> None:
                 mui.MenuItem(
                     [B("opt.label")],
                     key=B("opt.key"),
-                    on_click=C(app.ctrl.select_model, "[opt.key]"),
+                    on_click=C(
+                        app.ctrl.select_model,
+                        "[opt.key]",
+                        "{ model_menu_anchor: null }",
+                    ),
                 )
 
     with mui.Menu(
