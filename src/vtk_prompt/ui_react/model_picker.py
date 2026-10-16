@@ -4,8 +4,6 @@ from typing import Any
 
 from trame.widgets import html, mui, react
 
-from .theme import MUTED
-
 C = react.Callback
 B = react.Bind
 
@@ -13,7 +11,7 @@ LABEL = {
     "fontSize": "0.68rem",
     "letterSpacing": "0.06em",
     "textTransform": "uppercase",
-    "color": MUTED,
+    "color": "var(--mui-palette-text-secondary)",
     "marginBottom": "6px",
 }
 
@@ -123,7 +121,9 @@ def build_model_picker(app: Any) -> None:
                 }
             ):
                 html.Span("Temperature")
-                html.Span(B("String(temperature)"), style={"color": MUTED})
+                html.Span(
+                    B("String(temperature)"), style={"color": "var(--mui-palette-text-secondary)"}
+                )
             mui.Slider(
                 min=0,
                 max=1,

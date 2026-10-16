@@ -4,8 +4,6 @@ from typing import Any
 
 from trame.widgets import html, mui, react
 
-from .theme import MUTED
-
 C = react.Callback
 B = react.Bind
 
@@ -13,10 +11,10 @@ LABEL = {
     "fontSize": "0.68rem",
     "letterSpacing": "0.06em",
     "textTransform": "uppercase",
-    "color": MUTED,
+    "color": "var(--mui-palette-text-secondary)",
     "margin": "0 0 6px",
 }
-DESC = {"fontSize": "0.78rem", "color": MUTED, "marginBottom": "10px"}
+DESC = {"fontSize": "0.78rem", "color": "var(--mui-palette-text-secondary)", "marginBottom": "10px"}
 FIELD = {"marginBottom": "12px"}
 
 TABS = [("files", "Config"), ("data", "Data"), ("advanced", "Advanced")]
@@ -97,7 +95,7 @@ def _data_tab(app: Any) -> None:
             with react.If("uploaded_data_files.length === 0"):
                 html.Div(
                     "No files uploaded yet.",
-                    style={"fontSize": "0.78rem", "color": MUTED},
+                    style={"fontSize": "0.78rem", "color": "var(--mui-palette-text-secondary)"},
                 )
             with html.Div(style={"display": "flex", "flexWrap": "wrap", "gap": "4px"}):
                 with react.For(items="uploaded_data_files", name="f"):
