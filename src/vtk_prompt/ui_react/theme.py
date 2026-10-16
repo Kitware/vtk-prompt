@@ -61,7 +61,13 @@ THEME = {
             "styleOverrides": {
                 "root": {
                     "borderRadius": "6px",
-                    "&.Mui-selected": {"backgroundColor": ACCENT_TINT},
+                    "&.Mui-selected": {
+                        "backgroundColor": "var(--vp-selected)",
+                        "color": "var(--vp-ink)",
+                    },
+                    "&.Mui-selected:hover": {
+                        "backgroundColor": "var(--vp-selected-hover)",
+                    },
                 }
             }
         },
