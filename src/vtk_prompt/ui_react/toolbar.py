@@ -18,8 +18,8 @@ def build_toolbar(app: Any) -> None:
     """Title, drawer toggle and settings entry points."""
     with html.Header(
         style={
-            "background": "var(--vp-surface)",
-            "borderBottom": "1px solid var(--vp-line)",
+            "background": "var(--mui-palette-background-paper)",
+            "borderBottom": "1px solid var(--mui-palette-divider)",
             "display": "flex",
             "alignItems": "center",
             "gap": "10px",
@@ -39,14 +39,14 @@ def build_toolbar(app: Any) -> None:
             style={
                 "fontWeight": 600,
                 "fontSize": "1.05rem",
-                "color": "var(--vp-ink)",
+                "color": "var(--mui-palette-text-primary)",
                 "letterSpacing": "-0.01em",
             },
         )
         html.Span(
             react.Bind("(sessions_list.find((s) => s.active) || {}).title || ''"),
             style={
-                "color": "var(--vp-muted)",
+                "color": "var(--mui-palette-text-secondary)",
                 "fontSize": "0.8rem",
                 "maxWidth": "38vw",
                 "overflow": "hidden",
