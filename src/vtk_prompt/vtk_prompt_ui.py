@@ -79,6 +79,8 @@ _RESIZE_OBSERVER_SILENCER = """
 class VTKPromptApp(TrameApp):
     """VTK Prompt interactive application with 3D visualization and AI chat interface."""
 
+    CLIENT_TYPE = "vue3"
+
     def __init__(
         self,
         server: Any | None = None,
@@ -98,7 +100,7 @@ class VTKPromptApp(TrameApp):
                 $VTK_PROMPT_MCP_URL). When set it is shown in the settings
                 dialog but cannot be changed by the user.
         """
-        super().__init__(server=server, client_type="vue3")
+        super().__init__(server=server, client_type=self.CLIENT_TYPE)
         self.state.trame__title = "VTK Prompt"
 
         # Store custom prompt file path and data
@@ -138,9 +140,7 @@ class VTKPromptApp(TrameApp):
         # (same names the generated code's exec scope sees).
         from .completion import register_runtime_objects, warm_up
 
-        register_runtime_objects(
-            renderer=self.renderer, render_window=self.render_window
-        )
+        register_runtime_objects(renderer=self.renderer, render_window=self.render_window)
         # Prime jedi's vtk analysis in the background so the first editor
         # completion is fast and Monaco does not time out and close the popup.
         warm_up()
@@ -364,9 +364,7 @@ class VTKPromptApp(TrameApp):
         this conversation's edits onto the one just switched to.
         """
         if model_settings_open:
-            self._model_settings_session_id = (
-                getattr(self.state, "current_session_id", "") or ""
-            )
+            self._model_settings_session_id = getattr(self.state, "current_session_id", "") or ""
             return
         opened_for = getattr(self, "_model_settings_session_id", None)
         current = getattr(self.state, "current_session_id", "") or ""
@@ -619,8 +617,12 @@ class VTKPromptApp(TrameApp):
         self.server.start()
 
 
-def main() -> None:
-    """Start the trame app."""
+def run(app_class) -> None:
+    """Shared startup: .env files, config discovery, CLI flags.
+
+    Takes the app class so the vue and react entry points cannot drift on
+    which configuration gets loaded.
+    """
     from .utils.env_config import discover_config_file, load_dotenv_files
 
     # Load .env files (e.g. API tokens) before anything reads the environment
@@ -653,8 +655,13 @@ def main() -> None:
     debug = "--debug" in sys.argv
 
     # Create and start the app
-    app = VTKPromptApp(custom_prompt_file=custom_prompt_file, debug=debug, mcp_url=mcp_url)
+    app = app_class(custom_prompt_file=custom_prompt_file, debug=debug, mcp_url=mcp_url)
     app.start()
+
+
+def main() -> None:
+    """Start the trame app with the vue client."""
+    run(VTKPromptApp)
 
 
 if __name__ == "__main__":

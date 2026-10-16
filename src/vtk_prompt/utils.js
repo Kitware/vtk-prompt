@@ -52,4 +52,31 @@ window.trame.utils.vtk_prompt = {
     const text = await window.trame.trigger("save_config");
     if (text) this.download("vtk-prompt-config.yaml", text, "text/yaml");
   },
+
+  // The react client has no file-input widget that serializes File objects
+  // into state the way vuetify's VFileInput does, so the reading happens here
+  // and the result is handed to the same python handler.
+  async uploadFiles(fileList, triggerName) {
+    const files = await Promise.all(
+      Array.from(fileList || []).map(
+        (file) =>
+          new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () =>
+              resolve({
+                name: file.name,
+                size: file.size,
+                type: file.type || "application/json",
+                content: reader.result,
+              });
+            reader.onerror = () => resolve(null);
+            reader.readAsText(file);
+          }),
+      ),
+    );
+    const valid = files.filter(Boolean);
+    if (valid.length) {
+      await window.trame.trigger(triggerName, [valid]);
+    }
+  },
 };

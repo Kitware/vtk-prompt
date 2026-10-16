@@ -1,6 +1,7 @@
 src/vtk_prompt.egg-info/
 .git
 .venv/
+.venv-*/
 .env/
 .key
 # Byte-compiled / optimized / DLL files
