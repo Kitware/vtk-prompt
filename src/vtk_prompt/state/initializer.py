@@ -52,6 +52,10 @@ def initialize_state(app: Any) -> None:
     app.state.code_history_pos = -1
     app.state.is_loading = False
     app.state.mcp_url = ""
+    # Declared here rather than by a widget: the react client throws on an
+    # undefined state variable instead of rendering blank.
+    app.state.top_k = 5
+    app.state.auto_run_conversation_file = True
     app.state.mcp_locked = False  # True when the administrator fixed the server URL
     app.state.auth_enabled = os.environ.get("VTK_PROMPT_AUTH") == "true"  # behind the gateway
     app.state.log_tool_calls = False  # log vtk-mcp tool calls to the console
@@ -94,6 +98,7 @@ def initialize_state(app: Any) -> None:
     # action bar appears once anything is checked, so no explicit mode is needed.
     app.state.selected_session_ids = []
     app.state.bulk_delete_dialog = False
+    app.state.import_dialog = False
     app.state.rename_dialog = False
     app.state.rename_text = ""
     app.state.rename_target_id = ""
