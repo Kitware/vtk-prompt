@@ -7,7 +7,7 @@ from trame_rca.widgets import rca  # type: ignore[import-not-found]
 
 from ..ui.langs import PYTHON_TEXTMATE
 from .model_picker import build_model_picker
-from .theme import LINE, MONO, MUTED, SURFACE
+from .theme import MONO, MUTED
 
 C = react.Callback
 B = react.Bind
@@ -26,8 +26,8 @@ EDITOR_OPTIONS = {
 }
 
 PANEL = {
-    "background": SURFACE,
-    "border": f"1px solid {LINE}",
+    "background": "var(--vp-surface)",
+    "border": "1px solid var(--vp-line)",
     "borderRadius": "6px",
     "display": "flex",
     "flexDirection": "column",
@@ -40,7 +40,7 @@ BAR = {
     "alignItems": "center",
     "gap": "4px",
     "padding": "6px 8px",
-    "borderBottom": f"1px solid {LINE}",
+    "borderBottom": "1px solid var(--vp-line)",
     "flex": "0 0 auto",
 }
 
@@ -124,7 +124,7 @@ def _editor_panel(app: Any) -> None:
             with react.If("is_loading"):
                 html.Span(
                     "generating\u2026",
-                    style={"fontSize": "0.78rem", "color": MUTED, "marginLeft": "8px"},
+                    style={"fontSize": "0.78rem", "color": "var(--vp-muted)", "marginLeft": "8px"},
                 )
             html.Div(
                 style={
@@ -164,7 +164,7 @@ def _editor_panel(app: Any) -> None:
                 value=B("generated_code"),
                 on_change=C("generated_code = $event"),
                 language="python",
-                theme="vs",
+                theme=B("theme_mode === 'dark' ? 'vs-dark' : 'vs'"),
                 textmate=PYTHON_TEXTMATE,
                 completion=app.jedi_complete,
                 hover=app.jedi_hover,
@@ -183,7 +183,7 @@ def _prompt_panel(app: Any) -> None:
                     "gap": "10px",
                     "padding": "10px 12px",
                     "background": "#E3F2F4",
-                    "borderBottom": f"1px solid {LINE}",
+                    "borderBottom": "1px solid var(--vp-line)",
                 }
             ):
                 mui.CircularProgress(size=18)
@@ -229,6 +229,20 @@ def _render_panel(app: Any) -> None:
     with html.Div(style={**PANEL, "flex": "1"}):
         with html.Div(style=BAR):
             html.Span("VTK Visualization", style={"fontWeight": 600, "flex": "1"})
+            with react.If("input_tokens > 0 || output_tokens > 0"):
+                html.Span(
+                    B("`Tokens: In ${input_tokens} | Out ${output_tokens}`"),
+                    style={
+                        "fontSize": "0.72rem",
+                        "color": "var(--vp-muted)",
+                        "marginRight": "6px",
+                    },
+                )
+            _icon_button(
+                "layers_clear",
+                "Clear scene",
+                on_click=C(app.ctrl.clear_scene),
+            )
             _icon_button(
                 "center_focus_strong",
                 "Reset camera",
@@ -245,47 +259,119 @@ def _transcript_panel(app: Any) -> None:
     with html.Div(style={**PANEL, "flex": "0 0 auto", "height": "260px", "marginTop": "8px"}):
         # Only $event (the first handler argument) is exposed, so the tab
         # value cannot come from Tabs' onChange(event, value); each tab sets it.
-        with mui.Tabs(
-            value=B("info_tab"),
-            variant="fullWidth",
-            style={"minHeight": "36px", "borderBottom": f"1px solid {LINE}"},
+        # The badge sits beside the tab bar rather than inside the tab: MUI's
+        # Tab renders its label prop and ignores children, and an element
+        # cannot be passed as a prop value.
+        with html.Div(
+            style={
+                "display": "flex",
+                "alignItems": "center",
+                "borderBottom": "1px solid var(--vp-line)",
+                "paddingRight": "8px",
+            }
         ):
-            mui.Tab(
-                label="Conversation",
-                value="conversation",
-                on_click=C("info_tab = 'conversation'"),
-                style={"minHeight": "36px"},
-            )
-            mui.Tab(
-                label=B(
-                    "console_lines.length" " ? `Console (${console_lines.length})` : 'Console'"
-                ),
-                value="console",
-                on_click=C("info_tab = 'console'"),
-                style={"minHeight": "36px"},
-            )
+            with mui.Tabs(
+                value=B("info_tab"),
+                variant="fullWidth",
+                style={"minHeight": "36px", "flex": "1"},
+            ):
+                mui.Tab(
+                    label="Conversation",
+                    value="conversation",
+                    on_click=C("info_tab = 'conversation'"),
+                    style={"minHeight": "36px"},
+                )
+                mui.Tab(
+                    label="Console",
+                    value="console",
+                    on_click=C("info_tab = 'console'"),
+                    style={"minHeight": "36px"},
+                )
+            with react.If("console_log.length > 0"):
+                mui.Chip(
+                    label=B("String(console_log.length)"),
+                    size="small",
+                    color=B(
+                        "console_level === 'err' ? 'error'"
+                        " : console_level === 'warn' ? 'warning' : 'default'"
+                    ),
+                    on_click=C("info_tab = 'console'"),
+                    style={"cursor": "pointer"},
+                )
 
         with react.If("info_tab === 'conversation'"):
             with html.Div(style={"flex": "1", "overflowY": "auto", "padding": "8px"}):
                 with react.If("conversation_navigation.length === 0"):
                     html.Div(
                         "No prompts yet.",
-                        style={"color": MUTED, "fontSize": "0.8rem"},
+                        style={"color": "var(--vp-muted)", "fontSize": "0.8rem"},
                     )
                 with react.For(items="conversation_navigation", name="turn"):
-                    with mui.ListItemButton(
+                    with html.Div(
                         key=B("'turn-' + conversation_navigation.indexOf(turn)"),
-                        selected=B("conversation_index === conversation_navigation.indexOf(turn)"),
-                        on_click=C(
-                            app.ctrl.navigate_to_conversation,
-                            "[conversation_navigation.indexOf(turn)]",
+                        classes=B(
+                            "conversation_index ==="
+                            " conversation_navigation.indexOf(turn)"
+                            " ? 'vp-turn vp-turn-active' : 'vp-turn'"
                         ),
-                        style={"borderRadius": "6px", "alignItems": "flex-start"},
                     ):
-                        mui.ListItemText(
-                            primary=B("turn.prompt"),
-                            primary_typography_props={"style": {"fontSize": "0.82rem"}},
+                        html.Div(
+                            B("turn.prompt"),
+                            on_click=C(
+                                app.ctrl.navigate_to_conversation,
+                                "[conversation_navigation.indexOf(turn)]",
+                            ),
+                            classes="vp-turn-prompt",
                         )
+                        with react.If("turn.explanation"):
+                            html.Div(
+                                B("turn.explanation"),
+                                classes="vp-turn-explanation",
+                            )
+                        with react.If("turn.trace && turn.trace.length"):
+                            with mui.Accordion(
+                                disable_gutters=True,
+                                elevation=0,
+                                square=True,
+                                style={"background": "transparent"},
+                            ):
+                                with mui.AccordionSummary(
+                                    style={"minHeight": 0, "padding": "0 8px"}
+                                ):
+                                    html.Span(
+                                        B("`Show work (${turn.trace.length})`"),
+                                        style={"fontSize": "0.72rem", "color": MUTED},
+                                    )
+                                with mui.AccordionDetails(style={"padding": "0 8px 8px 20px"}):
+                                    with react.For(items="turn.trace", name="step"):
+                                        html.Div(
+                                            B(
+                                                "step.name + (step.detail"
+                                                " ? ': ' + step.detail : '')"
+                                            ),
+                                            classes="vp-step-name",
+                                        )
+                                        with react.If("step.result"):
+                                            html.Div(
+                                                B("step.result"),
+                                                classes="vp-step-result",
+                                            )
+                with react.If("is_loading && current_prompt"):
+                    with html.Div(classes="vp-turn"):
+                        html.Div(B("current_prompt"), classes="vp-turn-prompt")
+                        with html.Div(
+                            style={
+                                "display": "flex",
+                                "alignItems": "center",
+                                "gap": "8px",
+                                "padding": "4px 0 0 8px",
+                            }
+                        ):
+                            mui.CircularProgress(size=14)
+                            html.Span(
+                                "thinking\u2026",
+                                style={"fontSize": "0.78rem", "color": MUTED},
+                            )
 
         with react.If("info_tab === 'console'"):
             with html.Div(
@@ -300,7 +386,7 @@ def _transcript_panel(app: Any) -> None:
                 with react.If("console_lines.length === 0"):
                     html.Div(
                         "No output yet.",
-                        style={"color": MUTED, "fontSize": "0.75rem"},
+                        style={"color": "var(--vp-muted)", "fontSize": "0.75rem"},
                     )
                 with react.If("console_lines.length > 0"):
                     with html.Div(style={"display": "flex", "justifyContent": "flex-end"}):
@@ -310,13 +396,13 @@ def _transcript_panel(app: Any) -> None:
                             on_click=C("(console_lines = [], console_log = [])"),
                         )
                 with react.For(items="console_lines", name="line"):
+                    # A bound class name rather than a bound style object:
+                    # binding style to an expression rebuilds the object every
+                    # render and React loops on it.
                     html.Pre(
                         B("line.text"),
                         key=B("'line-' + console_lines.indexOf(line)"),
-                        style={
-                            "margin": 0,
-                            "whiteSpace": "pre",
-                        },
+                        classes=B("'vp-console-' + line.kind"),
                     )
 
 

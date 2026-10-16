@@ -4,7 +4,8 @@ from typing import Any
 
 from trame.widgets import html, mui, react
 
-from .theme import INK, LINE, MUTED, SURFACE
+C = react.Callback
+B = react.Bind
 
 _SETTINGS = [
     ("files", "folder_open", "Load or download files"),
@@ -17,8 +18,8 @@ def build_toolbar(app: Any) -> None:
     """Title, drawer toggle and settings entry points."""
     with html.Header(
         style={
-            "background": SURFACE,
-            "borderBottom": f"1px solid {LINE}",
+            "background": "var(--vp-surface)",
+            "borderBottom": "1px solid var(--vp-line)",
             "display": "flex",
             "alignItems": "center",
             "gap": "10px",
@@ -38,14 +39,14 @@ def build_toolbar(app: Any) -> None:
             style={
                 "fontWeight": 600,
                 "fontSize": "1.05rem",
-                "color": INK,
+                "color": "var(--vp-ink)",
                 "letterSpacing": "-0.01em",
             },
         )
         html.Span(
             react.Bind("(sessions_list.find((s) => s.active) || {}).title || ''"),
             style={
-                "color": MUTED,
+                "color": "var(--vp-muted)",
                 "fontSize": "0.8rem",
                 "maxWidth": "38vw",
                 "overflow": "hidden",
@@ -55,6 +56,17 @@ def build_toolbar(app: Any) -> None:
         )
 
         html.Div(style={"flex": "1"})
+
+        with mui.Tooltip(title="Toggle light/dark"):
+            with mui.IconButton(
+                size="small",
+                color="primary",
+                on_click=C("theme_mode = (theme_mode === 'light' ? 'dark' : 'light')"),
+            ):
+                mui.Icon(
+                    [B("theme_mode === 'light' ? 'light_mode' : 'dark_mode'")],
+                    font_size="small",
+                )
 
         for tab, icon, tip in _SETTINGS:
             with mui.Tooltip(title=tip, key=tab):
