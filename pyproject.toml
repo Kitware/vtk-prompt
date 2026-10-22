@@ -11,11 +11,12 @@ dependencies = [
     "click>=8.0.0",
     "openai>=1.0.0",
     "requests>=2.28.0",
-    "trame>=3.9.0",
+    "trame>=4",
     "trame-vtk>=2.8.0",
     "trame-vuetify>=3",
-    # 1.2 needs trame-client 4, which trame 3 does not allow
-    "trame-code>=1.1.1,<1.2",
+    "trame-mui>=1",
+    "trame-rca>=2.11",
+    "trame-code>=1.2",
     "jedi>=0.19",
     "vtk>=9.6.1",
 ]
