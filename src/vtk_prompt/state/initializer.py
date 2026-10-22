@@ -53,6 +53,7 @@ def initialize_state(app: Any) -> None:
     app.state.is_loading = False
     app.state.mcp_url = ""
     app.state.mcp_locked = False  # True when the administrator fixed the server URL
+    app.state.auth_enabled = os.environ.get("VTK_PROMPT_AUTH") == "true"  # behind the gateway
     app.state.log_tool_calls = False  # log vtk-mcp tool calls to the console
     app.state.agentic_retrieval = False  # skip pre-injected context; use tools
     app.state.mcp_status = "idle"  # "idle" | "checking" | "ok" | "error"

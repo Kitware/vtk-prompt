@@ -68,3 +68,14 @@ def build_toolbar(layout: Any, app: Any) -> None:
             false_value="dark",
             append_icon=("theme_mode === 'light' ? 'mdi-weather-sunny' : 'mdi-weather-night'",),
         )
+
+        # Sign out (only when running behind the auth gateway)
+        with vuetify.VTooltip(text="Sign out", location="bottom"):
+            with vuetify.Template(v_slot_activator="{ props }"):
+                vuetify.VBtn(
+                    v_if="auth_enabled",
+                    v_bind="props",
+                    icon="mdi-logout",
+                    href="/logout",
+                    variant="text",
+                )

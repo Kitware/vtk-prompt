@@ -222,6 +222,7 @@ class Gateway:
             # The child must use the user's own config, not a shared explicit one.
             env = {k: v for k, v in os.environ.items() if k != CONFIG_ENV_VAR}
             env["XDG_CONFIG_HOME"] = str(user_dir)
+            env["VTK_PROMPT_AUTH"] = "true"  # tells the UI to show the logout button
             proc = await asyncio.create_subprocess_exec(
                 sys.executable,
                 "-m",
