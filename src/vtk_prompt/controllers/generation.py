@@ -373,6 +373,18 @@ def _editor_line_for(displayed_code: str, line_text: str | None) -> int:
     return 0
 
 
+def _markers_for(
+    displayed_code: str, error_message: str | None, line_text: str | None, success: bool
+) -> list[dict]:
+    """Build editor markers for a failed run, so the error shows where it happened."""
+    if success or not error_message:
+        return []
+    line = _editor_line_for(displayed_code, line_text)
+    if not line:
+        return []
+    return [{"line": line, "message": error_message, "severity": "error"}]
+
+
 def _format_exec_error(displayed_code: str, error_message: str, line_text: str | None) -> str:
     """Prefix a run error with the editor line and the offending source text."""
     if not line_text:
@@ -494,6 +506,27 @@ def apply_data_suggestion(app: Any, missing: str, suggestion: str) -> None:
     execute_with_renderer(app, code)
 
 
+def apply_import_fix(app: Any, index: int) -> None:
+    """Replace a wrong vtkmodules import with the suggested one and re-run."""
+    picks = app.state.import_suggestions or []
+    if not (0 <= index < len(picks)):
+        return
+    from ..data.imports import apply_suggestion
+
+    history = app.state.code_history or []
+    pos = app.state.code_history_pos
+    code = history[pos] if 0 <= pos < len(history) else (app.state.generated_code or "")
+    pick = picks[index]
+    fixed = apply_suggestion(code, pick)
+    if fixed == code:
+        return
+    app.state.generated_code = fixed
+    push_code_snapshot(app, fixed, f"fix import {pick['name']}")
+    app.state.import_suggestions = []
+    app.state.error_message = ""
+    execute_with_renderer(app, fixed)
+
+
 def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]:
     """Execute VTK code with our renderer. Returns (success, error_message)."""
     # Resolve bare data-file references (e.g. 'cow.g') to fetched local paths so
@@ -509,6 +542,8 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
     # The formatted run error goes to the console (below), not a floating alert.
     if not success and error_message:
         error_message = _format_exec_error(code_string, error_message, error_line_text)
+
+    app.state.editor_markers = _markers_for(code_string, error_message, error_line_text, success)
 
     # Offer one-click fixes for data references that could not be resolved
     # (e.g. can.ex -> can.ex2). Checked regardless of Python-level success,
@@ -527,6 +562,15 @@ def execute_with_renderer(app: Any, code_string: str) -> tuple[bool, str | None]
             f"Could not resolve data file(s): {names}. "
             "Use the Fix data file menu to pick a close match."
         )
+
+    # A wrong vtkmodules import is recoverable the same way: the class reports
+    # the module it actually lives in, so offer that rather than guessing.
+    from ..data.imports import suggestions as import_suggestions
+
+    import_picks = import_suggestions(code_string, error_message or "")
+    app.state.import_suggestions = import_picks
+    if import_picks:
+        resolver_warning = f"{import_picks[0]['reason']}. Use the Fix import menu to correct it."
 
     if success:
         app.state.rendered_code = code_string

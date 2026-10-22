@@ -234,6 +234,11 @@ class VTKPromptApp(TrameApp):
         """Swap an unresolved data-file reference for a chosen one and re-run."""
         generation.apply_data_suggestion(self, missing, suggestion)
 
+    @controller.set("apply_import_fix")
+    def apply_import_fix(self, index: int) -> None:
+        """Correct a wrong vtkmodules import and re-run."""
+        generation.apply_import_fix(self, int(index))
+
     @controller.set("select_model")
     def select_model(self, key: str) -> None:
         """Apply a per-conversation model choice from the toolbar picker."""
