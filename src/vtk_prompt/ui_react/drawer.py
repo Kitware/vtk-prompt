@@ -200,6 +200,21 @@ def _list(app: Any) -> None:
                             "style": {"fontSize": "0.85rem"},
                         },
                     )
+                # Generation runs per conversation, so the spinner belongs on
+                # the row rather than only in the active pane.
+                with react.If("s.generating"):
+                    mui.CircularProgress(
+                        size=14,
+                        thickness=5,
+                        style={"marginRight": "2px", "flex": "0 0 auto"},
+                    )
+                with react.If("s.unseen && !s.generating"):
+                    with mui.Tooltip(title="New result", placement="left"):
+                        mui.Icon(
+                            ["circle"],
+                            color="primary",
+                            style={"fontSize": "10px", "flex": "0 0 auto"},
+                        )
                 _row_menu(app)
 
 
