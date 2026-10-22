@@ -59,9 +59,9 @@ def build_model_picker(app: Any) -> None:
                     [B("opt.label")],
                     key=B("opt.key"),
                     on_click=C(
-                        app.ctrl.select_model,
-                        "[opt.key]",
-                        "{ model_menu_anchor: null }",
+                        "(window.trame.trigger"
+                        f"('{app.ctrl.trigger_name(app.ctrl.select_model)}',"
+                        " [opt.key]), model_menu_anchor = null)"
                     ),
                 )
 
