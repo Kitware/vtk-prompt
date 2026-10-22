@@ -148,8 +148,16 @@ def generate_code(app: Any) -> None:
     _generating_sessions(app).add(session_id)
     from . import sessions as sessions_mod
 
-    sessions_mod.refresh_sessions_list(app)  # show the spinner on this conversation
-    asynchronous.create_task(generate_and_execute_code(app, session_id))
+    # A failure between claiming the session and the coroutine reaching its own
+    # try block would otherwise leave the session claimed for the life of the
+    # process, and every later send for it would return here silently.
+    try:
+        sessions_mod.refresh_sessions_list(app)  # show the spinner
+        asynchronous.create_task(generate_and_execute_code(app, session_id))
+    except BaseException:
+        _generating_sessions(app).discard(session_id)
+        sessions_mod.refresh_sessions_list(app)
+        raise
 
 
 async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> None:
@@ -160,12 +168,12 @@ async def generate_and_execute_code(app: Any, origin_session_id: str = "") -> No
     the event loop (main) thread, so all VTK execution and rendering stays
     main-thread-bound as VTK/OpenGL requires.
     """
-    if _is_visible(app, origin_session_id):
-        app.state.is_loading = True
-        app.state.error_message = ""
-    app.state.flush()  # show the spinner immediately, before the slow request
-
     try:
+        if _is_visible(app, origin_session_id):
+            app.state.is_loading = True
+            app.state.error_message = ""
+        app.state.flush()  # show the spinner immediately, before the slow request
+
         if not app._conversation_loading:
             # Use custom prompt if provided, otherwise use built-in YAML prompts
             if app.custom_prompt_data:
