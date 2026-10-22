@@ -41,6 +41,11 @@ except Exception:  # pragma: no cover
     pass
 
 
+def vtk_namespace() -> dict:
+    """Return the live namespace holding ``vtk`` and ``vtkmodules``."""
+    return _NS
+
+
 def register_runtime_objects(**objects) -> None:
     """Expose live objects (e.g. ``renderer=...``) to completion and hover.
 

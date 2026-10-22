@@ -179,6 +179,7 @@ def build_content(layout: Any, app: Any) -> None:
                                 textmate=("code_textmate", PYTHON_TEXTMATE),
                                 completion=app.jedi_complete,
                                 hover=app.jedi_hover,
+                                markers=("editor_markers",),
                                 options=(
                                     "code_editor_options",
                                     {

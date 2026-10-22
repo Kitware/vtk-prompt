@@ -69,6 +69,9 @@ def initialize_state(app: Any) -> None:
     app.state.console_lines = []  # flat render-friendly console lines
     app.state.console_level = "out"  # severity of the latest run (tab badge colour)
     app.state.data_suggestions = []  # one-click fixes for unresolved data files
+    app.state.import_suggestions = []  # one-click fixes for wrong vtkmodules imports
+    app.state.import_fix_anchor = None
+    app.state.editor_markers = []  # monaco squiggles for the failing line
     app.state.input_tokens = 0
     app.state.output_tokens = 0
     app.state.advanced_settings_open = False

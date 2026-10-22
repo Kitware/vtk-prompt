@@ -113,6 +113,31 @@ def _data_chips(app: Any) -> None:
                 ),
             )
 
+    with react.If("import_suggestions.length > 0"):
+        mui.Button(
+            B("`Fix import (${import_suggestions.length})`"),
+            size="small",
+            color="warning",
+            variant="outlined",
+            on_click=C("import_fix_anchor = $event.currentTarget"),
+            style={"marginRight": "4px"},
+        )
+    with mui.Menu(
+        open=B("!!import_fix_anchor"),
+        anchor_el=B("import_fix_anchor"),
+        on_close=C("import_fix_anchor = null"),
+    ):
+        with react.For(items="import_suggestions", name="fix"):
+            mui.MenuItem(
+                [B("fix.reason")],
+                key=B("fix.reason + fix.line"),
+                on_click=C(
+                    "(window.trame.trigger"
+                    f"('{app.ctrl.trigger_name(app.ctrl.apply_import_fix)}',"
+                    " [import_suggestions.indexOf(fix)]), import_fix_anchor = null)"
+                ),
+            )
+
 
 def _editor_panel(app: Any) -> None:
     app.state.data_fix_anchor = None
@@ -172,6 +197,7 @@ def _editor_panel(app: Any) -> None:
                 textmate=PYTHON_TEXTMATE,
                 completion=app.jedi_complete,
                 hover=app.jedi_hover,
+                markers=B("editor_markers"),
                 options=EDITOR_OPTIONS,
                 style={"height": "100%", "width": "100%"},
             )
