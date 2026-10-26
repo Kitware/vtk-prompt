@@ -14,6 +14,23 @@ import pytest
 from vtk_prompt.provider_utils import get_available_models, get_supported_providers
 
 
+@pytest.fixture(autouse=True, scope="session")
+def isolated_cache(tmp_path_factory):
+    """Point the cache at a temp dir for the whole session.
+
+    Uploads and downloaded sample data live under XDG_CACHE_HOME. Without this
+    the suite reads whatever the developer happens to have uploaded, so a test
+    can pass in CI and fail locally.
+    """
+    previous = os.environ.get("XDG_CACHE_HOME")
+    os.environ["XDG_CACHE_HOME"] = str(tmp_path_factory.mktemp("cache"))
+    yield
+    if previous is None:
+        os.environ.pop("XDG_CACHE_HOME", None)
+    else:
+        os.environ["XDG_CACHE_HOME"] = previous
+
+
 def require_api_key(provider_name: str, env_var_name: str) -> str:
     """
     Skip test if API key not available, with helpful message.
