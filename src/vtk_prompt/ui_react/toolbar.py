@@ -68,6 +68,17 @@ def build_toolbar(app: Any) -> None:
                     font_size="small",
                 )
 
+        with react.If("auth_enabled"):
+            with mui.Tooltip(title="Sign out"):
+                # href needs component="a", which trame-mui does not pass
+                # through, so the navigation happens on click instead.
+                with mui.IconButton(
+                    size="small",
+                    color="primary",
+                    on_click=C("window.location.href = '/logout'"),
+                ):
+                    mui.Icon(["logout"], font_size="small")
+
         for tab, icon, tip in _SETTINGS:
             with mui.Tooltip(title=tip, key=tab):
                 with mui.IconButton(

@@ -5,8 +5,14 @@ from typing import Any
 from trame.decorators import controller
 
 from .controllers import conversation
-from .ui_react import build_ui
 from .vtk_prompt_ui import VTKPromptApp, run
+
+try:
+    from .ui_react import build_ui
+except ImportError as exc:  # the react widgets ship as an extra
+    raise SystemExit(
+        "The react client needs extra packages: pip install 'vtk-prompt[react]'"
+    ) from exc
 
 
 class VTKPromptReactApp(VTKPromptApp):
