@@ -7,6 +7,8 @@ from trame.widgets import html, mui, react
 C = react.Callback
 B = react.Bind
 
+ISSUES_URL = "https://github.com/Kitware/vtk-prompt/issues"
+
 _SETTINGS = [
     ("files", "folder_open", "Load or download files"),
     ("data", "storage", "Data files"),
@@ -78,6 +80,14 @@ def build_toolbar(app: Any) -> None:
                     on_click=C("window.location.href = '/logout'"),
                 ):
                     mui.Icon(["logout"], font_size="small")
+
+        with mui.Tooltip(title="Help and issues"):
+            with mui.IconButton(
+                size="small",
+                color="primary",
+                on_click=C(f"window.open('{ISSUES_URL}', '_blank')"),
+            ):
+                mui.Icon(["help_outline"], font_size="small")
 
         for tab, icon, tip in _SETTINGS:
             with mui.Tooltip(title=tip, key=tab):
