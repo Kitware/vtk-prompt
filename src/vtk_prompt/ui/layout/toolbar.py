@@ -9,12 +9,25 @@ from typing import Any
 
 from trame.widgets import vuetify3 as vuetify
 
+ISSUES_URL = "https://github.com/Kitware/vtk-prompt/issues"
+
 
 def build_toolbar(layout: Any, app: Any) -> None:
     """Build the toolbar layout with file controls and settings."""
     with layout.toolbar:
         # The drawer toggle (nav icon) opens the conversation history panel.
         vuetify.VSpacer()
+
+        with vuetify.VTooltip(text="Help and issues", location="bottom"):
+            with vuetify.Template(v_slot_activator="{ props }"):
+                vuetify.VBtn(
+                    v_bind="props",
+                    icon="mdi-help-circle-outline",
+                    href=ISSUES_URL,
+                    target="_blank",
+                    classes="mr-4",
+                    color="primary",
+                )
 
         # Settings buttons
         with vuetify.VTooltip(
