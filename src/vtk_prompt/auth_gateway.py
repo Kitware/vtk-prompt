@@ -205,8 +205,9 @@ class Gateway:
 
     async def logout(self, request: web.Request) -> web.StreamResponse:
         """Forget the user's session."""
-        resp = web.HTTPFound("/login")
-        resp.del_cookie(SESSION_COOKIE)
+        resp = web.HTTPFound("/login", headers={"Cache-Control": "no-store"})
+        # Safari ignores a deletion whose Secure/SameSite attributes differ from the cookie set.
+        resp.del_cookie(SESSION_COOKIE, httponly=True, samesite="Lax", secure=self._secure(request))
         raise resp
 
     # -- per-user UI processes ------------------------------------------------
