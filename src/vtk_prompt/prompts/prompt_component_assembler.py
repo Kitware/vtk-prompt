@@ -193,6 +193,28 @@ class VTKPromptAssembler:
         return result
 
 
+_VOLUME_WORDS = (
+    "volume render",
+    "volume rendering",
+    "volumetric",
+    "ray cast",
+    "raycast",
+    "transfer function",
+    "cinematic render",
+)
+# Formats that are volumetric in practice; a request naming one is usually
+# headed for a volume render even when it does not say so.
+_VOLUME_SUFFIXES = (".vti", ".mhd", ".mha", ".nrrd", ".nhdr", ".dcm", ".ima")
+
+
+def _wants_volume_rendering(request: str, uploaded_files: list[str] | None) -> bool:
+    text = (request or "").lower()
+    if any(word in text for word in _VOLUME_WORDS):
+        return True
+    mentioned = [n.lower() for n in (uploaded_files or []) if n.lower() in text]
+    return any(n.endswith(_VOLUME_SUFFIXES) for n in mentioned)
+
+
 def assemble_vtk_prompt(
     request: str,
     ui_mode: bool = False,
@@ -230,6 +252,7 @@ def assemble_vtk_prompt(
     assembler.add_if(bool(context_snippets), "rag_context")
     assembler.add_if(ui_mode, "ui_renderer")
     assembler.add_if(bool(uploaded_files), "user_data")
+    assembler.add_if(_wants_volume_rendering(request, uploaded_files), "volume_rendering")
 
     # Always add output format and request last
     assembler.add_component("output_format")

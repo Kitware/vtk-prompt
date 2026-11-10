@@ -1,0 +1,32 @@
+role: user
+content: |
+  This request is a volume render. Every one of these calls must appear in your
+  code:
+
+  1. volumeProperty.SetScalarOpacity(<vtkPiecewiseFunction>)
+  2. volumeProperty.SetGradientOpacity(<vtkPiecewiseFunction>)
+  3. volumeProperty.SetColor(<vtkColorTransferFunction>)
+  4. volumeProperty.ShadeOn()
+  5. renderer.AddVolume(volume)
+  6. renderer.ResetCamera()
+
+  SetGradientOpacity is required. Leave it out and the outer surface stays
+  opaque and hides everything inside, which is the most common way a volume
+  render fails. A workable ramp is AddPoint(0, 0.0), AddPoint(90, 0.5),
+  AddPoint(100, 1.0).
+
+  Use vtkGPUVolumeRayCastMapper, or vtkSmartVolumeMapper when you want a CPU
+  fallback.
+
+  Pick transfer function control points from the data's real scalar range, not
+  an assumed 0 to 255. Keep scalar opacity between 0.02 and 0.1 for bulk
+  material and save high opacity for the dense features; opacity accumulates
+  along each ray and saturates faster than per-sample values suggest.
+
+  CT data is in Hounsfield units: about -1000 air, -900 to -500 lung, -100 to
+  -50 fat, 30 to 80 soft tissue, above 300 bone. Air fully transparent, bone
+  opaque.
+
+  Advanced illumination lives on the mapper: SetVolumetricScatteringBlending
+  and SetGlobalIlluminationReach are vtkGPUVolumeRayCastMapper methods.
+  SetScatteringAnisotropy is on vtkVolumeProperty.
