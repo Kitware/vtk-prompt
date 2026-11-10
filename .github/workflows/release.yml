@@ -38,12 +38,33 @@ jobs:
     name: Publish to PyPI
     needs: release
     if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/vtk-prompt
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/publish.yml
-    with:
-      ref: release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build package
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine setuptools-scm
+          python -m build
+          twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
 
   merge-to-master:
     name: Merge release into master
