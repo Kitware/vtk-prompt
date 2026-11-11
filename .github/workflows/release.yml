@@ -91,4 +91,4 @@ jobs:
           push: true
           tags: |
             ghcr.io/kitware/vtk-prompt/vtk-prompt:${{ needs.release.outputs.version }}
-            ghcr.io/kitware/vtk-prompt/vtk-prompt:stable
+            ghcr.io/kitware/vtk-prompt/vtk-prompt:latest
