@@ -197,5 +197,5 @@ jobs:
           file: scripts/vtk-prompt.Dockerfile
           push: true
           tags: |
-            ghcr.io/kitware/vtk-prompt/vtk-prompt:latest
-            ghcr.io/kitware/vtk-prompt/vtk-prompt:${{ github.sha }}
+            ghcr.io/kitware/vtk-prompt/vtk-prompt:latest-master
+            ghcr.io/kitware/vtk-prompt/vtk-prompt:${{ github.sha }}-master
