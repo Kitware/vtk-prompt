@@ -1,3 +1,10 @@
+## [0.3.1](https://github.com/Kitware/vtk-prompt/compare/v0.3.0...v0.3.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* create docker images for tags ([efd0546](https://github.com/Kitware/vtk-prompt/commit/efd0546dc421c7e8f945f5989d3dbb96c391d106))
+
 # [0.3.0](https://github.com/Kitware/vtk-prompt/compare/v0.2.0...v0.3.0) (2026-11-10)
 
 
