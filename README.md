@@ -22,9 +22,44 @@ models).
 - Token usage tracking and cost monitoring
 - CLI and Python API for integration
 
-## Installation
+## Deploy with Docker
 
-### From PyPI (Stable)
+The compose files run the web UI (port 8080) together with a bundled [vtk-mcp](https://github.com/Kitware/vtk-mcp) server, which gives the LLM VTK docs, examples and code validation. From the repo root:
+
+```bash
+cp .env.example .env   # set ANTHROPIC_API_KEY or OPENAI_API_KEY
+docker compose up -d
+```
+
+Open `http://localhost:8080`. Stop with `docker compose down`.
+
+### With Google sign-in
+
+Add `docker-compose.auth.yml` to require a Google login. Each user gets a private folder (settings and conversations) and their own UI process.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.auth.yml up -d
+```
+
+Set these in `.env`:
+
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: in the [Google Cloud Console](https://console.cloud.google.com), configure the OAuth consent screen (External, or Internal to restrict to your Workspace organization), then create an OAuth client ID of type "Web application" with the redirect URI `<public url>/auth/callback`.
+- `VTK_PROMPT_SECRET_KEY`: signs the login cookie; generate with `openssl rand -hex 32`.
+- `VTK_PROMPT_BASE_URL`: the public URL, only if not `http://localhost:8080`.
+
+Google only accepts `http://localhost` or an `https://` domain name as redirect URI. For other users, serve the UI behind an HTTPS proxy (for example `https://prompt.example.com`) and register that URL.
+
+### With your own vtk-mcp
+
+Add `docker-compose.external-mcp.yml`, set `VTK_PROMPT_MCP_URL` in `.env`, and start only the UI. The URL is shown read-only in the settings dialog.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.external-mcp.yml up -d --no-deps vtk-prompt
+```
+
+The auth file can be combined with this one. Images are published as `ghcr.io/kitware/vtk-prompt/vtk-prompt` (`latest` for releases, `latest-master` for master).
+
+## Installation
 
 ```bash
 # pip
@@ -32,25 +67,6 @@ pip install vtk-prompt
 
 # uv (recommended)
 uv pip install vtk-prompt
-```
-
-### From TestPyPI (Latest Development)
-
-```bash
-pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ vtk-prompt
-```
-
-### From Source
-
-```bash
-git clone https://github.com/vicentebolea/vtk-prompt.git
-cd vtk-prompt
-
-# pip
-pip install -e .
-
-# uv
-uv pip install -e .
 ```
 
 ## Quick Start
@@ -118,80 +134,6 @@ vtk-prompt "Create a textured cone with 32 resolution" \
 vtk-prompt "Create a blue cube" --provider openai --model gpt-4.1 -t $OPENAI_API_KEY
 vtk-prompt "Create a cylinder" --provider nim --model meta/llama-3.3-70b-instruct -t $NIM_KEY
 ```
-
-### Docker Compose
-
-The compose files run the vtk-prompt web UI (port 8080) and, optionally, a vtk-mcp server.
-Pick the case that matches your setup; every command runs from the repo root and puts the
-UI at http://localhost:8080. Set your LLM key first (`ANTHROPIC_API_KEY` or
-`OPENAI_API_KEY`, in your shell or in `.env`, see `.env.example`).
-
-| Case | Command |
-| --- | --- |
-| 1. UI + bundled vtk-mcp, no sign-in | `docker compose up --build` |
-| 2. UI + bundled vtk-mcp, Google sign-in | `docker compose -f docker-compose.yml -f docker-compose.auth.yml up --build` |
-| 3. UI + your own vtk-mcp, no sign-in | `docker compose -f docker-compose.yml -f docker-compose.external-mcp.yml up --build --no-deps vtk-prompt` |
-| 4. UI + your own vtk-mcp, Google sign-in | `docker compose -f docker-compose.yml -f docker-compose.auth.yml -f docker-compose.external-mcp.yml up --build --no-deps vtk-prompt` |
-
-Add `-d` to run in the background. To stop, run the same command with `down` instead of
-`up ...` (add `-v` only if you also want to delete the saved data volumes). The service
-restarts automatically if it exits.
-
-- `--no-deps vtk-prompt` (cases 3 and 4) starts only the UI. Without it compose also starts
-  the bundled vtk-mcp and Qdrant, which fails if your own vtk-mcp already uses port 8000.
-- With Podman, `podman compose` rejects `-f` on older versions; set the files in
-  `COMPOSE_FILE` instead, for example
-  `COMPOSE_FILE=docker-compose.yml:docker-compose.auth.yml podman compose up --build`.
-- A `ghcr.io/kitware/vtk-prompt/vtk-prompt` image is also built from every commit on master.
-
-#### Using your own vtk-mcp (cases 3 and 4)
-
-Set `VTK_PROMPT_MCP_URL` to your server (HTTP transport; the container must be able to reach
-it), in your shell or in `.env`. Compose stops with a message if it is missing.
-
-The URL is fixed for everyone: the settings dialog shows it prefilled, read-only and marked
-as set by the administrator, and it overrides any `mcp_url` in a user's config file. The same
-lock works outside Docker: set `VTK_PROMPT_MCP_URL`, or pass `--mcp-url` to `vtk-prompt-ui`
-or `vtk-prompt-gateway`. Without it, each user types their own URL in the settings.
-
-#### Google sign-in (cases 2 and 4)
-
-Sign-in is off unless you add `docker-compose.auth.yml`. Any Google account can sign in
-(or only your organization, see below). Each user gets a folder
-`<users dir>/<google id>/` (`/data/users`, a volume) holding their settings and
-conversations, and runs in their own `vtk-prompt-ui` process, so users never see each
-other's data. It needs three values in `.env` (copy `.env.example`); compose stops with a
-message if one is missing:
-
-1. **`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`**, from the
-   [Google Cloud Console](https://console.cloud.google.com):
-   - Create or pick a project.
-   - APIs & Services > OAuth consent screen: choose External, or Internal to allow only
-     your Google Workspace organization (no test users or verification needed), and set an
-     app name and support email. With External in Testing mode, add the accounts that may
-     sign in as test users.
-   - APIs & Services > Credentials > Create credentials > OAuth client ID, type
-     "Web application", with the authorized redirect URI `<public url>/auth/callback`.
-   - Copy the client ID and secret shown.
-2. **`VTK_PROMPT_SECRET_KEY`**, which signs the login cookie. It does not come from Google;
-   generate it with `openssl rand -hex 32`.
-3. **`VTK_PROMPT_BASE_URL`**, the public URL, only when the site is not opened at
-   `http://localhost:8080`.
-
-Google only accepts redirect URIs on `http://localhost` or on `https://` with a real domain
-name (not a bare hostname such as `http://myserver:8080`, and not an IP address); otherwise
-sign-in fails with `Error 400: invalid_request`. So:
-
-- **Just you, or testing:** open `http://localhost:8080` (from another machine, with
-  `ssh -L 8080:localhost:8080 <server>`) and register
-  `http://localhost:8080/auth/callback`.
-- **Other users:** serve the UI under a domain such as `prompt.example.com` behind an HTTPS
-  proxy, set `VTK_PROMPT_BASE_URL=https://prompt.example.com` and register
-  `https://prompt.example.com/auth/callback`.
-
-Outside Docker, run `vtk-prompt-gateway --port 8080` instead of `vtk-prompt-ui` with the
-same environment variables (`VTK_PROMPT_USERS_DIR` sets the parent folder). Per-user
-processes are not stopped while idle.
 
 ### vtk-mcp Integration
 
@@ -266,17 +208,6 @@ providers. These are general guidelines:
 
 _Note: Different models have different token limits and costs. Check your
 provider's documentation for specific model capabilities._
-
-## Testing
-
-```bash
-# Run all tests with tox
-tox -e test
-
-# Or directly with pytest (pip or uv)
-pip install -e ".[test]" && pytest
-uv pip install -e ".[test]" && pytest
-```
 
 ## Configuration
 
@@ -358,38 +289,24 @@ which covers:
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+3. Commit your changes using [Conventional Commits](https://www.conventionalcommits.org/):
+   - `feat`: add a new feature (MINOR release)
+   - `fix`: fix a bug (PATCH release)
+   - `docs`: documentation changes only
+   - `style`: formatting or whitespace changes
+   - `refactor`: code change that neither fixes a bug nor adds a feature
+   - `perf`: performance improvements
+   - `test`: adding or updating tests
+   - `build`: changes to the build system or dependencies
+   - `ci`: changes to CI configuration
+   - `chore`: other changes that don't modify src or test files
+   - Adding `BREAKING CHANGE:` to the footer triggers a MAJOR release
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## Testing
+## Semantic Versioning
 
-The project includes a comprehensive test suite with code coverage reporting.
-
-### Running Tests
-
-```bash
-# Run all tests with coverage
-pytest
-
-# Run specific test categories
-pytest tests/test_cli.py                    # CLI functionality tests
-pytest tests/test_providers_smoke.py        # Provider smoke tests
-pytest -m "not smoke"                       # Exclude API-dependent tests
-
-# Generate coverage report
-pytest --cov=src/vtk_prompt --cov-report=html
-```
-
-### Test Categories
-
-- **CLI Tests**: Argument parsing, provider integration, error handling
-- **Smoke Tests**: Real API connectivity testing (requires API keys)
-- **Client Tests**: Core VTKPromptClient functionality
-- **Integration Tests**: End-to-end workflow testing
-
-Coverage reports are generated in `htmlcov/` directory. Current coverage:
-**11.0%** (improving with ongoing test development).
+This project follows [Semantic Versioning](https://semver.org/). Releases are created automatically when commits are merged to the `release` branch, based on the commit messages: `fix:` triggers a PATCH release (1.0.x), `feat:` a MINOR release (1.x.0), and `BREAKING CHANGE:` in the footer a MAJOR release (x.0.0).
 
 ## License
 
