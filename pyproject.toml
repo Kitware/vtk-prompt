@@ -88,9 +88,9 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/vicentebolea/vtk-prompt"
-Repository = "https://github.com/vicentebolea/vtk-prompt"
-Issues = "https://github.com/vicentebolea/vtk-prompt/issues"
+Homepage = "https://github.com/Kitware/vtk-prompt"
+Repository = "https://github.com/Kitware/vtk-prompt"
+Issues = "https://github.com/Kitware/vtk-prompt/issues"
 
 [project.scripts]
 vtk-prompt = "vtk_prompt.cli:main"
