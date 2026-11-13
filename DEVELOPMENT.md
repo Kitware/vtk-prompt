@@ -3,7 +3,7 @@
 ## Setting up development environment
 
 ```bash
-git clone https://github.com/vicentebolea/vtk-prompt.git
+git clone https://github.com/Kitware/vtk-prompt.git
 cd vtk-prompt
 pip install -e ".[all]"
 ```
