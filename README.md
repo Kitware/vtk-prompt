@@ -4,7 +4,6 @@
 [![Build and Publish](https://github.com/Kitware/vtk-prompt/actions/workflows/publish.yml/badge.svg)](https://github.com/Kitware/vtk-prompt/actions/workflows/publish.yml)
 [![PyPI version](https://badge.fury.io/py/vtk-prompt.svg)](https://badge.fury.io/py/vtk-prompt)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![codecov](https://codecov.io/github/Kitware/vtk-prompt/graph/badge.svg?token=gg8CHNeBKR)](https://codecov.io/github/Kitware/vtk-prompt)
 
 A command-line interface and web-based UI for generating VTK visualization code
 using Large Language Models (Anthropic Claude, OpenAI GPT, NVIDIA NIM, and local
