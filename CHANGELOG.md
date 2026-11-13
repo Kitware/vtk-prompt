@@ -1,3 +1,11 @@
+## [0.3.2](https://github.com/Kitware/vtk-prompt/compare/v0.3.1...v0.3.2) (2026-11-13)
+
+
+### Bug Fixes
+
+* rebrand from vicentebolea to Kitware ([b25e403](https://github.com/Kitware/vtk-prompt/commit/b25e403ca1799944818dc8ed6599bdf377e193f0))
+* remove codecov ref ([63ea74c](https://github.com/Kitware/vtk-prompt/commit/63ea74cc720ba06169a207295d301a33d416b68b))
+
 ## [0.3.1](https://github.com/Kitware/vtk-prompt/compare/v0.3.0...v0.3.1) (2026-11-12)
 
 
